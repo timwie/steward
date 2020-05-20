@@ -506,6 +506,7 @@ impl WidgetController {
         self.show_for(&widget, for_uid).await;
     }
 
+    #[allow(clippy::needless_lifetimes)] // TODO how are lifetimes needless here? #2
     async fn curr_server_ranking<'a>(
         &self,
         server_ranking: &'a ServerRankingState,
@@ -533,6 +534,7 @@ impl WidgetController {
         }
     }
 
+    #[allow(clippy::needless_lifetimes)] // TODO how are lifetimes needless here? #3
     async fn curr_map_ranking<'a>(&self, records: &'a RecordState, for_uid: i32) -> MapRanking<'a> {
         let map_ranks = records
             .top_records()
@@ -562,6 +564,7 @@ impl WidgetController {
         }
     }
 
+    #[allow(clippy::needless_lifetimes)] // TODO how are lifetimes needless here? #4
     async fn curr_map_list<'a>(&self, playlist: &'a PlaylistState, for_uid: i32) -> MapList<'a> {
         let curr_map_uid = playlist.current_map().map(|m| &m.uid);
         let mut maps = join_all(playlist.maps().iter().map(|map| async move {
