@@ -35,6 +35,7 @@ impl ChatController {
     /// - if the `/command` is only for admins and the sender isn't one,
     ///   print the reference for the sender
     /// - if proper command, print nothing and return it
+    #[allow(clippy::needless_lifetimes)] // TODO how are lifetimes needless here? #1
     pub async fn forward<'a>(&self, message: &'a str, from_login: &str) -> Option<Command<'a>> {
         if let Some(cmd) = PlayerCommand::from(message) {
             return Some(Command::Player {
