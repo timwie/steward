@@ -1,0 +1,25 @@
+{% extends "base_static.j2" %}
+
+{% block manialink %}
+<script><!--
+#RequireContext CTmMlScriptIngame
+
+{% block decl %}{% endblock decl %}
+
+main() {
+    {% block main %}{% endblock main %}
+    while(True) {
+        yield;
+        foreach (Event in RaceEvents) {
+            {% block race_events %}{% endblock race_events %}
+        }
+        foreach (Event in PendingEvents) {
+            {% block ml_events %}{% endblock ml_events %}
+        }
+        foreach (Event in Input.PendingEvents) {
+            {% block input_events %}{% endblock input_events %}
+        }
+    }
+}
+--></script>
+{% endblock manialink %}

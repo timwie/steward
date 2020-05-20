@@ -1,0 +1,80 @@
+use crate::api::*;
+
+/// Remote procedure calls to be executed on controller-side.
+///
+/// References:
+///  - https://doc.maniaplanet.com/dedicated-server/references/xml-rpc-callbacks
+///  - https://github.com/maniaplanet/script-xmlrpc/blob/master/XmlRpcListing.md
+#[derive(Debug)]
+pub enum Callback {
+    /// Sent when player info changes, f.e. when entering or leaving spectator
+    /// mode. Sent on connect, but not sent on disconnect.
+    ///
+    /// Triggered by `ManiaPlanet.PlayerInfoChanged`
+    ///
+    /// # Warning
+    /// When playing in your local network, player IDs will behave incorrectly:
+    /// It seems every time you leave and re-join the server, your ID will decrease by one.
+    /// This leads to errors if we assume that the pairing of login & ID are always the same.
+    PlayerInfoChanged { info: PlayerInfo },
+
+    /// Sent when a player disconnects from the server.
+    ///
+    /// Triggered by `ManiaPlanet.PlayerDisconnect`
+    PlayerDisconnect { login: String },
+
+    /// Sent when a map has been loaded.
+    ///
+    /// Triggered by `ManiaPlanet.BeginMap`
+    MapBegin { map: MapInfo },
+
+    /// Sent when the race ends - `S_TimeLimit` seconds after `RaceBegin`.
+    ///
+    /// Triggered by `ManiaPlanet.EndMatch`
+    RaceEnd,
+
+    /// Sent when the map is unloaded - `S_ChatTime` seconds  after `RaceEnd`.
+    ///
+    /// Triggered by `ManiaPlanet.EndMap`
+    MapEnd { map: MapInfo },
+
+    /// Sent alongside `RaceEnd` and `MapEnd`.
+    ///
+    /// Triggered by `Trackmania.Scores`
+    ///
+    /// Can also be triggered on demand with `Calls::request_scores`
+    MapScores { scores: Scores },
+
+    /// Sent when the countdown is over, and the player
+    /// can accelerate.
+    ///
+    /// Triggered by `Trackmania.Event.StartLine`
+    RunStartline { player_login: String },
+
+    /// Sent when a player crosses a checkpoint,
+    /// or the finish line.
+    ///
+    /// Triggered by `Trackmania.Event.WayPoint`
+    RunCheckpoint { event: CheckpointEvent },
+
+    /// Sent when a player writes something in the chat.
+    ///
+    /// Triggered by `ManiaPlanet.PlayerChat`
+    PlayerChat {
+        from_uid: i32,
+        from_login: String,
+        message: String,
+    },
+
+    /// Sent when
+    /// - a player interacts with a Manialink element that defines an action,
+    ///   f.e. when clicking `<quad action="my_action"/>`
+    /// - a ManiaScript triggers an action with `TriggerPageAction("my_action");`
+    ///
+    /// Triggered by `ManiaPlanet.PlayerManialinkPageAnswer`
+    PlayerAnswer {
+        from_uid: i32,
+        from_login: String,
+        answer: String,
+    },
+}
