@@ -1,0 +1,326 @@
+use std::fmt::Display;
+use std::time::Duration;
+
+use serde::export::Formatter;
+
+use crate::config::{
+    MAX_ANNOUNCED_RANK, MAX_ANNOUNCED_RECORD, MAX_ANNOUNCED_RECORD_IMPROVEMENT,
+    MAX_NB_ANNOUNCED_RANKS,
+};
+use crate::event::{ControllerEvent, PbDiff, PlayerDiff, PlaylistDiff, ServerRankingDiff};
+
+/// Chat announcements from the controller to all players.
+/// All variants are derived from `ControllerEvent`s.
+///
+/// Note: messages should typically convey information that is
+/// not already conveyed by widgets.
+pub enum ServerMessage<'a> {
+    /// A player connected.
+    Joining { nick_name: &'a str },
+
+    /// A player disconnected.
+    Leaving { nick_name: &'a str },
+
+    /// At least one player improved their rank, and took one of the top spots.
+    NewTopRanks(Vec<TopRankMessage<'a>>),
+
+    /// A player improved their record on the current map,
+    /// and took one of the top spots.
+    TopRecord {
+        player_nick_name: &'a str,
+        new_map_rank: usize,
+        millis: usize,
+    },
+
+    /// A player improved their map record, but kept the same record rank.
+    TopRecordImproved {
+        player_nick_name: &'a str,
+        map_rank: usize,
+        millis: usize,
+    },
+
+    /// A new map was imported.
+    NewMap { name: &'a str, author: &'a str },
+
+    /// A map was re-introduced to the playlist.
+    AddedMap { name: &'a str },
+
+    /// A map was removed from the playlist.
+    RemovedMap { name: &'a str },
+
+    /// Display some info on the current map ahead of a race.
+    CurrentMap { name: &'a str, author: &'a str },
+
+    /// Tell players to vote if they want a restart.
+    VoteNow { duration: Duration, threshold: f32 },
+}
+
+pub struct TopRankMessage<'a> {
+    nick_name: &'a str,
+    rank: usize,
+}
+
+impl ServerMessage<'_> {
+    pub fn from_event<'a>(event: &'a ControllerEvent) -> Option<ServerMessage<'a>> {
+        use ControllerEvent::*;
+        use ServerMessage::*;
+
+        match event {
+            NewPlayerList(PlayerDiff::AddPlayer(info))
+            | NewPlayerList(PlayerDiff::AddSpectator(info))
+            | NewPlayerList(PlayerDiff::AddPureSpectator(info)) => Some(Joining {
+                nick_name: &info.nick_name,
+            }),
+
+            NewPlayerList(PlayerDiff::RemovePlayer(info))
+            | NewPlayerList(PlayerDiff::RemoveSpectator(info))
+            | NewPlayerList(PlayerDiff::RemovePureSpectator(info)) => Some(Leaving {
+                nick_name: &info.nick_name,
+            }),
+
+            BeginIntro { loaded_map } => Some(CurrentMap {
+                name: &loaded_map.name,
+                author: &loaded_map.author_login,
+            }),
+
+            BeginOutro { vote } => Some(VoteNow {
+                duration: vote.duration,
+                threshold: vote.min_restart_vote_ratio,
+            }),
+
+            EndRun {
+                pb_diff:
+                    PbDiff {
+                        new_pos,
+                        pos_gained,
+                        new_record: Some(new_record),
+                        ..
+                    },
+            } if *pos_gained > 0 && *new_pos <= MAX_ANNOUNCED_RECORD => Some(TopRecord {
+                player_nick_name: &new_record.player_nick_name,
+                new_map_rank: *new_pos,
+                millis: new_record.millis as usize,
+            }),
+
+            EndRun {
+                pb_diff:
+                    PbDiff {
+                        new_pos,
+                        pos_gained,
+                        new_record: Some(new_record),
+                        millis_diff: Some(diff),
+                        ..
+                    },
+            } if *pos_gained == 0 && *diff < 0 && *new_pos <= MAX_ANNOUNCED_RECORD_IMPROVEMENT => {
+                Some(TopRecordImproved {
+                    player_nick_name: &new_record.player_nick_name,
+                    map_rank: *new_pos,
+                    millis: new_record.millis as usize,
+                })
+            }
+
+            NewPlaylist(PlaylistDiff::AppendNew(map)) => Some(NewMap {
+                name: &map.name,
+                author: &map.author_login,
+            }),
+
+            NewPlaylist(PlaylistDiff::Append(map)) => Some(AddedMap { name: &map.name }),
+
+            NewPlaylist(PlaylistDiff::Remove { map, .. }) => Some(RemovedMap { name: &map.name }),
+
+            NewServerRanking(ServerRankingDiff { diffs, .. }) => {
+                let mut top_ranks: Vec<TopRankMessage> = diffs
+                    .values()
+                    .filter_map(|diff| {
+                        if diff.gained_pos > 0 && diff.new_pos <= MAX_ANNOUNCED_RANK {
+                            Some(TopRankMessage {
+                                nick_name: &diff.player_nick_name,
+                                rank: diff.new_pos,
+                            })
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
+                top_ranks.sort_by_key(|tr| tr.rank); // lowest ranks (highest number) last
+                top_ranks = top_ranks.into_iter().take(MAX_NB_ANNOUNCED_RANKS).collect();
+                top_ranks.reverse(); // highest ranks last -> more prominent in chat
+                Some(NewTopRanks(top_ranks))
+            }
+
+            _ => None,
+        }
+    }
+}
+
+impl Display for ServerMessage<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        use ServerMessage::*;
+
+        match self {
+            NewTopRanks(top_ranks) if top_ranks.is_empty() => return Ok(()),
+            _ => {}
+        }
+
+        write!(f, "{}{}🔊 ", RESET, NOTICE)?;
+        match self {
+            Joining { nick_name } => write!(f, "{}{}{} joined.", nick_name, RESET, NOTICE),
+
+            Leaving { nick_name } => write!(f, "{}{}{} left.", nick_name, RESET, NOTICE),
+
+            NewTopRanks(top_ranks) => {
+                for tr in top_ranks {
+                    writeln!(
+                        f,
+                        "{}{}{} reaches rank {}!",
+                        tr.nick_name, RESET, NOTICE, tr.rank
+                    )?;
+                }
+                Ok(())
+            }
+
+            TopRecord {
+                player_nick_name: nick_name,
+                new_map_rank: new_record_rank,
+                millis,
+            } => write!(
+                f,
+                "{}{}{} sets the {}. record! {}{}",
+                nick_name,
+                RESET,
+                NOTICE,
+                new_record_rank,
+                HIGHLIGHT,
+                fmt_time(*millis)
+            ),
+
+            TopRecordImproved {
+                player_nick_name: nick_name,
+                map_rank: record_rank,
+                millis,
+            } => write!(
+                f,
+                "{}{}{} improved the {}. record! {}{}",
+                nick_name,
+                RESET,
+                NOTICE,
+                record_rank,
+                HIGHLIGHT,
+                fmt_time(*millis)
+            ),
+
+            NewMap { name, author } => write!(
+                f,
+                "A new map was added: {}{}{} by {}",
+                name, RESET, NOTICE, author
+            ),
+
+            AddedMap { name: display_name } => write!(
+                f,
+                "{}{}{} was added back into the playlist.",
+                display_name, RESET, NOTICE
+            ),
+
+            RemovedMap { name: display_name } => write!(
+                f,
+                "{}{}{} was removed from the playlist.",
+                display_name, RESET, NOTICE
+            ),
+
+            CurrentMap {
+                name: display_name,
+                author,
+            } => write!(
+                f,
+                "Current map is {}{}{} by {}",
+                display_name, RESET, NOTICE, author
+            ),
+
+            VoteNow { threshold, .. } if *threshold > 1f32 => {
+                write!(f, "This map will not be restarted.")
+            }
+
+            VoteNow { duration, .. } => write!(
+                f,
+                "Vote for a restart in the next {} seconds.",
+                duration.as_secs()
+            ),
+        }
+    }
+}
+
+/// Chat messages from the controller to a specific player.
+///
+/// Note: messages should typically convey information that is
+/// not already conveyed by widgets.
+pub enum PlayerMessage {
+    /// Remind a player to change their preferences to influence the queue.
+    PreferenceReminder { nb_active_preferences: usize },
+}
+
+impl Display for PlayerMessage {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        use PlayerMessage::*;
+
+        write!(f, "{}{}🔊 ", RESET, NOTICE)?;
+        match self {
+            PreferenceReminder {
+                nb_active_preferences: 0,
+            } => {
+                write!(f, "Don't like this map? ")?;
+                write!(f, "Make sure to set your preferences in the map list.")
+            }
+
+            PreferenceReminder {
+                nb_active_preferences: nb,
+            } => {
+                write!(
+                    f,
+                    "You are influencing the map queue with {}. ",
+                    pluralize("preference", *nb)
+                )?;
+                write!(
+                    f,
+                    "Make sure to change them to your liking by bringing up the map list."
+                )
+            }
+        }
+    }
+}
+
+/// Turn the number of milliseconds into a readable run time,
+/// f.e. '00:48:051' for '48051'.
+fn fmt_time(millis: usize) -> String {
+    let secs = millis / 1000;
+    let millis = millis % 1000;
+    let mins = secs / 60;
+    let secs = secs % 60;
+    format!("{:02}:{:02}:{:03}", mins, secs, millis)
+}
+
+/// Either `"no <word>"`, `"one <word>"` or `"<amount> <word>s"`.
+fn pluralize(word: &str, amount: usize) -> String {
+    let prefix = match amount {
+        0 => "no".to_string(),
+        1 => "one".to_string(),
+        n => n.to_string(),
+    };
+    let suffix = if amount == 1 { "" } else { "s" };
+    format!("{} {}{}", prefix, word, suffix)
+}
+
+const HIGHLIGHT: &str = "$fff";
+
+const NOTICE: &str = "$fc0";
+
+const RESET: &str = "$z$s";
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_fmt_time() {
+        assert_eq!("00:21:105", fmt_time(21105))
+    }
+}

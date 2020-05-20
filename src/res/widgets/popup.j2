@@ -1,0 +1,24 @@
+{% extends "base_static.j2" %}
+
+{% block manialink %}
+{{ super() }}
+
+<quad pos="-160 90" size="320 180" z-index="200"
+      style="Bgs1" substyle="BgEmpty"
+      action="{ &quot;action&quot;: &quot;HidePopup&quot; }"/>
+
+<textedit id="popup_text"
+          style="StyleTextScriptEditor" textcolor="{{col_white}}" scriptevents="0"
+          autonewline="1" showlinenumbers="1"
+          size="160 80" pos="-80 40" z-index="201"/>
+
+<script><!--
+#RequireContext CTmMlScriptIngame
+
+main() {
+     declare UI_PopupText = (Page.GetFirstChild("popup_text") as CMlTextEdit);
+     UI_PopupText.Value = """{{ output }}""";
+}
+--></script>
+
+{% endblock manialink %}

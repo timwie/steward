@@ -1,0 +1,30 @@
+{% extends "base_static.j2" %}
+
+{# ============================= MANIALINK ============================= #}
+{% block manialink %}
+
+<frame id="intro" pos="0 0">
+    <quad size="80 50" pos="20 10" z-index="-2" style="Bgs1" substyle="BgEmpty" valign="center"/>
+    <quad size="80 50" pos="20 10" z-index="-1" bgcolor="{{col_bg}}5" valign="center"/>
+
+    <label text="TODO run outro"
+           style="TextButtonSmall" textsize="0.25" pos="21 -14" valign="bottom"/>
+</frame>
+
+{% endblock manialink %}
+{# ============================= SCRIPT MAIN ============================= #}
+{% block main %}
+
+ClientUI.ScoreTableVisibility = CUIConfig::EVisibility::ForcedHidden;
+
+{% endblock main %}
+{# ============================= SCRIPT EVENTS ============================= #}
+{% block race_events %}
+
+switch (Event.Type) {
+    case CTmRaceClientEvent::EType::Respawn: {
+        ClientUI.ScoreTableVisibility = CUIConfig::EVisibility::Normal;
+    }
+}
+
+{% endblock race_events %}
