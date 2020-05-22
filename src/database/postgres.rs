@@ -19,6 +19,9 @@ pub async fn pg_connect(config: &Config) -> Arc<dyn Queries> {
     let config = tokio_postgres::config::Config::from_str(&config.postgres_connection)
         .expect("failed to parse postgres connection string");
 
+    log::debug!("using postgres connection config:");
+    log::debug!("{:?}", config);
+
     let pg_mgr = bb8_postgres::PostgresConnectionManager::new(config, tokio_postgres::NoTls);
 
     let pool = bb8::Pool::builder()

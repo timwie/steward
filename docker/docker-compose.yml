@@ -1,0 +1,56 @@
+version: '3'
+
+volumes:
+  controller-root:
+    external:
+      name: steward-controller
+  database-data:
+    external:
+      name: steward-postgres
+  dedicated-root:
+    external:
+      name: steward-dedicated
+
+services:
+  dedicated:
+    build:
+      context: ./dedicated
+      args:
+        STEWARD_VERSION:
+        DEDICATED_URL:
+        TITLE:
+        TITLE_PACK_URL:
+    restart: always
+    volumes:
+      - dedicated-root:/home/maniaplanet/
+    expose:
+      - 5000/tcp
+    ports:
+      - 2350:2350/tcp
+      - 2350:2350/udp
+      - 3450:3450/tcp
+      - 3450:3450/udp
+
+  database:
+    image: postgres:latest
+    environment:
+      - POSTGRES_USER=steward
+      - POSTGRES_PASSWORD=steward
+      - POSTGRES_DB=steward
+    volumes:
+      - database-data:/var/lib/postgresql/data/
+    expose:
+      - 5432/tcp
+
+  controller:
+    build: 
+      context: ./controller
+      args:
+        STEWARD_VERSION:
+    restart: always
+    volumes:
+      - controller-root:/home/steward/
+      - dedicated-root:/home/maniaplanet/
+    depends_on:
+      - database
+      - dedicated
