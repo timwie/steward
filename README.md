@@ -80,6 +80,8 @@ You can find a more detailed list of all features [here](CHANGELOG.md).
 <br>
 
 ## Getting Started
+Most of this setup can be automated by using Docker -
+instructions are available in the [docker/](/docker) directory.
 
 #### 1. Prerequisites
 - Download the controller & an example config [here](https://github.com/timwie/steward/releases).
@@ -112,7 +114,7 @@ $ ./ManiaPlanetServer /game_settings=MatchSettings/maplist.txt /dedicated_cfg=de
 ```
 - Start the controller like this:
 ```
-$ export STEWARD_CONFIG=/your/path/steward.toml
+$ export STEWARD_CONFIG=/your/path/steward.toml # you can also use an .env file
 $ ./steward
 ```
 
