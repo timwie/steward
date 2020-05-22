@@ -1,5 +1,6 @@
 use std::fmt::Debug;
 
+use include_dir::Dir;
 use lazy_static::*;
 use serde::Serialize;
 use tera::Tera;
@@ -62,6 +63,26 @@ where
 }
 
 lazy_static! {
-    static ref TEMPLATES: Tera =
-        Tera::new("src/res/widgets/*.j2").expect("failed to parse templates");
+    static ref TEMPLATES: Tera = {
+        // Include all widget templates at compile-time:
+        static TEMPLATE_DIR: Dir = include_dir!("src/res/widgets/");
+
+        let mut tera = Tera::default();
+
+        // Add 'base_*' templates first, because others depend on them.
+        let base_static = TEMPLATE_DIR.get_file("base_static.j2").unwrap();
+        let base_dynamic = TEMPLATE_DIR.get_file("base_dynamic.j2").unwrap();
+        tera.add_raw_template("base_static.j2", base_static.contents_utf8().unwrap()).unwrap();
+        tera.add_raw_template("base_dynamic.j2", base_dynamic.contents_utf8().unwrap()).unwrap();
+
+        // Add all other templates.
+        for file in TEMPLATE_DIR.files() {
+            tera.add_raw_template(
+                file.path().to_str().unwrap(),
+                file.contents_utf8().unwrap()
+            ).unwrap();
+        }
+
+        tera
+    };
 }

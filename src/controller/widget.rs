@@ -160,9 +160,6 @@ impl WidgetController {
     ///   display their map rank. If this changes ranks of other connected
     ///   players, their widgets have to be updated as well.
     pub async fn refresh_personal_best(&self, diff: &PbDiff) {
-        dbg!(">>>>>>>>>>>>>>>>>>>>>");
-        dbg!(&diff);
-
         self.refresh_curr_rank(diff).await;
 
         if let PbDiff {
@@ -216,20 +213,16 @@ impl WidgetController {
     }
 
     async fn show_sector_diff_for(&self, to_uid: i32) {
-        dbg!("<<<<<<<<<<<<<<<<<<");
-        dbg!(to_uid);
         let records = self.live_records.lock().await;
 
         let top_1: &RecordDetailed = match records.top_record() {
             Some(rec) => rec,
             None => return,
         };
-        dbg!(&top_1);
         let pb: &RecordDetailed = match records.pb(to_uid) {
             Some(rec) => rec,
             None => return,
         };
-        dbg!(&pb);
 
         let widget = SectorDiffWidget {
             pb_millis: pb.millis as usize,
