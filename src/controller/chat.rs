@@ -43,15 +43,13 @@ impl ChatController {
                 from: from_login.to_string(),
             });
         }
-        if !self.live_settings.is_admin(&from_login) {
-            return None;
-        }
         match AdminCommand::from(message) {
             None => {
                 // Neither player nor admin command: forward as normal message.
                 self.forward_to_all(message, from_login).await;
                 None
             }
+            Some(_) if !self.live_settings.is_admin(&from_login) => None,
             Some(cmd) => {
                 // Forward other commands to other controllers.
                 Some(Command::Admin {
