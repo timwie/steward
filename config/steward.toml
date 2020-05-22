@@ -23,7 +23,7 @@ super_admin_pw = "SuperAdmin"
 admin_whitelist = ["admin1", "admin2"]
 
 # The Time Attack time limit in seconds.
-default_race_time_secs = 300
+race_duration_secs = 300
 
 # The time spent on a map after the race ends in seconds.
 # Overrides the `S_ChatTime` mode setting.

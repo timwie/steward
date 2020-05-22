@@ -1,0 +1,33 @@
+# Deploying with `docker-compose`
+Setting up a dedicated server with Steward can be automated using `docker-compose`,
+where server, database and controller will live in seperate containers, within the
+same network:
+
+- `$ git clone https://github.com/timwie/steward.git`
+- `$ cd steward/docker`
+- Edit the `.env` file accordingly. These variables will be used in the build process.
+  - `STEWARD_VERSION` is a version tag like `v0.1.0`.
+  - `DEDICATED_URL` lets you choose a specific dedicated server version.
+    Use `http://files.v04.maniaplanet.com/server/ManiaplanetServer_Latest.zip` if you don't
+    care about a specific version.
+  - `TITLE` is a title name like "TMStadium@nadeo".
+  - `TITLE_PACK_URL` is the download location of the `xyz.Title.Pack.gbx` file. 
+- Create the following docker volumes:
+  - `$ docker volume create --name steward-controller`
+  - `$ docker volume create --name steward-dedicated`
+  - `$ docker volume create --name steward-postgres`
+- Run `docker-compose up -d` to build & start the services in containers.
+
+From now on, all data will be accessible in the volumes, independent of the containers.
+You can use something like `docker run -it --rm --volume <volume>:/mnt <image> bash`
+to open a container in which you can edit configuration files, or make backups. In this case,
+the data would be in the `/mnt` directory.
+
+Make sure that to allow remote XML-RPC access with `<xmlrpc_allowremote>True</xmlrpc_allowremote>`,
+otherwise the server will not allow the controller to connect.
+
+All services are configured to be restarted whenever they go down.
+
+The service logs can be viewed, f.e. using `$ docker logs -f <container id>`.
+
+You can directly inspect the database using `$ docker run -it --rm --network container_default postgres psql -h database -U steward`.

@@ -21,6 +21,7 @@ async fn main() {
     use std::sync::Arc;
     use std::time::Duration;
 
+    use dotenv::dotenv;
     use tokio::time::delay_for;
 
     use config::Config;
@@ -28,7 +29,9 @@ async fn main() {
     use database::db_connect;
     use ingame::{RpcConnection, Server};
 
-    env_logger::init(); // Use log::* to write to stdout/err
+    dotenv().ok(); // Read '.env' file in working directory
+
+    env_logger::init(); // Use log::* to write to stderr
 
     let config = Config::read_from_env().await;
 

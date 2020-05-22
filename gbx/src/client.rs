@@ -1,8 +1,7 @@
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::io::{Read, Write};
-use std::net::{SocketAddr, TcpStream};
-use std::str::FromStr;
+use std::net::TcpStream;
 use std::sync::Arc;
 use std::thread::JoinHandle as ThreadHandle;
 use std::time::Duration;
@@ -97,10 +96,10 @@ struct AwaitCallbackResult;
 /// # Panics
 /// Panics if reading from the stream fails or when
 /// encountering an unexpected server protocol.
-fn tcp_connect(addr: &SocketAddr) -> Result<TcpStream, std::io::Error> {
+fn tcp_connect(addr: &str) -> Result<TcpStream, std::io::Error> {
     const SERVER_PROTOCOL: &str = "GBXRemote 2";
 
-    let mut stream = TcpStream::connect(addr)?;
+    let mut stream = TcpStream::connect(&addr)?;
 
     let mut protocol_name_length_bytes = [0; 4];
     stream
@@ -417,10 +416,14 @@ impl RpcConnection {
     /// - when the given socket address is invalid
     /// - when failing to clone the TCP stream handle
     pub async fn new(addr: &str) -> Option<RpcConnection> {
-        let addr = SocketAddr::from_str(addr).expect("invalid XML-RPC socket address");
+        log::debug!("using XML-RPC address: {}", addr);
+
         let tcp_stream = match tcp_connect(&addr) {
             Ok(stream) => stream,
-            Err(_) => return None,
+            Err(err) => {
+                log::debug!("cannot connect: {}", err);
+                return None;
+            }
         };
         let (msg_out, msg_in) = unbounded_channel();
         let (cb_out, cb_in) = unbounded_channel();
