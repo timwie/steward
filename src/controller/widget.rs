@@ -5,7 +5,7 @@ use std::time::Duration;
 use futures::future::join_all;
 use tokio::sync::RwLock;
 
-use gbx::Fault;
+use gbx::{Fault, PlayerInfo};
 
 use crate::command::CommandOutput;
 use crate::config::{
@@ -77,9 +77,10 @@ impl WidgetController {
     /// For the specified player, remove widgets that are displayed during the intro,
     /// and add widgets that are displayed during the race.
     pub async fn end_intro_for(&self, player_login: &str) {
-        if let Some(uid) = self.live_players.uid(player_login).await {
-            self.hide_intro_widgets_for(uid).await;
-            self.show_race_widgets_for(uid).await;
+        let live_players = self.live_players.lock().await;
+        if let Some(info) = live_players.info(player_login) {
+            self.hide_intro_widgets_for(info.uid).await;
+            self.show_race_widgets_for(info).await;
         }
     }
 
@@ -143,7 +144,7 @@ impl WidgetController {
         }
         match ev {
             AddPlayer(info) | MoveToPlayer(info) => {
-                self.show_race_widgets_for(info.uid).await;
+                self.show_race_widgets_for(info).await;
             }
             MoveToSpectator(info) | MoveToPureSpectator(info) => {
                 self.hide_intro_widgets_for(info.uid).await; // in case they moved during the intro
@@ -170,7 +171,10 @@ impl WidgetController {
         {
             // After players have set their first record on a map, send them
             // the sector diff widget.
-            self.show_sector_diff_for(new_record.player_uid).await;
+            let live_players = self.live_players.lock().await;
+            if let Some(info) = live_players.info(&new_record.player_login) {
+                self.show_sector_diff_for(info).await;
+            }
         }
     }
 
@@ -194,8 +198,9 @@ impl WidgetController {
 
     /// Update any widget that displays the server's playlist.
     pub async fn refresh_playlist(&self) {
-        for uid in self.live_players.uid_all().await {
-            self.show_toggle_menu_for(uid).await;
+        let live_players = self.live_players.lock().await;
+        for info in live_players.info_all() {
+            self.show_toggle_menu_for(&info).await;
         }
     }
 
@@ -212,26 +217,27 @@ impl WidgetController {
         self.hide_for::<PopupWidget>(for_uid).await;
     }
 
-    async fn show_sector_diff_for(&self, to_uid: i32) {
+    async fn show_sector_diff_for(&self, player: &PlayerInfo) {
         let records = self.live_records.lock().await;
 
+        // FIXME this has cp times, not sector times
         let top_1: &RecordDetailed = match records.top_record() {
             Some(rec) => rec,
             None => return,
         };
-        let pb: &RecordDetailed = match records.pb(to_uid) {
+        let pb: &RecordDetailed = match records.pb(player.uid) {
             Some(rec) => rec,
             None => return,
         };
 
         let widget = SectorDiffWidget {
             pb_millis: pb.millis as usize,
-            pb_sector_millis: pb.sector_times.iter().map(|i| *i as usize).collect(),
+            pb_sector_millis: pb.sector_millis(),
             top1_millis: top_1.millis as usize,
-            top1_sector_millis: top_1.sector_times.iter().map(|i| *i as usize).collect(),
+            top1_sector_millis: top_1.sector_millis(),
         };
 
-        self.show_for(&widget, to_uid).await;
+        self.show_for(&widget, player.uid).await;
     }
 
     async fn show_for<T>(&self, widget: &T, for_uid: i32)
@@ -267,29 +273,29 @@ impl WidgetController {
         check_send_res(res);
     }
 
-    async fn hide_for_delayed<T>(&self, to_uid: i32, delay: Duration)
+    async fn hide_for_delayed<T>(&self, for_uid: i32, delay: Duration)
     where
         T: Widget,
     {
         let server = self.server.clone();
         let _ = tokio::spawn(async move {
             tokio::time::delay_for(delay).await;
-            let res = server.send_manialink_to(&T::hidden(), to_uid).await;
+            let res = server.send_manialink_to(&T::hidden(), for_uid).await;
             check_send_res(res);
         });
     }
 
-    async fn show_race_widgets_for(&self, for_uid: i32) {
-        self.show_sector_diff_for(for_uid).await;
-        self.show_curr_rank_for(for_uid).await;
-        self.show_toggle_menu_for(for_uid).await;
+    async fn show_race_widgets_for(&self, player: &PlayerInfo) {
+        self.show_sector_diff_for(player).await;
+        self.show_curr_rank_for(player).await;
+        self.show_toggle_menu_for(player).await;
     }
 
-    async fn hide_race_widgets_for(&self, to_uid: i32) {
-        self.hide_for::<RunOutroWidget>(to_uid).await;
-        self.hide_for::<SectorDiffWidget>(to_uid).await;
-        self.hide_for::<LiveRanksWidget>(to_uid).await;
-        self.hide_for::<ToggleMenuWidget>(to_uid).await;
+    async fn hide_race_widgets_for(&self, for_uid: i32) {
+        self.hide_for::<RunOutroWidget>(for_uid).await;
+        self.hide_for::<SectorDiffWidget>(for_uid).await;
+        self.hide_for::<LiveRanksWidget>(for_uid).await;
+        self.hide_for::<ToggleMenuWidget>(for_uid).await;
     }
 
     async fn hide_race_widgets(&self) {
@@ -342,19 +348,19 @@ impl WidgetController {
         let preferences = self.live_prefs.lock().await;
 
         // Do not show for pure spectators.
-        let uid_playing = self.live_players.uid_playing().await;
+        let id_playing = self.live_players.uid_playing().await;
 
-        for uid in uid_playing {
+        for id in id_playing {
             let widget = IntroWidget {
                 map_name: &map.name,
                 map_author_login: &map.author_login,
                 map_author_nick_name: author_nick_name.as_deref(),
-                player_map_rank: records.pb(uid).map(|rec| rec.map_rank as usize),
+                player_map_rank: records.pb(id).map(|rec| rec.map_rank as usize),
                 max_map_rank: nb_records,
-                player_preference: preferences.pref(uid, &map.uid),
+                player_preference: preferences.pref(id, &map.uid),
                 preference_counts: preference_counts.clone(),
             };
-            self.show_for(&widget, uid).await;
+            self.show_for(&widget, id).await;
         }
     }
 
@@ -366,17 +372,17 @@ impl WidgetController {
         .await;
     }
 
-    async fn show_toggle_menu_for(&self, for_uid: i32) {
+    async fn show_toggle_menu_for(&self, player: &PlayerInfo) {
         let records = self.live_records.lock().await;
         let playlist = self.live_playlist.lock().await;
         let server_ranking = self.live_server_ranking.lock().await;
         let menu = ToggleMenuWidget {
-            map_ranking: self.curr_map_ranking(&*records, for_uid).await,
-            server_ranking: self.curr_server_ranking(&*server_ranking, for_uid).await,
-            map_list: self.curr_map_list(&*playlist, for_uid).await,
+            map_ranking: self.curr_map_ranking(&*records, &player).await,
+            server_ranking: self.curr_server_ranking(&*server_ranking, &player).await,
+            map_list: self.curr_map_list(&*playlist, &player).await,
             max_displayed_race_ranks: MAX_DISPLAYED_RACE_RANKS,
         };
-        self.show_for(&menu, for_uid).await;
+        self.show_for(&menu, player.uid).await;
     }
 
     async fn show_run_outro_for(&self, diff: &PbDiff) {
@@ -410,29 +416,31 @@ impl WidgetController {
             _ => return,
         };
 
+        let players = self.live_players.lock().await;
         let records = self.live_records.lock().await;
+
         let need_update = records.playing_pbs().filter_map(|pb| {
             if pb.map_rank as usize >= *max_pos_changed {
-                Some(pb.player_uid)
+                players.info(&pb.player_login)
             } else {
                 None
             }
         });
 
-        for uid in need_update {
-            self.show_curr_rank_for(uid).await;
+        for info in need_update {
+            self.show_curr_rank_for(info).await;
         }
     }
 
     async fn show_outro_poll(&self, ev: &VoteInfo) {
         let prefs = self.live_prefs.current_map_prefs().await;
 
-        for uid in self.live_players.uid_all().await {
+        for id in self.live_players.uid_all().await {
             let widget = OutroQueueVoteWidget {
                 min_restart_vote_ratio: ev.min_restart_vote_ratio,
-                init_preference: prefs.get(&uid).copied(),
+                init_preference: prefs.get(&id).copied(),
             };
-            self.show_for(&widget, uid).await;
+            self.show_for(&widget, id).await;
         }
     }
 
@@ -456,37 +464,49 @@ impl WidgetController {
     }
 
     async fn show_outro_ranking(&self, change: &ServerRankingDiff) {
+        let players = self.live_players.lock().await;
         let server_ranking = self.live_server_ranking.lock().await;
-        for (uid, diff) in change.diffs.iter() {
+
+        for (id, diff) in change.diffs.iter() {
+            let info = match players.uid_info(*id) {
+                Some(info) => info,
+                None => continue,
+            };
             let widget = OutroServerRankingWidget {
                 pos: diff.new_pos,
                 max_pos: change.max_pos,
                 wins_gained: diff.gained_wins,
                 pos_gained: diff.gained_pos,
-                server_ranking: self.curr_server_ranking(&*server_ranking, *uid).await,
+                server_ranking: self.curr_server_ranking(&*server_ranking, &info).await,
             };
-            self.show_for(&widget, *uid).await;
+            self.show_for(&widget, *id).await;
         }
     }
 
     async fn show_outro_scores(&self) {
+        let players = self.live_players.lock().await;
         let records = self.live_records.lock().await;
-        for uid in self.live_players.uid_all().await {
+
+        for info in players.info_all() {
             let widget = OutroMapRankingsWidget {
-                map_ranking: self.curr_map_ranking(&*records, uid).await,
+                map_ranking: self.curr_map_ranking(&*records, &info).await,
                 max_displayed_race_ranks: MAX_DISPLAYED_RACE_RANKS,
             };
-            self.show_for(&widget, uid).await;
+            self.show_for(&widget, info.uid).await;
         }
     }
 
-    async fn show_curr_rank_for(&self, for_uid: i32) {
+    async fn show_curr_rank_for(&self, player: &PlayerInfo) {
         let records = self.live_records.lock().await;
         let server_ranking = self.live_server_ranking.lock().await;
+        let players = self.live_players.lock().await;
 
-        let maybe_pb = records.pb(for_uid);
+        let maybe_pb = records.pb(player.uid);
 
-        let server_rank = server_ranking.rank_of(for_uid).map(|rank| rank.pos);
+        let server_rank = players
+            .login(player.uid)
+            .and_then(|login| server_ranking.rank_of(login))
+            .map(|rank| rank.pos);
 
         let widget = LiveRanksWidget {
             pb_millis: maybe_pb.map(|rec| rec.millis as usize),
@@ -496,14 +516,13 @@ impl WidgetController {
             max_server_rank: server_ranking.max_pos(),
         };
 
-        self.show_for(&widget, for_uid).await;
+        self.show_for(&widget, player.uid).await;
     }
 
-    #[allow(clippy::needless_lifetimes)] // TODO how are lifetimes needless here? #2
     async fn curr_server_ranking<'a>(
         &self,
         server_ranking: &'a ServerRankingState,
-        for_uid: i32,
+        player: &'a PlayerInfo,
     ) -> ServerRanking<'a> {
         let to_entry = |r: &'a ServerRank| -> ServerRankingEntry {
             ServerRankingEntry {
@@ -511,13 +530,13 @@ impl WidgetController {
                 nick_name: &r.player_nick_name,
                 nb_wins: r.nb_wins,
                 nb_losses: r.nb_losses,
-                is_own: r.player_uid == for_uid,
+                is_own: r.player_login == player.login,
             }
         };
 
         let entries = server_ranking.top_ranks().map(to_entry).collect();
 
-        let personal_entry = server_ranking.rank_of(for_uid).map(to_entry);
+        let personal_entry = server_ranking.rank_of(&player.login).map(to_entry);
 
         ServerRanking {
             max_pos: server_ranking.max_pos(),
@@ -527,8 +546,11 @@ impl WidgetController {
         }
     }
 
-    #[allow(clippy::needless_lifetimes)] // TODO how are lifetimes needless here? #3
-    async fn curr_map_ranking<'a>(&self, records: &'a RecordState, for_uid: i32) -> MapRanking<'a> {
+    async fn curr_map_ranking<'a>(
+        &self,
+        records: &'a RecordState,
+        player: &'a PlayerInfo,
+    ) -> MapRanking<'a> {
         let map_ranks = records
             .top_records()
             .iter()
@@ -538,16 +560,16 @@ impl WidgetController {
                 nick_name: &rec.player_nick_name,
                 millis: rec.millis as usize,
                 timestamp: rec.timestamp,
-                is_own: rec.player_uid == for_uid,
+                is_own: rec.player_login == player.login,
             })
             .collect();
 
-        let personal_entry = records.pb(for_uid).map(|rec| MapRankingEntry {
+        let personal_entry = records.pb(player.uid).map(|rec| MapRankingEntry {
             pos: rec.map_rank as usize,
             nick_name: &rec.player_nick_name,
             millis: rec.millis as usize,
             timestamp: rec.timestamp,
-            is_own: rec.player_uid == for_uid,
+            is_own: rec.player_login == player.login,
         });
 
         MapRanking {
@@ -557,11 +579,14 @@ impl WidgetController {
         }
     }
 
-    #[allow(clippy::needless_lifetimes)] // TODO how are lifetimes needless here? #4
-    async fn curr_map_list<'a>(&self, playlist: &'a PlaylistState, for_uid: i32) -> MapList<'a> {
+    async fn curr_map_list<'a>(
+        &self,
+        playlist: &'a PlaylistState,
+        player: &'a PlayerInfo,
+    ) -> MapList<'a> {
         let curr_map_uid = playlist.current_map().map(|m| &m.uid);
         let mut maps = join_all(playlist.maps().iter().map(|map| async move {
-            let preference = self.live_prefs.lock().await.pref(for_uid, &map.uid);
+            let preference = self.live_prefs.lock().await.pref(player.uid, &map.uid);
             let nb_records = self
                 .db
                 .nb_records(&map.uid)
@@ -569,7 +594,7 @@ impl WidgetController {
                 .expect("failed to load number of records") as usize;
             let map_rank = self
                 .db
-                .player_record(&map.uid, for_uid)
+                .player_record(&map.uid, &player.login)
                 .await
                 .expect("failed to load player PB")
                 .map(|rec| rec.map_rank as usize);

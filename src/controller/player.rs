@@ -23,13 +23,13 @@ pub trait LivePlayers: Send + Sync {
 
     /// Return information for all connected players and spectators.
     async fn info_all(&self) -> Vec<PlayerInfo> {
-        self.lock().await.uid_to_info.values().cloned().collect()
+        self.lock().await.info_all().into_iter().cloned().collect()
     }
 
     /// Return the UID of the player with the given login,
     /// or `None` if no such player is connected.
     async fn uid(&self, login: &str) -> Option<i32> {
-        self.lock().await.info(&login).map(|info| info.uid)
+        self.lock().await.uid(&login).copied()
     }
 
     /// Return the UIDs for all connected players.
@@ -41,6 +41,13 @@ pub trait LivePlayers: Send + Sync {
     /// Return the UIDs for all connected players that have a player slot.
     async fn uid_playing(&self) -> HashSet<i32> {
         self.lock().await.playing.iter().copied().collect()
+    }
+
+    async fn login(&self, player_uid: i32) -> Option<String> {
+        self.lock()
+            .await
+            .login(player_uid)
+            .map(|login| login.to_string())
     }
 }
 
@@ -72,11 +79,33 @@ impl PlayersState {
         }
     }
 
+    /// Return the UID of the player with the given login,
+    /// or `None` if no such player is connected.
+    pub fn uid(&self, login: &str) -> Option<&i32> {
+        self.login_to_uid.get(login)
+    }
+
     /// Return detailed information for the given login.
     pub fn info(&self, login: &str) -> Option<&PlayerInfo> {
         self.login_to_uid
             .get(login)
             .and_then(|u| self.uid_to_info.get(u))
+    }
+
+    /// Return detailed information for the given login.
+    pub fn uid_info(&self, player_uid: i32) -> Option<&PlayerInfo> {
+        self.uid_to_info.get(&player_uid)
+    }
+
+    /// Return information for all connected players and spectators.
+    pub fn info_all(&self) -> Vec<&PlayerInfo> {
+        self.uid_to_info.values().collect()
+    }
+
+    pub fn login(&self, player_uid: i32) -> Option<&str> {
+        self.uid_to_info
+            .get(&player_uid)
+            .map(|info| info.login.as_str())
     }
 }
 

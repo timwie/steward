@@ -1,4 +1,4 @@
--- added by 0.1.0-alpha1
+-- added by 0.1.0
 
 CREATE SCHEMA IF NOT EXISTS steward;
 

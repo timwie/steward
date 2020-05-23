@@ -96,8 +96,8 @@ impl RecordState {
         self.nb_records
     }
 
-    fn upsert_record(&mut self, record: &RecordDetailed) {
-        let is_first_record = !self.pbs.contains_key(&record.player_uid);
+    fn upsert_record(&mut self, player_uid: i32, record: &RecordDetailed) {
+        let is_first_record = !self.pbs.contains_key(&player_uid);
         if is_first_record {
             self.nb_records += 1;
         }
@@ -105,18 +105,18 @@ impl RecordState {
         let is_new_pb = is_first_record
             || self
                 .pbs
-                .get(&record.player_uid)
+                .get(&player_uid)
                 .filter(|pb| pb.millis <= record.millis)
                 .is_none();
         if is_new_pb {
-            self.pbs.insert(record.player_uid, record.clone());
+            self.pbs.insert(player_uid, record.clone());
         }
 
         // Remove a previous top n record set by this player.
         let prev_ranking_idx = self
             .top_records
             .iter()
-            .position(|rec| rec.player_uid == record.player_uid);
+            .position(|rec| rec.player_login == record.player_login);
         if let Some(idx) = prev_ranking_idx {
             self.top_records.remove(idx);
         }
@@ -132,7 +132,7 @@ impl RecordState {
 
         if let Some(idx) = record_ranking_idx {
             let ranking_rec = Record {
-                player_uid: record.player_uid,
+                player_login: record.player_login.clone(),
                 player_nick_name: record.player_nick_name.clone(),
                 millis: record.millis,
                 timestamp: SystemTime::now(),
@@ -191,7 +191,7 @@ impl RecordController {
             AddPlayer(info) | AddSpectator(info) | AddPureSpectator(info) => {
                 let pb = self
                     .db
-                    .player_record(&map_uid, info.uid)
+                    .player_record(&map_uid, &info.login)
                     .await
                     .expect("failed to load player PB");
                 if let Some(pb) = pb {
@@ -227,24 +227,24 @@ impl RecordController {
             .await
             .expect("failed to load map records");
 
-        let mut pbs = Vec::<RecordDetailed>::new();
-        for player_uid in self.live_players.uid_playing().await {
-            let maybe_pb = self
-                .db
-                .player_record(&loaded_map.uid, player_uid)
-                .await
-                .expect("failed to load player PB");
-            if let Some(pb) = maybe_pb {
-                pbs.push(pb);
-            }
-        }
-
         let mut state = self.state.write().await;
         state.run_sectors.clear();
         state.top_record = top1;
         state.top_records = top_records;
         state.nb_records = nb_records;
-        state.pbs = pbs.into_iter().map(|rec| (rec.player_uid, rec)).collect();
+        state.pbs.clear();
+
+        let live_players = self.live_players.lock().await;
+        for player_info in live_players.info_all() {
+            let maybe_pb = self
+                .db
+                .player_record(&loaded_map.uid, &player_info.login)
+                .await
+                .expect("failed to load player PB");
+            if let Some(pb) = maybe_pb {
+                state.pbs.insert(player_info.uid, pb);
+            }
+        }
     }
 
     /// Add new sector data for a player's current run.
@@ -318,10 +318,10 @@ impl RecordController {
             .run_sectors
             .remove(&player.uid)
             .expect("no sector data");
-        let sector_millis = sectors.iter().map(|s| s.cp_millis).collect();
+        let cp_millis = sectors.iter().map(|s| s.cp_millis).collect();
 
         let mut evidence = RecordEvidence {
-            player_uid: player.uid,
+            player_login: player.login.clone(),
             map_uid,
             millis: finish_ev.race_time_millis,
             validation,
@@ -361,14 +361,14 @@ impl RecordController {
 
         let record = RecordDetailed {
             map_rank: new_pos as i64,
-            player_uid: player.uid,
+            player_login: player.login.clone(),
             player_nick_name: player.nick_name.clone(),
             timestamp: evidence.timestamp,
             millis: evidence.millis,
-            sector_times: sector_millis,
+            cp_millis,
         };
 
-        state.upsert_record(&record);
+        state.upsert_record(player.uid, &record);
 
         let pos_gained = match prev_pb_pos {
             Some(p) => p - new_pos,

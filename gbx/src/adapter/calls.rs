@@ -262,7 +262,7 @@ impl Calls for RpcClient {
 
         self.call_method_unit("ForceSpectatorId", args!(player_uid, SPECTATOR_MODE))
             .await?;
-        self.call_method_unit("ForceSpectatorTarget", args!(player_uid))
+        self.call_method_unit("SpectatorReleasePlayerSlotId", args!(player_uid))
             .await
     }
 

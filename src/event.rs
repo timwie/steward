@@ -192,7 +192,7 @@ pub struct ServerRankDiff {
 /// Compares a player's run to their personal best.
 #[derive(Debug)]
 pub struct PbDiff {
-    /// The player that set the run.
+    /// The UID of the player that set the run.
     pub player_uid: i32,
 
     /// The millisecond difference of this run vs the player's personal best.
