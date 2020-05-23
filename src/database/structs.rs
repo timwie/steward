@@ -6,9 +6,6 @@ use serde_repr::{Deserialize_repr, Serialize_repr};
 /// Database player that has joined the server at least once.
 #[derive(Debug)]
 pub struct Player {
-    /// Unique identifier.
-    pub uid: i32,
-
     /// Player login.
     pub login: String,
 
@@ -56,7 +53,7 @@ impl std::fmt::Debug for MapEvidence {
 /// A player's preference towards a map.
 #[derive(Debug)]
 pub struct Preference {
-    pub player_uid: i32,
+    pub player_login: String,
     pub map_uid: String,
     pub value: PreferenceValue,
 }
@@ -77,7 +74,7 @@ pub enum PreferenceValue {
 /// Complete record variant, that includes replay data as "evidence".
 /// Should only be used to store data, or when exporting it.
 pub struct RecordEvidence {
-    pub player_uid: i32,
+    pub player_login: String,
     pub map_uid: String,
     pub millis: i32,
     pub timestamp: SystemTime,
@@ -93,7 +90,7 @@ pub struct RecordEvidence {
 impl std::fmt::Debug for RecordEvidence {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("RecordEvidence")
-            .field("player_uid", &self.player_uid)
+            .field("player_login", &self.player_login)
             .field("map_uid", &self.map_uid)
             .field("millis", &self.millis)
             .field("timestamp", &self.timestamp)
@@ -126,8 +123,8 @@ pub struct RecordDetailed {
     /// in the ranking of all records on this map.
     pub map_rank: i64,
 
-    /// The UID of the player that has set this record.
-    pub player_uid: i32,
+    /// The login of the player that has set this record.
+    pub player_login: String,
 
     /// The formatted nick name of the player that has set this record.
     pub player_nick_name: String,
@@ -140,13 +137,25 @@ pub struct RecordDetailed {
 
     /// The milliseconds at the time of passing each checkpoint -
     /// the finish line being the last.
-    pub sector_times: Vec<i32>,
+    pub cp_millis: Vec<i32>,
+}
+
+impl RecordDetailed {
+    pub fn sector_millis(&self) -> Vec<usize> {
+        let mut sector_times = Vec::with_capacity(self.cp_millis.len());
+        let mut offset_millis: usize = 0;
+        for millis in self.cp_millis.iter() {
+            sector_times.push(*millis as usize - offset_millis);
+            offset_millis = *millis as usize;
+        }
+        sector_times
+    }
 }
 
 /// Record variant without rank & sector data.
 #[derive(Debug)]
 pub struct Record {
-    pub player_uid: i32,
+    pub player_login: String,
     pub player_nick_name: String,
     pub millis: i32,
     pub timestamp: SystemTime,
@@ -155,7 +164,7 @@ pub struct Record {
 impl From<RecordDetailed> for Record {
     fn from(rec: RecordDetailed) -> Self {
         Record {
-            player_uid: rec.player_uid,
+            player_login: rec.player_login,
             player_nick_name: rec.player_nick_name,
             millis: rec.millis,
             timestamp: rec.timestamp,
@@ -167,7 +176,7 @@ impl From<RecordDetailed> for Record {
 #[derive(Debug)]
 pub struct MapRank {
     pub map_uid: String,
-    pub player_uid: i32,
+    pub player_login: String,
     pub player_nick_name: String,
 
     /// The player's map rank; if a player has set the best record on a map,

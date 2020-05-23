@@ -6,6 +6,13 @@ Version numbers consist of `MAJOR.MINOR.PATCH`:
 
 <!-- Added, Changed, Removed, Fixed --> 
 
+## [0.1.0-alpha2] - 2020-05-23
+All `0.1.0-alpha` releases are unstable, and have missing widgets.
+
+### Fixed
+- Fixed a critical bug that would crash the controller simply by dis- and reconnecting.
+- Fixed a bug that lead to comparing incorrect times in the sector times widget.
+
 ## [0.1.0-alpha1] - 2020-05-20
 All `0.1.0-alpha` releases are unstable, and have missing widgets.
 

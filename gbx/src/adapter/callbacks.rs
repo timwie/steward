@@ -73,7 +73,7 @@ fn forward_regular_callback(cb_out: &Sender<Callback>, call: Call) -> CallbackTy
             if let [Int(uid), String(login), String(msg), Bool(_is_registered_cmd)] = &call.args[..]
             {
                 return success(PlayerChat {
-                    from_uid: *uid as i32,
+                    from_uid: *uid,
                     from_login: login.clone(),
                     message: msg.clone(),
                 });
@@ -96,7 +96,7 @@ fn forward_regular_callback(cb_out: &Sender<Callback>, call: Call) -> CallbackTy
         "ManiaPlanet.PlayerManialinkPageAnswer" => {
             if let [Int(uid), String(login), String(answer), Array(_entries)] = &call.args[..] {
                 return success(PlayerAnswer {
-                    from_uid: *uid as i32,
+                    from_uid: *uid,
                     from_login: login.clone(),
                     answer: answer.clone(),
                 });

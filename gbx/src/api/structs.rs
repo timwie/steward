@@ -231,7 +231,8 @@ pub struct ModeOptions {
 #[derive(Deserialize, PartialEq, Clone)]
 #[serde(rename_all = "PascalCase")]
 pub struct PlayerInfo {
-    /// Player-unique ID.
+    /// Player UID that is tied to this player while they are connected.
+    /// Once they dis- and reconnect, they might have a different UID.
     #[serde(rename = "PlayerId")]
     pub uid: i32,
 

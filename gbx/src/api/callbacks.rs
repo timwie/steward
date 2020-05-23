@@ -11,11 +11,6 @@ pub enum Callback {
     /// mode. Sent on connect, but not sent on disconnect.
     ///
     /// Triggered by `ManiaPlanet.PlayerInfoChanged`
-    ///
-    /// # Warning
-    /// When playing in your local network, player IDs will behave incorrectly:
-    /// It seems every time you leave and re-join the server, your ID will decrease by one.
-    /// This leads to errors if we assume that the pairing of login & ID are always the same.
     PlayerInfoChanged { info: PlayerInfo },
 
     /// Sent when a player disconnects from the server.

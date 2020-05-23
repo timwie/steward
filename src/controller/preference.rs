@@ -7,7 +7,7 @@ use tokio::sync::{RwLock, RwLockReadGuard};
 
 use async_trait::async_trait;
 
-use crate::controller::{LiveChat, LivePlayers, LivePlaylist};
+use crate::controller::{LiveChat, LivePlayers, LivePlaylist, PlayersState};
 use crate::database::{Database, Map, Preference, PreferenceValue};
 use crate::event::{PlayerDiff, PlaylistDiff};
 use crate::ingame::PlayerInfo;
@@ -44,7 +44,7 @@ pub struct PreferenceState {
     /// that can influence the queue.
     preferences: HashMap<PreferenceKey<'static>, ActivePreference>,
 
-    /// A set of IDs of players (that have a player slot) that are
+    /// A set of UIDs of players (that have a player slot) that are
     /// in favor of a restart.
     restart_votes: HashSet<i32>,
 }
@@ -54,20 +54,6 @@ pub struct ActivePreference {
     pub player_uid: i32,
     pub map_uid: String,
     pub value: ActivePreferenceValue,
-}
-
-impl From<Preference> for ActivePreference {
-    fn from(pref: Preference) -> Self {
-        ActivePreference {
-            player_uid: pref.player_uid,
-            map_uid: pref.map_uid,
-            value: match pref.value {
-                PreferenceValue::Pick => ActivePreferenceValue::Pick,
-                PreferenceValue::Veto => ActivePreferenceValue::Veto,
-                PreferenceValue::Remove => ActivePreferenceValue::Remove,
-            },
-        }
-    }
 }
 
 #[derive(Serialize_repr, Debug, PartialEq, Eq, Clone, Copy)]
@@ -172,17 +158,18 @@ impl PreferenceController {
     async fn load_preferences(&self, player: &PlayerInfo) {
         let auto_picked_maps = self
             .db
-            .maps_without_player_record(player.uid)
+            .maps_without_player_record(&player.login)
             .await
             .expect("failed to load player's maps without record");
 
         let prefs = self
             .db
-            .player_preferences(player.uid)
+            .player_preferences(&player.login)
             .await
             .expect("failed to load player preferences");
 
         let mut state = self.state.write().await;
+        let players = self.live_players.lock().await;
 
         for map_uid in auto_picked_maps {
             let pref = ActivePreference {
@@ -193,7 +180,9 @@ impl PreferenceController {
             state.add_pref(pref);
         }
         for pref in prefs {
-            state.add_pref(ActivePreference::from(pref));
+            if let Some(pref) = to_active_pref(pref, &players) {
+                state.add_pref(pref);
+            }
         }
 
         self.live_chat
@@ -257,24 +246,29 @@ impl PreferenceController {
 
     async fn load_for_map(&self, map: &Map) {
         let mut state = self.state.write().await;
+        let players = self.live_players.lock().await;
+
         let explicit = self
             .db
             .map_preferences(&map.uid)
             .await
             .expect("failed to load map preferences")
             .into_iter()
-            .map(ActivePreference::from);
+            .filter_map(|pref| to_active_pref(pref, &players));
+
         let auto_picks = self
             .db
             .players_without_map_record(&map.uid)
             .await
             .expect("failed to load players without map record")
             .into_iter()
+            .filter_map(|player_login| players.uid(&player_login))
             .map(|player_uid| ActivePreference {
-                player_uid,
+                player_uid: *player_uid,
                 map_uid: map.uid.clone(),
                 value: ActivePreferenceValue::AutoPick,
             });
+
         for pref in auto_picks.chain(explicit) {
             state.add_pref(pref);
         }
@@ -286,10 +280,13 @@ impl PreferenceController {
             .upsert_preference(&preference)
             .await
             .expect("failed to upsert preference of player");
-        self.state
-            .write()
-            .await
-            .add_pref(ActivePreference::from(preference));
+
+        let mut state = self.state.write().await;
+        let players = self.live_players.lock().await;
+
+        if let Some(pref) = to_active_pref(preference, &players) {
+            state.add_pref(pref);
+        }
     }
 
     /// Clear a potential `AutoPick` preference when a player sets a record
@@ -325,6 +322,18 @@ impl PreferenceController {
     pub async fn reset_restart_votes(&self) {
         self.state.write().await.restart_votes.clear()
     }
+}
+
+fn to_active_pref(pref: Preference, players: &PlayersState) -> Option<ActivePreference> {
+    players.uid(&pref.player_login).map(|id| ActivePreference {
+        player_uid: *id,
+        map_uid: pref.map_uid,
+        value: match pref.value {
+            PreferenceValue::Pick => ActivePreferenceValue::Pick,
+            PreferenceValue::Veto => ActivePreferenceValue::Veto,
+            PreferenceValue::Remove => ActivePreferenceValue::Remove,
+        },
+    })
 }
 
 #[async_trait]
