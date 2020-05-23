@@ -397,7 +397,7 @@ dependencies = [
 
 [[package]]
 name = "gbx"
-version = "0.1.0-alpha.1"
+version = "0.1.0-alpha2"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -1356,7 +1356,7 @@ checksum = "c7cb5678e1615754284ec264d9bb5b4c27d2018577fd90ac0ceb578591ed5ee4"
 
 [[package]]
 name = "steward"
-version = "0.1.0-alpha.1"
+version = "0.1.0-alpha2"
 dependencies = [
  "anyhow",
  "async-recursion",

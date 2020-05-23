@@ -229,8 +229,6 @@ impl WidgetController {
             Some(rec) => rec,
             None => return,
         };
-        dbg!(top_1);
-        dbg!(pb);
 
         let widget = SectorDiffWidget {
             pb_millis: pb.millis as usize,

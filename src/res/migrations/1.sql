@@ -1,4 +1,4 @@
--- added by 0.1.0-alpha1
+-- added by 0.1.0
 
 -- There is a possible inconsistency between the 'record' and 'sector' tables,
 -- where the last sector's 'millis' is not equal to 'record.millis', which must be true,
