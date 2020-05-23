@@ -218,6 +218,12 @@ pub struct PbDiff {
 /// was confirmed to have the necessary permission.
 #[derive(Debug)]
 pub enum Command<'a> {
-    Player { from: String, cmd: PlayerCommand },
-    Admin { from: String, cmd: AdminCommand<'a> },
+    Player {
+        from: &'a str,
+        cmd: PlayerCommand,
+    },
+    Admin {
+        from: &'a str,
+        cmd: AdminCommand<'a>,
+    },
 }
