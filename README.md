@@ -26,6 +26,8 @@ TBD
 - There are instructions for contributors in [CONTRIBUTING.md](CONTRIBUTING.md).
 - Example configurations for server & controller can be found in the
   [config/](/config) directory.
+- A guide to deploy this controller with Docker can be found in the
+  [docker/](/docker) directory.
 
 <br>
 
