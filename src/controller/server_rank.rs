@@ -11,6 +11,7 @@ use crate::config::MAX_DISPLAYED_SERVER_RANKS;
 use crate::controller::LivePlayers;
 use crate::database::Database;
 use crate::event::{ServerRankDiff, ServerRankingDiff};
+use std::borrow::Cow;
 
 /// Use to lookup the current server rankings.
 /// They are updated after every race.
@@ -27,7 +28,7 @@ pub trait LiveServerRanking: Send + Sync {
 
 pub struct ServerRankingState {
     /// A collection of server ranks, sorted from best to worst.
-    all_ranks: IndexMap<i32, ServerRank>,
+    all_ranks: IndexMap<Cow<'static, str>, ServerRank>,
 }
 
 impl ServerRankingState {
@@ -41,8 +42,9 @@ impl ServerRankingState {
 
     /// Returns a the server rank of the specified player, or `None`
     /// if they don't have a rank yet.
-    pub fn rank_of(&self, player_uid: i32) -> Option<&ServerRank> {
-        self.all_ranks.get(&player_uid)
+    pub fn rank_of<'a>(&'a self, player_login: &'a str) -> Option<&'a ServerRank> {
+        let key: Cow<'a, str> = player_login.into();
+        self.all_ranks.get(&key)
     }
 
     /// The number of players that have a server rank.
@@ -53,7 +55,7 @@ impl ServerRankingState {
 
 pub struct ServerRank {
     pub pos: usize,
-    pub player_uid: i32,
+    pub player_login: String,
     pub player_nick_name: String,
 
     /// The number of beaten records summed for every map.
@@ -66,7 +68,7 @@ pub struct ServerRank {
 /// Ranks all players that have set at least one record on this server.
 ///
 /// Returns a collection that
-/// - maps a player's UID to their server rank,
+/// - maps a player's login to their server rank,
 /// - and is iterated from rank 1 to the last in order.
 ///
 /// Players will earn a "win" on each map, for every player
@@ -76,7 +78,7 @@ pub struct ServerRank {
 /// server has had 200 players (with at least one record on any map) in total,
 /// they get `199 max wins - 49 losses = 150 wins` for that map. How many of
 /// those 200 players have actually set a record on that map is irrelevant.
-async fn calc_server_ranking(db: &Arc<dyn Database>) -> IndexMap<i32, ServerRank> {
+async fn calc_server_ranking(db: &Arc<dyn Database>) -> IndexMap<Cow<'static, str>, ServerRank> {
     // This is a lazy way of calculating the server ranking,
     // which will look at the entire data set of records every time.
     // A more performant solution could compare the records of the current map
@@ -103,29 +105,29 @@ async fn calc_server_ranking(db: &Arc<dyn Database>) -> IndexMap<i32, ServerRank
         .await
         .expect("failed to load map rankings");
 
-    let mut losses = IndexMap::<i32, usize>::new(); // player uid -> nb of losses
-    let mut nick_names = HashMap::<i32, String>::new(); // player uid -> nick name
+    let mut losses = IndexMap::<&str, usize>::new(); // player login -> nb of losses
+    let mut nick_names = HashMap::<&str, String>::new(); // player login -> nick name
 
-    for map_rank in map_ranks {
-        *losses.entry(map_rank.player_uid).or_insert(0) += map_rank.max_pos as usize - 1;
-        nick_names.insert(map_rank.player_uid, map_rank.player_nick_name);
+    for map_rank in map_ranks.iter() {
+        *losses.entry(&map_rank.player_login).or_insert(0) += map_rank.max_pos as usize - 1;
+        nick_names.insert(&map_rank.player_login, map_rank.player_nick_name.clone());
     }
 
     // Less losses is better
     losses.sort_by(|_, a_losses, _, b_losses| a_losses.cmp(b_losses));
 
     losses
-        .iter()
+        .into_iter()
         .enumerate()
-        .map(|(idx, (uid, nb_losses))| {
+        .map(|(idx, (login, nb_losses))| {
             let rank = ServerRank {
                 pos: idx + 1,
-                player_uid: *uid,
-                player_nick_name: nick_names.remove(uid).unwrap(),
-                nb_wins: max_wins - *nb_losses,
-                nb_losses: *nb_losses,
+                player_login: login.to_string(),
+                player_nick_name: nick_names.remove(login).unwrap(),
+                nb_wins: max_wins - nb_losses,
+                nb_losses,
             };
-            (*uid, rank)
+            (login.to_string().into(), rank)
         })
         .collect()
 }
@@ -152,40 +154,47 @@ impl ServerRankController {
     /// Update the server ranking, and return information of changed
     /// ranks for connected players.
     pub async fn update(&self) -> ServerRankingDiff {
-        let uid_all = self.live_players.uid_all().await;
         let mut state = self.state.write().await;
+        let live_players = self.live_players.lock().await;
 
         // Remove all rankings of offline players, as they don't need a diff.
-        state.all_ranks.retain(|uid, _| uid_all.contains(uid));
+        state
+            .all_ranks
+            .retain(|login, _| live_players.uid(&login).is_some());
 
         // Calculate new ranking from scratch
         let new_ranking = calc_server_ranking(&self.db).await;
 
         // List for newly ranked players
-        let first_ranks: Vec<(i32, &ServerRank)> = uid_all
+        let first_ranks: Vec<(i32, &ServerRank)> = live_players
+            .info_all()
             .into_iter()
-            .filter(|uid| !state.all_ranks.contains_key(uid))
-            .filter_map(|uid| new_ranking.get(&uid).map(|r| (uid, r)))
+            .map(|info| (Cow::<'_, str>::from(&info.login), info))
+            .filter(|(key, _)| !state.all_ranks.contains_key(key))
+            .filter_map(|(key, info)| new_ranking.get(&key).map(|r| (info.uid, r)))
             .collect();
 
         let mut diffs: HashMap<i32, ServerRankDiff> = state
             .all_ranks
             .iter()
-            .map(|(uid, old_rank)| {
-                let new_rank = new_ranking.get(uid).unwrap();
-                let diff = ServerRankDiff {
-                    player_nick_name: old_rank.player_nick_name.clone(),
-                    new_pos: new_rank.pos,
-                    gained_pos: old_rank.pos as i32 - new_rank.pos as i32,
-                    gained_wins: old_rank.nb_wins as i32 - new_rank.nb_wins as i32,
-                };
-                (*uid, diff)
+            .filter_map(|(key, old_rank)| match live_players.uid(&key) {
+                None => None,
+                Some(uid) => {
+                    let new_rank = new_ranking.get(key).unwrap();
+                    let diff = ServerRankDiff {
+                        player_nick_name: old_rank.player_nick_name.clone(),
+                        new_pos: new_rank.pos,
+                        gained_pos: old_rank.pos as i32 - new_rank.pos as i32,
+                        gained_wins: old_rank.nb_wins as i32 - new_rank.nb_wins as i32,
+                    };
+                    Some((*uid, diff))
+                }
             })
             .collect();
 
-        for (uid, rank) in first_ranks {
+        for (login, rank) in first_ranks {
             diffs.insert(
-                uid,
+                login,
                 ServerRankDiff {
                     player_nick_name: rank.player_nick_name.clone(),
                     new_pos: rank.pos,

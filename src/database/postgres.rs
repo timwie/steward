@@ -109,15 +109,15 @@ impl Queries for PostgresClient {
         let conn = self.0.get().await?;
         let stmt = r#"
             INSERT INTO steward.player
-                (uid, login, nick_name)
+                (login, nick_name)
             VALUES
-                ($1, $2, $3)
-            ON CONFLICT (uid)
+                ($1, $2)
+            ON CONFLICT (login)
             DO UPDATE SET
                 nick_name = excluded.nick_name
         "#;
         let _ = conn
-            .execute(stmt, &[&player.uid, &player.login, &player.nick_name])
+            .execute(stmt, &[&player.login, &player.nick_name])
             .await?;
         Ok(())
     }
@@ -261,46 +261,37 @@ impl Queries for PostgresClient {
     async fn top_record(&self, map_uid: &str) -> Result<Option<RecordDetailed>> {
         let conn = self.0.get().await?;
         let stmt = r#"
-            SELECT r.player_uid, p.nick_name, r.timestamp, s.cp_millis
+            SELECT p.login, p.nick_name, r.millis, r.timestamp, s.cp_millis
             FROM (
-                SELECT player_uid, timestamp
+                SELECT player_login, millis, timestamp
                 FROM steward.record
                 WHERE map_uid = $1
                 ORDER BY millis ASC
                 LIMIT 1
             ) r
-            RIGHT JOIN steward.sector s ON r.player_uid = s.player_uid
-            LEFT JOIN steward.player p ON r.player_uid = p.uid
-            WHERE r.player_uid IS NOT NULL AND s.map_uid = $1
+            RIGHT JOIN steward.sector s ON r.player_login = s.player_login
+            LEFT JOIN steward.player p ON r.player_login = p.login
+            WHERE r.player_login IS NOT NULL AND s.map_uid = $1
             ORDER BY s.index ASC
         "#;
         let rows = conn.query(stmt, &[&map_uid]).await?;
-
-        let mut sector_times = Vec::new();
-        let mut offset_millis = 0;
-        for row in &rows {
-            let cp_millis: i32 = row.get("cp_millis");
-            sector_times.push(cp_millis - offset_millis);
-            offset_millis = cp_millis;
-        }
-
         Ok(rows.first().map(|row| RecordDetailed {
             map_rank: 1,
-            player_uid: row.get("player_uid"),
+            player_login: row.get("login"),
             player_nick_name: row.get("nick_name"),
             timestamp: row.get("timestamp"),
-            millis: offset_millis,
-            sector_times,
+            millis: row.get("millis"),
+            cp_millis: rows.iter().map(|row| row.get("cp_millis")).collect(),
         }))
     }
 
     async fn top_records(&self, map_uid: &str, limit: i64) -> Result<Vec<Record>> {
         let conn = self.0.get().await?;
         let stmt = r#"
-            SELECT r.player_uid, p.nick_name, r.timestamp, r.millis
+            SELECT p.login, p.nick_name, r.timestamp, r.millis
             FROM steward.record r
             LEFT JOIN steward.player p
-            ON r.player_uid = p.uid
+            ON r.player_login = p.login
             WHERE map_uid = $1
             ORDER BY r.millis ASC
             LIMIT $2
@@ -310,7 +301,7 @@ impl Queries for PostgresClient {
         Ok(rows
             .iter()
             .map(|row| Record {
-                player_uid: row.get("player_uid"),
+                player_login: row.get("login"),
                 player_nick_name: row.get("nick_name"),
                 timestamp: row.get("timestamp"),
                 millis: row.get("millis"),
@@ -321,14 +312,15 @@ impl Queries for PostgresClient {
     async fn player_record(
         &self,
         map_uid: &str,
-        player_uid: i32,
+        player_login: &str,
     ) -> Result<Option<RecordDetailed>> {
         let conn = self.0.get().await?;
         let stmt = r#"
-            SELECT r.pos, p.nick_name, r.timestamp, s.cp_millis
+            SELECT r.pos, p.login, p.nick_name, r.millis, r.timestamp, s.cp_millis
             FROM (
                 SELECT
-                   player_uid,
+                   player_login,
+                   millis,
                    timestamp,
                    RANK () OVER (
                       ORDER BY millis
@@ -336,67 +328,58 @@ impl Queries for PostgresClient {
                 FROM steward.record
                 WHERE map_uid = $1
             ) r
-            RIGHT JOIN steward.sector s ON r.player_uid = s.player_uid
-            LEFT JOIN steward.player p ON r.player_uid = p.uid
-            WHERE map_uid = $1 AND r.player_uid = $2
+            RIGHT JOIN steward.sector s ON r.player_login = s.player_login
+            LEFT JOIN steward.player p ON r.player_login = p.login
+            WHERE map_uid = $1 AND r.player_login = $2
             ORDER BY s.index ASC
         "#;
-        let rows = conn.query(stmt, &[&map_uid, &player_uid]).await?;
-
-        let mut sector_times = Vec::new();
-        let mut offset_millis = 0;
-        for row in &rows {
-            let cp_millis: i32 = row.get("cp_millis");
-            sector_times.push(cp_millis - offset_millis);
-            offset_millis = cp_millis;
-        }
-
+        let rows = conn.query(stmt, &[&map_uid, &player_login]).await?;
         Ok(rows.first().map(|row| RecordDetailed {
             map_rank: row.get("pos"),
-            player_uid,
+            player_login: row.get("login"),
             player_nick_name: row.get("nick_name"),
             timestamp: row.get("timestamp"),
-            millis: offset_millis,
-            sector_times,
+            millis: row.get("millis"),
+            cp_millis: rows.iter().map(|row| row.get("cp_millis")).collect(),
         }))
     }
 
     async fn nb_players_with_record(&self) -> Result<i64> {
         let conn = self.0.get().await?;
         let stmt = r#"
-            SELECT COUNT(DISTINCT player_uid)
+            SELECT COUNT(DISTINCT player_login)
             FROM steward.record
         "#;
         let row = conn.query_one(stmt, &[]).await?;
         Ok(row.get(0))
     }
 
-    async fn maps_without_player_record(&self, player_uid: i32) -> Result<Vec<String>> {
+    async fn maps_without_player_record(&self, player_login: &str) -> Result<Vec<String>> {
         let conn = self.0.get().await?;
         let stmt = r#"
             SELECT m.uid
             FROM steward.map m
             LEFT JOIN (
-                SELECT map_uid FROM steward.record WHERE player_uid = $1
+                SELECT map_uid FROM steward.record WHERE player_login = $1
             ) r
             ON m.uid = r.map_uid
             WHERE r.map_uid IS NULL
         "#;
-        let rows = conn.query(stmt, &[&player_uid]).await?;
+        let rows = conn.query(stmt, &[&player_login]).await?;
         let maps = rows.iter().map(|row| row.get(0)).collect();
         Ok(maps)
     }
 
-    async fn players_without_map_record(&self, map_uid: &str) -> Result<Vec<i32>> {
+    async fn players_without_map_record(&self, map_uid: &str) -> Result<Vec<String>> {
         let conn = self.0.get().await?;
         let stmt = r#"
-            SELECT p.uid
+            SELECT p.login
             FROM steward.player p
             LEFT JOIN (
-                SELECT player_uid FROM steward.record WHERE map_uid = $1
+                SELECT player_login FROM steward.record WHERE map_uid = $1
             ) r
-            ON p.uid = r.player_uid
-            WHERE r.player_uid IS NULL
+            ON p.login = r.player_login
+            WHERE r.player_login IS NULL
         "#;
         let rows = conn.query(stmt, &[&map_uid]).await?;
         Ok(rows.iter().map(|row| row.get(0)).collect())
@@ -407,10 +390,13 @@ impl Queries for PostgresClient {
         let stmt = r#"
             SELECT COUNT(*)
             FROM steward.record
-            WHERE map_uid = $1 AND r.player_uid != $2 AND r.millis < $3
+            WHERE map_uid = $1 AND r.player_login != $2 AND r.millis < $3
         "#;
         let row = conn
-            .query_one(stmt, &[&record.map_uid, &record.player_uid, &record.millis])
+            .query_one(
+                stmt,
+                &[&record.map_uid, &record.player_login, &record.millis],
+            )
             .await?;
         Ok(1 + row.get::<usize, i32>(0))
     }
@@ -428,10 +414,10 @@ impl Queries for PostgresClient {
 
         let insert_record_stmt = r#"
             INSERT INTO steward.record
-                (player_uid, map_uid, millis, validation, ghost, timestamp)
+                (player_login, map_uid, millis, validation, ghost, timestamp)
             VALUES
                 ($1, $2, $3, $4, $5, $6)
-            ON CONFLICT (player_uid, map_uid)
+            ON CONFLICT (player_login, map_uid)
             DO UPDATE SET
                 validation = excluded.validation,
                 ghost = excluded.ghost,
@@ -442,7 +428,7 @@ impl Queries for PostgresClient {
             .execute(
                 insert_record_stmt,
                 &[
-                    &rec.player_uid,
+                    &rec.player_login,
                     &rec.map_uid,
                     &rec.millis,
                     &rec.validation,
@@ -454,10 +440,10 @@ impl Queries for PostgresClient {
 
         let insert_sector_stmt = r#"
             INSERT INTO steward.sector
-                (player_uid, map_uid, index, cp_millis, cp_speed, cp_distance)
+                (player_login, map_uid, index, cp_millis, cp_speed, cp_distance)
             VALUES
                 ($1, $2, $3, $4, $5, $6)
-            ON CONFLICT (player_uid, map_uid, index)
+            ON CONFLICT (player_login, map_uid, index)
             DO UPDATE SET
                 cp_millis = excluded.cp_millis,
                 cp_speed = excluded.cp_speed,
@@ -469,7 +455,7 @@ impl Queries for PostgresClient {
                 .execute(
                     insert_sector_stmt,
                     &[
-                        &rec.player_uid,
+                        &rec.player_login,
                         &rec.map_uid,
                         &sector.index,
                         &sector.cp_millis,
@@ -484,13 +470,13 @@ impl Queries for PostgresClient {
         Ok(())
     }
 
-    async fn player_preferences(&self, player_uid: i32) -> Result<Vec<Preference>> {
+    async fn player_preferences(&self, player_login: &str) -> Result<Vec<Preference>> {
         let conn = self.0.get().await?;
         let stmt = r#"
             SELECT * FROM steward.preference
-            WHERE player_uid = $1 AND value IS NOT NULL
+            WHERE player_login = $1 AND value IS NOT NULL
         "#;
-        let rows = conn.query(stmt, &[&player_uid]).await?;
+        let rows = conn.query(stmt, &[&player_login]).await?;
         let prefs = rows.into_iter().map(Preference::from).collect();
         Ok(prefs)
     }
@@ -526,13 +512,13 @@ impl Queries for PostgresClient {
     async fn upsert_preference(&self, pref: &Preference) -> Result<()> {
         let conn = self.0.get().await?;
         let stmt = r#"
-            INSERT INTO steward.preference (player_uid, map_uid, value)
+            INSERT INTO steward.preference (player_login, map_uid, value)
             VALUES ($1, $2, $3)
-            ON CONFLICT (player_uid, map_uid)
+            ON CONFLICT (player_login, map_uid)
             DO UPDATE SET value = excluded.value
         "#;
         let _ = conn
-            .execute(stmt, &[&pref.player_uid, &pref.map_uid, &pref.value])
+            .execute(stmt, &[&pref.player_login, &pref.map_uid, &pref.value])
             .await?;
         Ok(())
     }
@@ -542,7 +528,7 @@ impl Queries for PostgresClient {
         let stmt = r#"
             SELECT
                 r.map_uid,
-                r.player_uid,
+                p.login,
                 p.nick_name,
                 RANK () OVER (
                     PARTITION BY r.map_uid
@@ -551,14 +537,14 @@ impl Queries for PostgresClient {
                 COUNT(*) OVER (PARTITION BY r.map_uid) max_pos
             FROM steward.record r
             LEFT JOIN steward.player p
-            ON r.player_uid = p.uid
+            ON r.player_login = p.login
         "#;
         let rows = conn.query(stmt, &[]).await?;
         Ok(rows
             .iter()
             .map(|row| MapRank {
                 map_uid: row.get("map_uid"),
-                player_uid: row.get("player_uid"),
+                player_login: row.get("login"),
                 player_nick_name: row.get("nick_name"),
                 pos: row.get("pos"),
                 max_pos: row.get("max_pos"),
@@ -593,7 +579,6 @@ impl From<Row> for MapEvidence {
 impl From<Row> for Player {
     fn from(row: Row) -> Self {
         Player {
-            uid: row.get("uid"),
             login: row.get("login"),
             nick_name: row.get("nick_name"),
         }
@@ -603,7 +588,7 @@ impl From<Row> for Player {
 impl From<Row> for Preference {
     fn from(row: Row) -> Self {
         Preference {
-            player_uid: row.get("player_uid"),
+            player_login: row.get("player_login"),
             map_uid: row.get("map_uid"),
             value: row.get("value"),
         }

@@ -11,12 +11,10 @@
 -- for top 1 records. GRs are great because you can actually watch and play against a run.
 
 CREATE TABLE steward.player (
-    uid       INTEGER,
-    login     TEXT    NOT NULL,
+    login     TEXT,
     nick_name TEXT    NOT NULL,
 
-    PRIMARY KEY (uid),
-    UNIQUE (login)
+    PRIMARY KEY (login)
 );
 
 CREATE TABLE steward.map (
@@ -40,38 +38,38 @@ CREATE TYPE steward.Pref AS ENUM (
 );
 
 CREATE TABLE steward.preference (
-    player_uid   INTEGER,
+    player_login TEXT,
     map_uid      TEXT,
     value        steward.Pref DEFAULT NULL,
 
-    PRIMARY KEY (player_uid, map_uid),
-    FOREIGN KEY (player_uid) REFERENCES steward.player (uid),
-    FOREIGN KEY (map_uid)    REFERENCES steward.map (uid)
+    PRIMARY KEY (player_login, map_uid),
+    FOREIGN KEY (player_login) REFERENCES steward.player (login),
+    FOREIGN KEY (map_uid)      REFERENCES steward.map (uid)
 );
 
 CREATE TABLE steward.record (
-    player_uid  INTEGER,
-    map_uid     TEXT,
-    millis      INTEGER   NOT NULL,
-    validation  BYTEA     NOT NULL, -- validation replays (~5 - 50 KB)
-    ghost       BYTEA,              -- ghost replays (~250 KB - 2 MB)
-    timestamp   TIMESTAMP NOT NULL,
+    player_login  TEXT,
+    map_uid       TEXT,
+    millis        INTEGER   NOT NULL,
+    validation    BYTEA     NOT NULL, -- validation replays (~5 - 50 KB)
+    ghost         BYTEA,              -- ghost replays (~250 KB - 2 MB)
+    timestamp     TIMESTAMP NOT NULL,
 
-    PRIMARY KEY (player_uid, map_uid),
-    FOREIGN KEY (player_uid) REFERENCES steward.player (uid),
-    FOREIGN KEY (map_uid)    REFERENCES steward.map (uid)
+    PRIMARY KEY (player_login, map_uid),
+    FOREIGN KEY (player_login) REFERENCES steward.player (login),
+    FOREIGN KEY (map_uid)      REFERENCES steward.map (uid)
 );
 
 CREATE TABLE steward.sector (
-    player_uid  INTEGER,
-    map_uid     TEXT,
-    index       INTEGER NOT NULL, -- first checkpoint has index 0; finish is at the last index
-    cp_millis   INTEGER NOT NULL, -- total millis at time of crossing checkpoint
-    cp_speed    REAL    NOT NULL, -- speed at time of crossing checkpoint
-    cp_distance REAL    NOT NULL, -- total driven distance at time of crossing checkpoint
+    player_login  TEXT,
+    map_uid       TEXT,
+    index         INTEGER NOT NULL, -- first checkpoint has index 0; finish is at the last index
+    cp_millis     INTEGER NOT NULL, -- total millis at time of crossing checkpoint
+    cp_speed      REAL    NOT NULL, -- speed at time of crossing checkpoint
+    cp_distance   REAL    NOT NULL, -- total driven distance at time of crossing checkpoint
 
-    PRIMARY KEY (player_uid, map_uid, index),
-    FOREIGN KEY (player_uid, map_uid) REFERENCES steward.record (player_uid, map_uid),
+    PRIMARY KEY (player_login, map_uid, index),
+    FOREIGN KEY (player_login, map_uid) REFERENCES steward.record (player_login, map_uid),
 
     CONSTRAINT index_positive    check (index >= 0),
     CONSTRAINT millis_positive   check (cp_millis > 0),

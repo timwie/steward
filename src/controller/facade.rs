@@ -10,6 +10,7 @@ use crate::database::{Database, Preference};
 use crate::event::{Command, ControllerEvent, PlaylistDiff, VoteInfo};
 use crate::ingame::{Server, ServerEvent};
 use crate::message::ServerMessage;
+use gbx::PlayerInfo;
 
 /// This facade hides all specific controllers behind one interface
 /// that can react to server events.
@@ -312,17 +313,17 @@ impl Controller {
             }
 
             ControllerEvent::IssuedAction { from_login, action } => {
-                if let Some(uid) = self.players.uid(&from_login).await {
-                    self.on_action(uid, action).await;
+                if let Some(info) = self.players.info(&from_login).await {
+                    self.on_action(&info, action).await;
                 }
             }
         }
     }
 
-    async fn on_action(&self, from_uid: i32, action: Action<'_>) {
+    async fn on_action(&self, player: &PlayerInfo, action: Action<'_>) {
         match action {
             Action::HidePopup => {
-                self.widget.hide_popup(from_uid).await;
+                self.widget.hide_popup(player.uid).await;
             }
             Action::SetPreference {
                 map_uid,
@@ -330,13 +331,13 @@ impl Controller {
             } => {
                 let pref = Preference {
                     map_uid: map_uid.to_string(),
-                    player_uid: from_uid,
+                    player_login: player.login.clone(),
                     value: preference,
                 };
                 self.prefs.set_preference(pref).await;
             }
             Action::VoteRestart { vote } => {
-                self.prefs.set_restart_vote(from_uid, vote).await;
+                self.prefs.set_restart_vote(player.uid, vote).await;
             }
         }
     }

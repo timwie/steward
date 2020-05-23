@@ -126,12 +126,6 @@ is a bug. The following list contains many of the potential runtime errors when 
     are that you started the game client before starting the server. In that case,
     the server will listen at port `5001` instead of `5000`, which is reserved by the game
     client.
-    
-  - **During local play**: Your player ID is not static when you are running the server in the local network.
-    It seems your ID will change every time you disconnect from the server while it is still running.
-    Re-joining will crash the controller with `ERROR: duplicate key value violates unique constraint "player_login_key"`.
-    To fix this, restart the dedicated server to reset your ID.
-
 
 <br>
 

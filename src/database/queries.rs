@@ -62,17 +62,20 @@ pub trait Queries: Send + Sync {
 
     /// Return the personal best of the specified player on the specified map,
     /// or `None` if the player has not completed a run on that map.
-    async fn player_record(&self, map_uid: &str, player_uid: i32)
-        -> Result<Option<RecordDetailed>>;
+    async fn player_record(
+        &self,
+        map_uid: &str,
+        player_login: &str,
+    ) -> Result<Option<RecordDetailed>>;
 
     /// Return the number of players that have set a record on at least one map.
     async fn nb_players_with_record(&self) -> Result<i64>;
 
     /// List all map UIDs that the specified player has not completed a run on.
-    async fn maps_without_player_record(&self, player_uid: i32) -> Result<Vec<String>>;
+    async fn maps_without_player_record(&self, player_login: &str) -> Result<Vec<String>>;
 
     /// List UIDs of all players that have *not* completed a run on the specified map.
-    async fn players_without_map_record(&self, map_uid: &str) -> Result<Vec<i32>>;
+    async fn players_without_map_record(&self, map_uid: &str) -> Result<Vec<String>>;
 
     /// Without inserting the given record, return the map rank it would achieve,
     /// if it were inserted.
@@ -86,7 +89,7 @@ pub trait Queries: Send + Sync {
     async fn upsert_record(&self, rec: &RecordEvidence) -> Result<()>;
 
     /// List all preferences that the specified player has set.
-    async fn player_preferences(&self, player_uid: i32) -> Result<Vec<Preference>>;
+    async fn player_preferences(&self, player_login: &str) -> Result<Vec<Preference>>;
 
     /// List preferences set by any player, for the specified map.
     async fn map_preferences(&self, map_uid: &str) -> Result<Vec<Preference>>;

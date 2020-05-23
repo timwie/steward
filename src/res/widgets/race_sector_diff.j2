@@ -390,8 +390,12 @@ G_Top1Millis       = {{ top1_millis }};
 G_Top1SectorMillis = {{ top1_sector_millis }};
 G_NbSectors        = {{ nb_sectors }};
 
+log(G_PbSectorMillis);
+log(G_Top1SectorMillis);
+
 G_PbIsTop1 = True;
 for(i, 0, G_NbSectors - 1) {
+    assert(G_PbSectorMillis[i] >= G_Top1SectorMillis[i]);
     if (G_PbSectorMillis[i] != G_Top1SectorMillis[i]) {
         G_PbIsTop1 = False;
         break;
