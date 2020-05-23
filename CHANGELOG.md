@@ -111,4 +111,5 @@ All `0.1.0-alpha` releases are unstable, and have missing widgets.
 - **Admin**: If the server is not running the Time Attack mode, it will
   be enforced at startup.
 
+[0.1.0-alpha2]: https://github.com/timwie/steward/releases/tag/v0.1.0-alpha2
 [0.1.0-alpha1]: https://github.com/timwie/steward/releases/tag/v0.1.0-alpha1
