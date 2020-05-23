@@ -220,7 +220,6 @@ impl WidgetController {
     async fn show_sector_diff_for(&self, player: &PlayerInfo) {
         let records = self.live_records.lock().await;
 
-        // FIXME this has cp times, not sector times
         let top_1: &RecordDetailed = match records.top_record() {
             Some(rec) => rec,
             None => return,
