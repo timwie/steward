@@ -419,6 +419,7 @@ impl Queries for PostgresClient {
                 ($1, $2, $3, $4, $5, $6)
             ON CONFLICT (player_login, map_uid)
             DO UPDATE SET
+                millis = excluded.millis,
                 validation = excluded.validation,
                 ghost = excluded.ghost,
                 timestamp = excluded.timestamp

@@ -65,8 +65,8 @@ CREATE TABLE steward.sector (
     map_uid       TEXT,
     index         INTEGER NOT NULL, -- first checkpoint has index 0; finish is at the last index
     cp_millis     INTEGER NOT NULL, -- total millis at time of crossing checkpoint
-    cp_speed      REAL    NOT NULL, -- speed at time of crossing checkpoint
-    cp_distance   REAL    NOT NULL, -- total driven distance at time of crossing checkpoint
+    cp_speed      REAL    NOT NULL, -- speed in km/h at time of crossing checkpoint
+    cp_distance   REAL    NOT NULL, -- total driven distance in meters at time of crossing checkpoint
 
     PRIMARY KEY (player_login, map_uid, index),
     FOREIGN KEY (player_login, map_uid) REFERENCES steward.record (player_login, map_uid),
