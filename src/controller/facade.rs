@@ -322,9 +322,6 @@ impl Controller {
 
     async fn on_action(&self, player: &PlayerInfo, action: Action<'_>) {
         match action {
-            Action::HidePopup => {
-                self.widget.hide_popup(player.uid).await;
-            }
             Action::SetPreference {
                 map_uid,
                 preference,

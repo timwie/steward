@@ -19,9 +19,6 @@ pub enum Action<'a> {
     /// Update whether a player is for or against a restart
     /// of the current map.
     VoteRestart { vote: bool },
-
-    /// Hide the popup widget.
-    HidePopup,
 }
 
 impl Action<'_> {

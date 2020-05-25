@@ -212,11 +212,6 @@ impl WidgetController {
         }
     }
 
-    /// Hide a popup message for the specified player.
-    pub async fn hide_popup(&self, for_uid: i32) {
-        self.hide_for::<PopupWidget>(for_uid).await;
-    }
-
     async fn show_sector_diff_for(&self, player: &PlayerInfo) {
         let records = self.live_records.lock().await;
 

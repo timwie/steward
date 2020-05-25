@@ -1,24 +1,31 @@
-{% extends "base_static.j2" %}
+{% extends "base_dynamic.j2" %}
 
+{# ============================= MANIALINK ============================= #}
 {% block manialink %}
 {{ super() }}
 
-<quad pos="-160 90" size="320 180" z-index="200"
-      style="Bgs1" substyle="BgEmpty"
-      action="{ &quot;action&quot;: &quot;HidePopup&quot; }"/>
+<quad id="popup-bg" pos="-160 90" size="320 180" z-index="200" scriptevents="1"
+      style="Bgs1" substyle="BgEmpty"/>
 
-<textedit id="popup_text"
-          style="StyleTextScriptEditor" textcolor="{{col_white}}" scriptevents="0"
+<textedit id="popup-text"
+          style="StyleTextScriptEditor" textcolor="{{col_white}}"
           autonewline="1" showlinenumbers="1"
           size="160 80" pos="-80 40" z-index="201"/>
 
-<script><!--
-#RequireContext CTmMlScriptIngame
-
-main() {
-     declare UI_PopupText = (Page.GetFirstChild("popup_text") as CMlTextEdit);
-     UI_PopupText.Value = """{{ output }}""";
-}
---></script>
-
 {% endblock manialink %}
+{# ============================= SCRIPT MAIN ============================= #}
+{% block main %}
+
+ declare UI_PopupText = (Page.GetFirstChild("popup-text") as CMlTextEdit);
+ UI_PopupText.Value = """{{ output }}""";
+
+{% endblock main %}
+{# ============================= SCRIPT EVENTS ============================= #}
+{% block ml_events %}
+
+if (Event.Type == CMlScriptEvent::Type::MouseClick && Event.ControlId == "popup-bg") {
+    Page.GetFirstChild("popup-bg").Visible = False;
+    Page.GetFirstChild("popup-text").Visible = False;
+}
+
+{% endblock ml_events %}
