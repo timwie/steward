@@ -9,6 +9,16 @@
     {% set font_bold_big = "TextButtonMedium" %}
     {% set font_bold_small = "TextButtonSmall" %}
 
+    {% set PREF_NONE     = 0 %}
+    {% set PREF_PICK     = 1 %}
+    {% set PREF_VETO     = 2 %}
+    {% set PREF_REMOVE   = 3 %}
+    {% set PREF_AUTOPICK = 100 %}
+
+    {% set col_pick = "00c853" %}
+    {% set col_veto = "fbc02d" %}
+    {% set col_remove = "f44336" %}
+
 {% endblock vars %}
 
 <manialink version="3" id="{{ widget_id }}">

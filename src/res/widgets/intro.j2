@@ -1,14 +1,101 @@
-{% extends "base_dynamic.j2" %}
+{% extends "base_static.j2" %}
 
 {% block manialink %}
 {{ super() }}
 
+<<<<<<< HEAD
 <frame id="intro" pos="0 0">
     <quad size="80 50" pos="20 10" z-index="-2" style="Bgs1" substyle="BgEmpty" valign="center"/>
     <quad size="80 50" pos="20 10" z-index="-1" bgcolor="{{col_neutral}}5" valign="center"/>
+=======
+{% set width   = 90 %}
+{% set height  = 60 %}
+{% set padding = 4 %}
+{% set labelw  = width - padding*2 %}
+{% set prefw   = 15 %}
+>>>>>>> Initial design for intro widget
 
-    <label text="TODO intro"
-           style="TextButtonSmall" textsize="0.25"  pos="21 -14" valign="bottom" />
+<frame id="intro" pos="30 {{height/2.0}}" valign="bottom">
+    <quad size="{{width}} {{height}}" pos="0 0" z-index="-2" style="Bgs1" substyle="BgEmpty"/>
+    <quad size="{{width}} {{height}}" pos="0 0" z-index="-1" bgcolor="{{col_bg}}A"/>
+    <quad size="{{width}} 18" pos="0 0" z-index="-1" bgcolor="{{col_bg}}A"/>
+
+    <label pos="{{padding}} -{{padding}}" size="{{labelw}} 5" textfont="BiryaniDemiBold" textsize="4"
+           textcolor="{{col_white}}" text="{{ map_name }}"/>
+
+    {% set y = 5 %}
+    <label pos="{{padding}} -{{padding+y}}" size="{{labelw}} 5" textfont="BiryaniDemiBold" textsize="2"
+           textcolor="{{col_white}}" text="by {{ map_author_nick_name | default(value=map_author_login) }}"/>
+
+    {% set y = y + 4 + 12 %}
+    <label pos="{{padding/2.0}} -{{padding+y}}" size="{{labelw}} 2" valign="bottom" style="{{font_small}}"
+           textsize="0.33" textcolor="{{col_white}}" text="Map Preferences"/>
+
+    {% if player_preference == PREF_AUTOPICK %}
+        {% set msg = "This map was picked for you." %}
+        {% set col = col_pick %}
+    {% elif player_preference == PREF_PICK %}
+        {% set msg = "You have picked this map." %}
+        {% set col = col_pick %}
+    {% elif player_preference == PREF_VETO %}
+        {% set msg = "You have vetoed this map." %}
+        {% set col = col_veto %}
+    {% elif player_preference == PREF_REMOVE %}
+        {% set msg = "You voted to remove this map." %}
+        {% set col = col_remove %}
+    {% else %}
+        {% set msg = "You have no preference for this map." %}
+        {% set col = col_white %}
+    {% endif %}
+
+    {% set y = y + 1 %}
+    <label pos="{{padding}} -{{padding+y}}" size="{{labelw}} 5" text="{{msg}}" textsize="2.5"
+           textcolor="{{col}}" textfont="BiryaniDemiBold"/>
+
+    {% set y = y + 5 %}
+    <label pos="{{padding}} -{{padding+y}}" size="{{prefw}} 5" text="Players"   textsize="2"
+           textcolor="{{col_white}}" textfont="BiryaniDemiBold"/>
+
+    <label pos="{{padding}} -{{padding+y+3}}" size="{{prefw}} 5" text="$o{{max_map_rank}}" textsize="4"
+           textcolor="{{col_white}}" textfont="BiryaniDemiBold"/>
+
+    {% for count in preference_counts %}
+        {% set nb = count[1] %}
+
+        {% if count[0] == PREF_PICK %}
+            {% set pref = "Pick" %}
+            {% set x = prefw %}
+            {% set col = col_pick %}
+        {% elif count[0] == PREF_VETO %}
+            {% set pref = "Veto" %}
+            {% set x = prefw*2 %}
+            {% set col = col_veto %}
+        {% elif count[0] == PREF_REMOVE %}
+            {% set pref = "Remove" %}
+            {% set x = prefw*3 %}
+            {% set col = col_remove %}
+        {% endif %}
+
+        <label pos="{{padding+x}} -{{padding+y}}" size="{{prefw}} 5" text="{{pref}}" textsize="2"
+               textcolor="{{col}}" textfont="BiryaniDemiBold"/>
+
+        <label pos="{{padding+x}} -{{padding+y+3}}" size="{{prefw}} 5" text="$o{{nb}}" textsize="4"
+               textcolor="{{col}}" textfont="BiryaniDemiBold"/>
+    {% endfor %}
+
+    {% set y = y + 3 + 12 %}
+    <label pos="{{padding/2.0}} -{{padding+y}}" size="{{labelw}} 2" valign="bottom" style="{{font_small}}"
+           textsize="0.33" textcolor="{{col_white}}" text="Map Ranking"/>
+
+    {% if max_map_rank == 0 or player_map_rank | default(value=0) == 0  %}
+        {% set msg = "You have no record on this map." %}
+    {% else %}
+        {% set msg = "Your map rank is  $o" ~ player_map_rank ~ " / " ~ max_map_rank %}
+    {% endif %}
+
+    {% set y = y + 1 %}
+    <label pos="{{padding}} -{{padding+y}}" size="{{labelw}} 5" text="{{msg}}" textsize="2.5"
+           textcolor="{{col_white}}" textfont="BiryaniDemiBold"/>
 </frame>
 
 {% endblock manialink %}

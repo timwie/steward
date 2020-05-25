@@ -74,17 +74,14 @@ pub struct Preference {
     pub value: PreferenceValue,
 }
 
-#[derive(
-    ToSql, FromSql, Deserialize_repr, Serialize_repr, Debug, PartialEq, Eq, Clone, Hash, Copy,
-)]
+#[derive(Debug, Clone, Copy, ToSql, FromSql, Deserialize_repr, Serialize_repr)]
+#[postgres(name = "pref")]
 #[repr(u8)]
-#[postgres(name = "steward.Pref")]
 pub enum PreferenceValue {
     // None = 0,
-    // AutoPick = 1,
-    Pick = 2,
-    Veto = 3,
-    Remove = 4,
+    Pick = 1,
+    Veto = 2,
+    Remove = 3,
 }
 
 /// Complete record variant, that includes replay data as "evidence".

@@ -1,6 +1,4 @@
-use std::collections::HashMap;
-
-use serde::Serialize;
+use serde::{Serialize, Serializer};
 
 use crate::controller::ActivePreferenceValue;
 use crate::database::PreferenceValue;
@@ -20,6 +18,7 @@ use crate::widget::Widget;
 #[derive(Serialize, Debug)]
 pub struct IntroWidget<'a> {
     /// The formatted map name.
+    #[serde(serialize_with = "to_narrow")]
     pub map_name: &'a str,
 
     /// The map author's login.
@@ -42,9 +41,17 @@ pub struct IntroWidget<'a> {
 
     /// Counts the preferences of any player for this map,
     /// connected or not.
-    pub preference_counts: HashMap<PreferenceValue, usize>,
+    pub preference_counts: Vec<(PreferenceValue, usize)>,
 }
 
 impl Widget for IntroWidget<'_> {
     const FILE: &'static str = "intro.j2";
+}
+
+/// Remove formatting to make a text more narrow.
+fn to_narrow<S>(p: &str, s: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    s.serialize_str(&p.replace("$o", "").replace("$w", ""))
 }
