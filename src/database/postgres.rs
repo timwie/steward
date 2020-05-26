@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 use std::str::FromStr;
 use std::sync::Arc;
-use std::time::SystemTime;
 
 use anyhow::Result;
 use include_dir::Dir;
@@ -12,7 +11,7 @@ use async_trait::async_trait;
 use crate::config::Config;
 use crate::database::queries::Queries;
 use crate::database::structs::*;
-use crate::ingame::{MapInfo, PlayerInfo};
+use crate::ingame::PlayerInfo;
 
 /// Connect to the Postgres database and open a connection pool.
 pub async fn pg_connect(config: &Config) -> Arc<dyn Queries> {
@@ -177,7 +176,7 @@ impl Queries for PostgresClient {
         Ok(row.map(Map::from))
     }
 
-    async fn insert_map(&self, map: &Map, data: Vec<u8>) -> Result<()> {
+    async fn upsert_map(&self, map: &MapEvidence) -> Result<()> {
         let conn = self.0.get().await?;
         let stmt = r#"
             INSERT INTO steward.map
@@ -188,51 +187,23 @@ impl Queries for PostgresClient {
                 ($1, $2, $3,
                  $4, $5, $6,
                  $7, $8)
-            ON CONFLICT (uid) DO NOTHING
-        "#;
-        let _ = conn
-            .execute(
-                stmt,
-                &[
-                    &map.uid,
-                    &map.file_name,
-                    &data,
-                    &map.name,
-                    &map.author_login,
-                    &map.added_since,
-                    &map.in_playlist,
-                    &map.exchange_id,
-                ],
-            )
-            .await?;
-        Ok(())
-    }
-
-    async fn upsert_map(&self, map: &MapInfo, data: Vec<u8>) -> Result<()> {
-        let conn = self.0.get().await?;
-        let stmt = r#"
-            INSERT INTO steward.map
-                (uid, file_name, file,
-                 name, author_login, added_since,
-                 in_playlist)
-            VALUES
-                ($1, $2, $3,
-                 $4, $5, $6,
-                 $7)
             ON CONFLICT (uid)
-            DO UPDATE SET file_name = excluded.file_name
+            DO UPDATE SET
+                file_name = excluded.file_name,
+                exchange_id = COALESCE(excluded.exchange_id, steward.map.exchange_id)
         "#;
         let _ = conn
             .execute(
                 stmt,
                 &[
-                    &map.uid,
-                    &map.file_name,
-                    &data,
-                    &map.name,
-                    &map.author_login,
-                    &SystemTime::now(),
-                    &true,
+                    &map.metadata.uid,
+                    &map.metadata.file_name,
+                    &map.data,
+                    &map.metadata.name,
+                    &map.metadata.author_login,
+                    &map.metadata.added_since,
+                    &map.metadata.in_playlist,
+                    &map.metadata.exchange_id,
                 ],
             )
             .await?;

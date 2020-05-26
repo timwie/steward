@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use async_recursion::async_recursion;
+use gbx::PlayerInfo;
 
 use crate::action::Action;
 use crate::command::{AdminCommand, CommandOutput, PlayerCommand, PlaylistCommandError};
@@ -10,7 +11,6 @@ use crate::database::{Database, Preference};
 use crate::event::{Command, ControllerEvent, PlaylistDiff, VoteInfo};
 use crate::ingame::{Server, ServerEvent};
 use crate::message::ServerMessage;
-use gbx::PlayerInfo;
 
 /// This facade hides all specific controllers behind one interface
 /// that can react to server events.

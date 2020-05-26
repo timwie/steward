@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::cmp::max;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -11,7 +12,6 @@ use crate::config::MAX_DISPLAYED_SERVER_RANKS;
 use crate::controller::LivePlayers;
 use crate::database::Database;
 use crate::event::{ServerRankDiff, ServerRankingDiff};
-use std::borrow::Cow;
 
 /// Use to lookup the current server rankings.
 /// They are updated after every race.

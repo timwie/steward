@@ -5,7 +5,7 @@ use anyhow::Result;
 use async_trait::async_trait;
 
 use crate::database::structs::*;
-use crate::ingame::{MapInfo, PlayerInfo};
+use crate::ingame::PlayerInfo;
 
 #[async_trait]
 pub trait Queries: Send + Sync {
@@ -34,12 +34,9 @@ pub trait Queries: Send + Sync {
     /// Return the specified map, or `None` if no such map exists in the database.
     async fn map(&self, map_uid: &str) -> Result<Option<Map>>;
 
-    /// Insert a map and add it to the playlist.
-    async fn insert_map(&self, map: &Map, data: Vec<u8>) -> Result<()>;
-
     /// Insert the map and add it to the playlist if it does not already
-    /// exist in the database. Update its file path otherwise.
-    async fn upsert_map(&self, map: &MapInfo, data: Vec<u8>) -> Result<()>;
+    /// exist in the database. Update its file path & exchange ID otherwise.
+    async fn upsert_map(&self, map: &MapEvidence) -> Result<()>;
 
     /// Add the specified map to the playlist, and return it,
     /// or `None` if there is no map with that UID.
