@@ -57,9 +57,20 @@ pub struct ExchangeMap {
 ///
 /// The ID is either its ID on the website (a number), or
 /// its UID (encoded in the GBX file's header).
-pub async fn download_exchange_map(map_id: &str) -> Result<ExchangeMap, ExchangeError> {
+pub async fn exchange_map(map_id: &str) -> Result<ExchangeMap, ExchangeError> {
+    let metadata = exchange_metadata(map_id).await?;
+    let data = exchange_map_file(map_id).await?;
+    Ok(ExchangeMap { metadata, data })
+}
+
+/// Fetch the Exchange ID of the specified map. Returns `Err(UnknownId)` if
+/// that map is not on Exchange.
+pub async fn exchange_id(map_id: &str) -> Result<i32, ExchangeError> {
+    Ok(exchange_metadata(map_id).await?.exchange_id)
+}
+
+async fn exchange_metadata(map_id: &str) -> Result<ExchangeMetadata, ExchangeError> {
     let info_url = "https://api.mania-exchange.com/tm/maps/".to_string() + map_id;
-    let dl_url = "https://tm.mania-exchange.com/tracks/download/".to_string() + map_id;
 
     log::debug!("fetch exchange metadata for map id {}", map_id);
     let json: String = HTTP_CLIENT.get(&info_url).send().await?.text().await?;
@@ -68,6 +79,12 @@ pub async fn download_exchange_map(map_id: &str) -> Result<ExchangeMap, Exchange
         .into_iter()
         .next()
         .ok_or(ExchangeError::UnknownId)?;
+
+    Ok(metadata)
+}
+
+async fn exchange_map_file(map_id: &str) -> Result<Vec<u8>, ExchangeError> {
+    let dl_url = "https://tm.mania-exchange.com/tracks/download/".to_string() + map_id;
 
     log::debug!("fetch exchange file for map id {}", map_id);
     let data = HTTP_CLIENT
@@ -78,5 +95,5 @@ pub async fn download_exchange_map(map_id: &str) -> Result<ExchangeMap, Exchange
         .await?
         .to_vec();
 
-    Ok(ExchangeMap { metadata, data })
+    Ok(data)
 }

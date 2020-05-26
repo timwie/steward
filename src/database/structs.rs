@@ -3,6 +3,8 @@ use std::time::SystemTime;
 use postgres_types::{FromSql, ToSql};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 
+use gbx::MapInfo;
+
 /// Database player that has joined the server at least once.
 #[derive(Debug)]
 pub struct Player {
@@ -36,6 +38,20 @@ pub struct Map {
 
     /// This map's ID on Trackmania Exchange, or `None` if it is unknown.
     pub exchange_id: Option<i32>,
+}
+
+impl From<MapInfo> for Map {
+    fn from(info: MapInfo) -> Self {
+        Map {
+            uid: info.uid,
+            file_name: info.file_name,
+            name: info.name,
+            author_login: info.author_login,
+            added_since: SystemTime::now(),
+            in_playlist: true,
+            exchange_id: None,
+        }
+    }
 }
 
 /// Database map, including its file data.

@@ -12,10 +12,10 @@ use gbx::MapInfo;
 
 use crate::command::PlaylistCommandError;
 use crate::controller::LiveSettings;
-use crate::database::{Database, Map};
+use crate::database::{Database, Map, MapEvidence};
 use crate::event::PlaylistDiff;
 use crate::ingame::Server;
-use crate::network::{download_exchange_map, ExchangeError};
+use crate::network::{exchange_map, ExchangeError};
 
 /// Use to lookup the current playlist, and the map that is currently being played.
 #[async_trait]
@@ -246,7 +246,7 @@ impl PlaylistController {
     /// The ID is either its ID on the website (a number), or
     /// its UID (encoded in the GBX file's header).
     pub async fn import_map(&self, map_id: &str) -> Result<PlaylistDiff, PlaylistCommandError> {
-        let import_map = match download_exchange_map(map_id).await {
+        let import_map = match exchange_map(map_id).await {
             Ok(import_map) => import_map,
             Err(ExchangeError::UnknownId) => return Err(PlaylistCommandError::UnknownImportId),
             Err(err) => return Err(PlaylistCommandError::MapImportFailed(Box::new(err))),
@@ -297,9 +297,14 @@ impl PlaylistController {
             exchange_id: Some(import_map.metadata.exchange_id),
         };
 
+        let map_evidence = MapEvidence {
+            metadata: db_map.clone(),
+            data: import_map.data,
+        };
+
         // 2. add to db playlist
         self.db
-            .insert_map(&db_map, import_map.data)
+            .upsert_map(&map_evidence)
             .await
             .expect("failed to insert map into database");
 

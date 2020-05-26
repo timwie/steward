@@ -8,8 +8,9 @@ use std::sync::Arc;
 use gbx::{SCRIPT_API_VERSION, SERVER_API_VERSION};
 
 use crate::config::Config;
-use crate::database::Database;
+use crate::database::{Database, Map, MapEvidence};
 use crate::ingame::{MapInfo, ModeInfo, ModeOptions, Server, ServerInfo, ServerOptions};
+use crate::network::exchange_id;
 
 /// Runs everything that needs to run at startup.
 pub async fn prepare(server: &Arc<dyn Server>, db: &Arc<dyn Database>, config: &Config) {
@@ -203,6 +204,8 @@ async fn prepare_playlist(server: &Arc<dyn Server>, db: &Arc<dyn Database>) {
 ///
 /// New maps should be enabled, and old maps should have their file name updated
 /// in case it changed.
+///
+/// For new maps, we will also try to find their IDs on Trackmania Exchange.
 async fn fs_maps_to_db(server: &Arc<dyn Server>, db: &Arc<dyn Database>) {
     let maps_dir = server.user_data_dir().await.join("Maps");
 
@@ -238,7 +241,7 @@ async fn fs_maps_to_db(server: &Arc<dyn Server>, db: &Arc<dyn Database>) {
     log::debug!("local map infos: {:?}", &map_infos);
 
     // Insert new maps & update file paths of those already in the database.
-    for info in map_infos.iter() {
+    for info in map_infos.into_iter() {
         let map_file = maps_dir.join(&info.file_name);
 
         // At this point, the playlist can actually still contain maps
@@ -248,17 +251,38 @@ async fn fs_maps_to_db(server: &Arc<dyn Server>, db: &Arc<dyn Database>) {
         }
 
         let map_data = read_to_bytes(&map_file).expect("failed to read map file");
-        let is_new_map = db
-            .map(&info.uid)
-            .await
-            .expect("failed to load map")
-            .is_none();
-        db.upsert_map(info, map_data)
-            .await
-            .expect("failed to upsert map");
-        if is_new_map {
-            log::info!("found new map: {:?}", &info);
+        fs_map_to_db(info, map_data, &db).await;
+    }
+}
+
+async fn fs_map_to_db(map_info: MapInfo, map_data: Vec<u8>, db: &Arc<dyn Database>) {
+    let maybe_db_map = db.map(&map_info.uid).await.expect("failed to load map");
+
+    let is_new_map = maybe_db_map.is_none();
+
+    let mut new_db_map = match maybe_db_map {
+        None => Map::from(map_info),
+        Some(map) => map,
+    };
+
+    // Try to find exchange ID
+    if new_db_map.exchange_id.is_none() {
+        if let Ok(id) = exchange_id(&new_db_map.uid).await {
+            new_db_map.exchange_id = Some(id);
         }
+    }
+
+    let evidence = MapEvidence {
+        metadata: new_db_map,
+        data: map_data,
+    };
+
+    db.upsert_map(&evidence)
+        .await
+        .expect("failed to upsert map");
+
+    if is_new_map {
+        log::info!("found new map: {:?}", &evidence.metadata);
     }
 }
 
