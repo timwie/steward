@@ -7,7 +7,7 @@
     {% set nb_sectors = top1_sector_millis | length %}
 
     {% set max_nb_sectors = 16 %}
-    
+
     {% set sector_w = 320 / (max_nb_sectors + 2) %}
     {% set sector_h = 4.5 %}
     {% set sector_x_padding = 1 %}
@@ -32,36 +32,37 @@
 <!-- Colored bar at the top indicates whether the run is on course to become a new PB -->
 <frame z-index="101">
     <quad id="color_bar" pos="-160 90" size="320 {{color_bar_h}}" bgcolor="{{col_neutral}}" z-index="1"/>
-    <quad size="320 0.2" pos="-160 {{90 - color_bar_h}}" bgcolor="{{col_bg}}" opacity="0.1" valign="center"/>
+    <quad size="320 0.2" pos="-160 {{90 - color_bar_h}}" bgcolor="{{col_neutral}}" opacity="0.1" valign="center"/>
 </frame>
 
 <frame pos="{{frame_x_offset}} {{90 - color_bar_h}}" z-index="100">
     <!-- Dividing lines -->
     {% for i in range(end=nb_sectors-1) %}
         <quad id="sector_div_{{i}}"
-              size="{{sector_div_w}} {{sector_h * 2}}" pos="{{(i+2)*sector_w}} 0" bgcolor="{{col_bg}}" opacity="0.1" z-index="3" halign="center"/>
+              size="{{sector_div_w}} {{sector_h * 2}}" pos="{{(i+2)*sector_w}} 0" halign="center" z-index="3"
+              bgcolor="{{col_neutral}}" opacity="0.1"/>
     {% endfor %}
 
     <!-- Labels on the right -->
     <frame pos="{{frame_w - sector_w}} 0" z-index="1">
         <label id="map_name"
                pos="{{sector_x_padding}} {{sector_h * -0.5}}" valign="center"
-               textcolor="{{col_white}}" textsize="2.5" textfont="BiryaniDemiBold"/>
+               textcolor="{{col_white}}" textsize="2.5" textfont="{{font_text}}"/>
         <label id="map_author"
                pos="{{sector_x_padding}} {{sector_h * -1.5}}" valign="center"
-               textcolor="{{col_white}}" textsize="1.5" textfont="BiryaniDemiBold"/>
+               textcolor="{{col_white}}" textsize="1.5" textfont="{{font_text}}"/>
         <label id="map_record"
                pos="{{sector_x_padding}} {{sector_h * -2.5}}" valign="center"
-               textcolor="{{col_white}}" textsize="2.5" textfont="BiryaniDemiBold"/>
+               textcolor="{{col_white}}" textsize="2.5" textfont="{{font_text}}"/>
     </frame>
 
     <!-- Labels on the left -->
     <frame pos="{{sector_w - sector_x_padding}} 0" z-index="1">
         <label size="{{sector_label_w}} {{sector_label_h}}" pos="0 {{sector_h * -0.5}}"
-               text="$sPB ± Top1" style="{{ font_small }}" halign="right" valign="center"
+               text="$sPB ± Top1" style="{{ font_bold_small }}" halign="right" valign="center"
                textcolor="{{col_white}}"/>
         <label size="{{sector_label_w}} {{sector_label_h}}" pos="0 {{sector_h * -1.5}}"
-               text="$sLive ± Top1" style="{{ font_small }}" halign="right" valign="center"
+               text="$sLive ± Top1" style="{{ font_bold_small }}" halign="right" valign="center"
                textcolor="{{col_white}}"/>
     </frame>
 
@@ -76,7 +77,7 @@
             <!-- Sector numbering "S1", "S2", etc on the bottom -->
             <label id="sector_label_{{idx}}"
                    pos="{{sector_w/2}} {{sector_h * -2 - sector_label_h * 0.5}}"
-                   text="$sS{{idx+1}}" style="{{ font_small }}" halign="center" valign="center"
+                   text="$sS{{idx+1}}" style="{{ font_bold_small }}" halign="center" valign="center"
                    textcolor="{{col_white}}"/>
 
             <frame pos="0 {{sector_h * -2}}">
@@ -91,11 +92,11 @@
             <!-- The two diffs, one for PB vs Top1, one for Live vs Top1 -->
             <label id="pb_diff_text_{{idx}}"
                    size="{{sector_label_w}} {{sector_h}}" pos="{{sector_w/2}} {{sector_h * -0.5}}"
-                   z-index="2" style="{{ font_big }}" halign="center" valign="center"
+                   z-index="2" style="{{ font_bold_big }}" halign="center" valign="center"
                    textcolor="{{col_white}}"/>
             <label id="live_diff_text_{{idx}}"
                    size="{{sector_label_w}} {{sector_h}}" pos="{{sector_w/2}} {{sector_h * -1.5}}"
-                   z-index="2" style="{{ font_big }}" halign="center" valign="center"
+                   z-index="2" style="{{ font_bold_big }}" halign="center" valign="center"
                    textcolor="{{col_white}}"/>
         </frame>
     {% endfor %}
