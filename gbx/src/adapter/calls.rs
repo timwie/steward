@@ -5,6 +5,7 @@ use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
+use serde::Deserialize;
 use serde_bytes::ByteBuf;
 
 use async_trait::async_trait;
@@ -104,7 +105,7 @@ impl Calls for RpcClient {
     async fn players(&self) -> Vec<PlayerInfo> {
         self.call_method_unwrap(
             "GetPlayerList",
-            args!(-1, -0), // length, offset
+            args!(-1, 0), // length, offset
         )
         .await
     }
@@ -186,6 +187,10 @@ impl Calls for RpcClient {
     async fn playlist_change_current(&self, map_index: i32) -> Result<()> {
         self.call_method_unit("JumpToMapIndex", args!(map_index))
             .await
+    }
+
+    async fn playlist_skip(&self) {
+        self.call_method_unwrap_unit("NextMap", args!()).await;
     }
 
     async fn chat_send(&self, msg: &str) {
@@ -274,6 +279,59 @@ impl Calls for RpcClient {
             args: args!("Trackmania.GetScores", arg_list),
         };
         self.trigger_callback(response_id, call).await;
+    }
+
+    async fn blacklist_add(&self, player_login: &str) {
+        self.call_method_unwrap_unit("BlackList", args!(player_login))
+            .await;
+    }
+
+    async fn blacklist_remove(&self, player_login: &str) {
+        self.call_method_unwrap_unit("UnBlackList", args!(player_login))
+            .await;
+    }
+
+    async fn blacklist(&self) -> Vec<String> {
+        #[derive(Deserialize)]
+        #[serde(rename_all = "PascalCase")]
+        struct BlacklistPlayer {
+            pub login: String,
+        }
+
+        let players: Vec<BlacklistPlayer> = self
+            .call_method_unwrap(
+                "GetBlackList",
+                args!(-1, 0), // length, offset
+            )
+            .await;
+
+        players.into_iter().map(|p| p.login).collect()
+    }
+
+    async fn load_blacklist(&self, file_name: &str) -> Result<()> {
+        self.call_method_unit("LoadBlackList", args!(file_name))
+            .await
+    }
+
+    async fn save_blacklist(&self, file_name: &str) -> Result<()> {
+        self.call_method_unit("SaveBlackList", args!(file_name))
+            .await
+    }
+
+    async fn kick_player(&self, login: &str, reason: Option<&str>) -> Result<()> {
+        let args = match reason {
+            Some(reason) => args!(login, reason),
+            None => args!(login),
+        };
+        self.call_method_unit("Kick", args).await
+    }
+
+    async fn net_stats(&self) -> NetStats {
+        self.call_method_unwrap("GetNetworkStats", args!()).await
+    }
+
+    async fn stop_server(&self) {
+        self.call_method_unwrap_unit("QuitGame", args!()).await;
     }
 }
 

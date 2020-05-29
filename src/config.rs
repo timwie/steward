@@ -1,10 +1,13 @@
 use std::path::PathBuf;
 
-use serde::Deserialize;
+use lazy_static::*;
+use semver::Version;
+use serde::{Deserialize, Serialize};
 
-/// Controller version.
-#[allow(dead_code)]
-pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+lazy_static! {
+    /// Controller version.
+    pub static ref VERSION: Version = Version::parse(env!("CARGO_PKG_VERSION")).unwrap();
+}
 
 /// User-Agent header for outgoing requests.
 pub const USER_AGENT: &str = concat!(
@@ -32,6 +35,17 @@ pub const CDN_PREFIX: &str = concat!(
 /// Useful for development, but not for production, since images might disappear
 /// for older versions.
 pub const CDN_PREFIX_MASTER: &str = "https://cdn.jsdelivr.net/gh/timwie/steward@master/src/res/img";
+
+/// The number of top records for which ghost replays are stored.
+pub const MAX_GHOST_REPLAY_RANK: usize = 3;
+
+/// The time (in percentage of the total outro duration) during which players
+/// can still vote for a restart after the race ends. The next map will be
+/// decided after this duration.
+///
+/// This should be long enough to let players interact with the poll, but also short
+/// enough to be able to display the next map for a good duration within the outro.
+pub const VOTE_DURATION_RATIO: f32 = 0.66;
 
 /// Require this percentage of players for the first restart vote.
 pub const DEFAULT_MIN_RESTART_VOTE_RATIO: f32 = 0.5;
@@ -93,8 +107,11 @@ pub const MAX_NB_ANNOUNCED_RANKS: usize = 3;
 /// but still keep it low enough so that it is not a distraction when starting the next.
 pub const START_HIDE_WIDGET_DELAY_MILLIS: u64 = 1500;
 
+/// The file that will contain the list of blacklisted players.
+pub const BLACKLIST_FILE: &str = "blacklist.txt";
+
 /// Controller config.
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 pub struct Config {
     /// The address of the game server's XML-RPC port, f.e. "127.0.0.1:5000".
     ///
@@ -107,20 +124,24 @@ pub struct Config {
     /// setting in the server config.
     pub rpc_address: String,
 
+    /// The "SuperAdmin" login defined in the `<authorization_levels>`
+    /// server config in `/UserData/Config/*.txt`.
+    pub rpc_login: String,
+
+    /// The "SuperAdmin" password defined in the `<authorization_levels>`
+    /// server config in `/UserData/Config/*.txt`.
+    pub rpc_password: String,
+
     /// Connection configuration parsed from libpq-style connection strings, f.e.
     /// `host=127.0.0.1 port=5432 user=postgres password=123 connect_timeout=10`.
     ///
     /// Reference: https://www.postgresql.org/docs/9.3/libpq-connect.html#LIBPQ-CONNSTRING
     pub postgres_connection: String,
 
-    /// The "SuperAdmin" login defined in the `<authorization_levels>`
-    /// config in `/UserData/Config/*.txt`.
-    pub super_admin_name: String,
+    /// List of player logins that can execute super admin commands.
+    pub super_admin_whitelist: Vec<String>,
 
-    /// The "SuperAdmin" password.
-    pub super_admin_pw: String,
-
-    /// List of player logins that are given admin rights.
+    /// List of player logins that can execute admin commands.
     pub admin_whitelist: Vec<String>,
 
     /// The Time Attack time limit in seconds.
@@ -129,56 +150,55 @@ pub struct Config {
     /// The time spent on a map after the race ends in seconds.
     /// Overrides the `S_ChatTime` mode setting.
     ///
-    /// This should be long enough to allow for widget interaction,
-    /// f.e. letting players vote for a restart.
-    pub outro_duration_secs: u32,
-
-    /// The time during which players can still vote for a restart
-    /// after the race ends. The next map will be decided after
-    /// this duration.
+    /// This should be long enough to allow for widget interaction
+    /// after a race.
     ///
-    /// This should be long enough to let players interact with the
-    /// poll, but also short enough to be able to display the
-    /// next map for a good duration within the outro. A good value
-    /// would be half of `outro_duration_secs`.
-    pub vote_duration_secs: u32,
+    /// Votes during the outro will be open for two thirds of this value.
+    pub outro_duration_secs: u32,
 }
 
 impl Config {
+    /// The time during which players can still vote for a restart
+    /// after a race ends. The next map will be decided after
+    /// this duration.
+    pub fn vote_duration_secs(&self) -> u32 {
+        (self.outro_duration_secs as f32 * VOTE_DURATION_RATIO) as u32
+    }
+
     /// Read the config file listed in the `STEWARD_CONFIG` environment variable.
     ///
     /// # Panics
     /// - when `STEWARD_CONFIG` is not set
     /// - when `STEWARD_CONFIG` does not point to a valid TOML config
-    /// - when an assertion on one or more values fails
-    pub async fn read_from_env() -> Config {
-        const CONFIG_ENV_VAR: &str = "STEWARD_CONFIG";
+    /// - when the file cannot be parsed
+    pub fn load() -> Config {
+        let f = Self::path().unwrap_or_else(|| {
+            panic!("cannot locate config: use the '{}' env var", CONFIG_ENV_VAR)
+        });
+        let f_str = std::fs::read_to_string(f).expect("failed to read config file");
+        let cfg: Config = toml::from_str(&f_str).expect("failed to parse config file");
+        cfg
+    }
 
-        fn parse_file(f: PathBuf) -> anyhow::Result<Config> {
-            let f_str = std::fs::read_to_string(f)?;
-            let config: Config = toml::from_str(&f_str)?;
-            Ok(config)
-        }
+    /// Overwrite the config file listed in the `STEWARD_CONFIG` environment variable.
+    ///
+    /// # Panics
+    /// - when `STEWARD_CONFIG` is not set
+    /// - when the file cannot be overwritten
+    pub fn save(&self) {
+        let f = Self::path().unwrap_or_else(|| {
+            panic!("cannot locate config: use the '{}' env var", CONFIG_ENV_VAR)
+        });
+        let config_str = toml::to_string(&self).expect("failed to compose config file");
+        std::fs::write(f, config_str).expect("failed to overwrite config file");
+    }
 
-        let env_file = match std::env::var(CONFIG_ENV_VAR) {
+    fn path() -> Option<PathBuf> {
+        match std::env::var(CONFIG_ENV_VAR) {
             Ok(f) => Some(PathBuf::from(f)).filter(|p| p.is_file()),
             Err(_) => None,
-        };
-
-        if let Some(f) = env_file {
-            let cfg = parse_file(f).expect("failed to parse config file");
-            check_config(&cfg);
-            return cfg;
         }
-
-        panic!("cannot locate config: use the '{}' env var", CONFIG_ENV_VAR)
     }
 }
 
-/// Try to catch configuration errors early.
-fn check_config(config: &Config) {
-    assert!(
-        config.outro_duration_secs > config.vote_duration_secs,
-        "config: 'outro_duration_secs' must be larger than 'vote_duration_secs'!"
-    );
-}
+const CONFIG_ENV_VAR: &str = "STEWARD_CONFIG";

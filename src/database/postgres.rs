@@ -283,7 +283,7 @@ impl Queries for PostgresClient {
                    millis,
                    timestamp,
                    RANK () OVER (
-                      ORDER BY millis
+                      ORDER BY millis ASC
                    ) pos
                 FROM steward.record
                 WHERE map_uid = $1
@@ -515,6 +515,71 @@ impl Queries for PostgresClient {
                 in_playlist: row.get("in_playlist"),
             })
             .collect())
+    }
+
+    async fn delete_player(&self, player_login: &str) -> Result<Option<Player>> {
+        let mut conn = self.0.get().await?;
+        let transaction = conn.transaction().await?;
+
+        let stmt = "DELETE FROM steward.preference WHERE player_login = $1";
+        let _ = transaction.execute(stmt, &[&player_login]).await?;
+
+        let stmt = "DELETE FROM steward.sector WHERE player_login = $1";
+        let _ = transaction.execute(stmt, &[&player_login]).await?;
+
+        let stmt = "DELETE FROM steward.record WHERE player_login = $1";
+        let _ = transaction.execute(stmt, &[&player_login]).await?;
+
+        let stmt = "DELETE FROM steward.player WHERE login = $1 RETURNING *";
+        let maybe_row = transaction.query_opt(stmt, &[&player_login]).await?;
+        let maybe_player = maybe_row.map(Player::from);
+
+        transaction.commit().await?;
+        Ok(maybe_player)
+    }
+
+    async fn delete_map(&self, map_uid: &str) -> Result<Option<Map>> {
+        let mut conn = self.0.get().await?;
+        let transaction = conn.transaction().await?;
+
+        let stmt = "DELETE FROM steward.preference WHERE map_uid = $1";
+        let _ = transaction.execute(stmt, &[&map_uid]).await?;
+
+        let stmt = "DELETE FROM steward.sector WHERE map_uid = $1";
+        let _ = transaction.execute(stmt, &[&map_uid]).await?;
+
+        let stmt = "DELETE FROM steward.record WHERE map_uid = $1";
+        let _ = transaction.execute(stmt, &[&map_uid]).await?;
+
+        let stmt = "DELETE FROM steward.map WHERE uid = $1 RETURNING *";
+        let maybe_row = transaction.query_opt(stmt, &[&map_uid]).await?;
+        let maybe_map = maybe_row.map(Map::from);
+
+        transaction.commit().await?;
+        Ok(maybe_map)
+    }
+
+    async fn delete_old_ghosts(&self, max_rank: i64) -> Result<u64> {
+        assert!(max_rank > 0, "tried to delete every ghost replay");
+
+        let conn = self.0.get().await?;
+        let stmt = r#"
+            DELETE FROM steward.record a
+            USING (
+                SELECT
+                   player_login,
+                   map_uid,
+                   RANK () OVER (
+                      PARTITION BY player_login, map_uid
+                      ORDER BY millis ASC
+                   ) pos
+                FROM steward.record
+            ) b
+            WHERE a.player_login = b.player_login AND a.map_uid = b.map_uid AND b.pos > $1
+        "#;
+        let nb_deleted = conn.execute(stmt, &[&max_rank]).await?;
+
+        Ok(nb_deleted)
     }
 }
 

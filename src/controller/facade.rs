@@ -1,16 +1,22 @@
 use std::sync::Arc;
 
+use semver::Version;
+
 use async_recursion::async_recursion;
 use gbx::PlayerInfo;
 
 use crate::action::Action;
-use crate::command::{AdminCommand, CommandOutput, PlayerCommand, PlaylistCommandError};
-use crate::config::Config;
+use crate::command::{
+    AdminCommand, CommandOutput, DangerousCommand, PlayerCommand, PlaylistCommandError,
+    SuperAdminCommand,
+};
+use crate::config::{Config, BLACKLIST_FILE, VERSION};
 use crate::controller::*;
 use crate::database::{Database, Preference};
 use crate::event::{Command, ControllerEvent, PlaylistDiff, VoteInfo};
 use crate::ingame::{Server, ServerEvent};
 use crate::message::ServerMessage;
+use crate::network::most_recent_controller_version;
 
 /// This facade hides all specific controllers behind one interface
 /// that can react to server events.
@@ -147,7 +153,7 @@ impl Controller {
             }
 
             ServerEvent::RaceEnd => {
-                let vote_duration = self.settings.vote_duration();
+                let vote_duration = self.settings.vote_duration().await;
                 let min_restart_vote_ratio = self.queue.current_min_restart_vote_ratio().await;
                 let vote_info = VoteInfo {
                     duration: vote_duration,
@@ -317,6 +323,14 @@ impl Controller {
                 self.on_admin_cmd(&from, cmd).await
             }
 
+            ControllerEvent::IssuedCommand(Command::SuperAdmin { from, cmd }) => {
+                self.on_super_admin_cmd(&from, cmd).await
+            }
+
+            ControllerEvent::IssuedCommand(Command::Dangerous { from, cmd }) => {
+                self.on_dangerous_cmd(&from, cmd).await
+            }
+
             ControllerEvent::IssuedAction { from_login, action } => {
                 if let Some(info) = self.players.info(&from_login).await {
                     self.on_action(&info, action).await;
@@ -344,15 +358,39 @@ impl Controller {
         }
     }
 
-    async fn on_cmd(&self, _from_login: &str, _cmd: PlayerCommand) {
-        // update in case we add player commands
+    async fn on_cmd(&self, from_login: &str, cmd: PlayerCommand) {
+        use PlayerCommand::*;
+
+        match cmd {
+            Help => {
+                let msg = CommandOutput::PlayerCommandReference;
+                self.widget.show_popup(msg, from_login).await;
+            }
+            Info => {
+                let controller = self.clone(); // 'self' with 'static lifetime
+                let from_login = from_login.to_string(); // allow data to outlive the current scope
+                let _ = tokio::spawn(async move {
+                    let msg = CommandOutput::Info {
+                        controller_version: &VERSION,
+                        most_recent_controller_version: &most_recent_controller_version()
+                            .await
+                            .unwrap_or_else(|_| Version::new(0, 0, 0)),
+                        config: &*controller.settings.lock_config().await,
+                        server_info: &controller.server.server_info().await,
+                        net_stats: &controller.server.net_stats().await,
+                        blacklist: &controller.server.blacklist().await,
+                    };
+                    controller.widget.show_popup(msg, &from_login).await;
+                });
+            }
+        }
     }
 
     async fn on_admin_cmd(&self, from_login: &str, cmd: AdminCommand<'_>) {
         use AdminCommand::*;
         match cmd {
             Help => {
-                let msg = CommandOutput::CommandReference;
+                let msg = CommandOutput::AdminCommandReference;
                 self.widget.show_popup(msg, from_login).await;
             }
             ListMaps => {
@@ -379,7 +417,123 @@ impl Controller {
                         .await;
                 });
             }
+            SkipCurrentMap => {
+                let maybe_info = self.players.info(&from_login).await;
+                let maybe_nick_name: Option<&str> = match &maybe_info {
+                    Some(info) => Some(&info.nick_name),
+                    None => None,
+                };
+                let _ = self.queue.next_maps().await; // set next playlist index
+                self.server.playlist_skip().await;
+                self.chat
+                    .announce(ServerMessage::AdminSkippedMap {
+                        name: maybe_nick_name.unwrap_or(from_login),
+                    })
+                    .await;
+            }
+            RestartCurrentMap => {
+                // TODO controller: force restart in queue
+                // TODO chat: announce that an admin restarted the current map
+            }
+            ForceQueue { uid } => {
+                // TODO do we allow to force queue a map multiple times?
+                // TODO controller: force queue
+                // TODO chat: announce that an admin force queued a map
+                // TODO popup: print message if unknown uid
+            }
+            SetRaceDuration(secs) => {
+                self.settings
+                    .edit_config(|cfg: &mut Config| cfg.race_duration_secs = secs)
+                    .await;
+            }
+            SetOutroDuration(secs) => {
+                self.settings
+                    .edit_config(|cfg: &mut Config| cfg.outro_duration_secs = secs)
+                    .await;
+            }
+            BlacklistAdd { login } => {
+                let _ = self.players.remove_player(&login).await;
+                let _ = self.server.kick_player(&login, Some("Blacklisted")).await;
+                self.server.blacklist_add(&login).await;
+                self.server
+                    .save_blacklist(BLACKLIST_FILE)
+                    .await
+                    .expect("failed to save blacklist file");
+                // TODO chat: announce that an admin blacklisted a player
+            }
+            BlacklistRemove { login } => {
+                let blacklist = self.server.blacklist().await;
+                if blacklist.contains(&login.to_string()) {
+                    self.server.blacklist_remove(&login).await;
+                    self.server
+                        .save_blacklist(BLACKLIST_FILE)
+                        .await
+                        .expect("failed to save blacklist file");
+                } else {
+                    // TODO popup: print message if unknown player
+                }
+            }
         };
+    }
+
+    async fn on_super_admin_cmd(&self, from_login: &str, cmd: SuperAdminCommand) {
+        use DangerousCommand::*;
+        use SuperAdminCommand::*;
+
+        match cmd {
+            Help => {
+                let msg = CommandOutput::SuperAdminCommandReference;
+                self.widget.show_popup(msg, from_login).await;
+            }
+            Confirm => {
+                // TODO popup: print message since no command to confirm
+            }
+            Unconfirmed(DeleteMap { uid }) => {
+                // TODO popup: print /confirm instruction
+            }
+            Unconfirmed(DeletePlayer { login }) => {
+                // TODO popup: print /confirm instruction
+            }
+            Unconfirmed(Shutdown) => {
+                // TODO popup: print /confirm instruction
+            }
+        }
+    }
+
+    async fn on_dangerous_cmd(&self, from_login: &str, cmd: DangerousCommand) {
+        use DangerousCommand::*;
+
+        match cmd {
+            DeleteMap { uid } => {
+                match self.db.map(&uid).await.expect("failed to load map") {
+                    Some(map) if !map.in_playlist => {
+                        let _ = self.db.delete_map(&uid).await;
+                        // TODO chat: announce that an admin deleted a map
+                    }
+                    Some(_) => {
+                        // TODO popup: print message if still in playlist
+                    }
+                    None => {
+                        // TODO popup: print message if not in database
+                    }
+                }
+            }
+            DeletePlayer { login } => {
+                let blacklist = self.server.blacklist().await;
+                if blacklist.contains(&login) {
+                    let _ = self
+                        .db
+                        .delete_player(&login)
+                        .await
+                        .expect("failed to delete player");
+                } else {
+                    // TODO popup: print message if not blacklisted or not in database
+                }
+            }
+            Shutdown => {
+                self.server.stop_server().await;
+            }
+        }
     }
 
     async fn on_playlist_cmd(

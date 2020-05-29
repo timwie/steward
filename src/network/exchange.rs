@@ -7,15 +7,15 @@ use crate::network::HTTP_CLIENT;
 #[derive(Error, Debug)]
 pub enum ExchangeError {
     /// Cannot find a map with the requested ID or UID.
-    #[error("cannot find a map with the requested ID or UID")]
+    #[error("cannot find a trackmania.exchange map with the requested ID or UID")]
     UnknownId,
 
     /// Wrong endpoint, or maybe not available right now.
-    #[error("API request failed")]
+    #[error("trackmania.exchange API request failed")]
     RequestError(#[from] reqwest::Error),
 
     /// Likely a bug on our end.
-    #[error("failed to parse API response")]
+    #[error("failed to parse trackmania.exchange API response")]
     ParseError(#[from] serde_json::Error),
 }
 

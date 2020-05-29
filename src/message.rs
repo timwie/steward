@@ -53,6 +53,9 @@ pub enum ServerMessage<'a> {
 
     /// Tell players to vote if they want a restart.
     VoteNow { duration: Duration, threshold: f32 },
+
+    /// Tell players that an admin skipped the current map.
+    AdminSkippedMap { name: &'a str },
 }
 
 pub struct TopRankMessage<'a> {
@@ -245,6 +248,8 @@ impl Display for ServerMessage<'_> {
                 "Vote for a restart in the next {} seconds.",
                 duration.as_secs()
             ),
+
+            AdminSkippedMap { name } => write!(f, "Admin {} skipped the current map.", name),
         }
     }
 }

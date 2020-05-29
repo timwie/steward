@@ -9,35 +9,25 @@
 # setting in the server config.
 rpc_address = "127.0.0.1:5000"
 
+# The "SuperAdmin" credentials defined in the `<authorization_levels>` config
+# in `/UserData/Config/*.txt`.
+rpc_login = "SuperAdmin"
+rpc_password = "SuperAdmin"
+
 # Connection configuration parsed from libpq-style connection strings, f.e.
 # `host=127.0.0.1 port=5432 user=postgres password=123 connect_timeout=10`.
 # see also: https://www.postgresql.org/docs/9.3/libpq-connect.html#LIBPQ-CONNSTRING
 postgres_connection = "host=127.0.0.1 user=postgres password=123"
 
-# The "SuperAdmin" credentials defined in the `<authorization_levels>` config
-# in `/UserData/Config/*.txt`.
-super_admin_name = "SuperAdmin"
-super_admin_pw = "SuperAdmin"
-
-# List of player logins that are given admin rights.
-admin_whitelist = ["admin1", "admin2"]
+# List of player logins that can execute (super) admin commands.
+super_admin_whitelist = ["admin1", "admin2"]
+admin_whitelist = ["admin3", "admin4"]
 
 # The Time Attack time limit in seconds.
 race_duration_secs = 300
 
 # The time spent on a map after the race ends in seconds.
-# Overrides the `S_ChatTime` mode setting.
-#
-# This should be long enough to allow for widget interaction,
-# f.e. letting players vote for a restart.
+# Overrides the S_ChatTime mode setting.
+# This should be long enough to allow for widget interaction after a race.
+# Votes during the outro will be open for two thirds of this value.
 outro_duration_secs = 20
-
-# The time during which players can still vote for a restart
-# after the race ends. The next map will be decided after
-# this duration.
-#
-# This should be long enough to let players interact with the
-# poll, but also short enough to be able to display the
-# next map for a good duration within the outro. A good value
-# would be half of `outro_duration_secs`.
-vote_duration_secs = 10

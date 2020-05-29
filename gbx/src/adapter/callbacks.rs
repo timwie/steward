@@ -1,3 +1,4 @@
+use serde::Deserialize;
 use tokio::sync::mpsc::UnboundedSender as Sender;
 
 use crate::api::structs::*;
@@ -136,6 +137,12 @@ fn forward_script_callback(cb_out: &Sender<Callback>, call: Call) -> CallbackTyp
             serde_json::from_str($json_str)
                 .unwrap_or_else(|err| panic!("unexpected args for {}: {}", call.name, err))
         };
+    }
+
+    /// Reference: https://github.com/maniaplanet/script-xmlrpc/blob/master/XmlRpcListing.md#trackmaniaeventgiveup
+    #[derive(Deserialize, Debug, PartialEq, Clone)]
+    struct ScriptEventData {
+        pub login: std::string::String,
     }
 
     if let [String(cb_name), Array(value_args)] = &call.args[..] {

@@ -99,6 +99,25 @@ pub trait Queries: Send + Sync {
     /// stored in the database. This function should only be used when calculating
     /// the server ranking.
     async fn map_rankings(&self) -> Result<Vec<MapRank>>;
+
+    /// Delete a player, their preferences, and their records.
+    /// The data is lost forever.
+    async fn delete_player(&self, player_login: &str) -> Result<Option<Player>>;
+
+    /// Delete a map, its preferences, and its records.
+    /// The data is lost forever.
+    async fn delete_map(&self, map_uid: &str) -> Result<Option<Map>>;
+
+    /// Delete ghost replays of records on every map, that have a rank worse
+    /// than the specified one. For example, if `max_rank` is three, then every
+    /// record at rank four and higher will have their ghost replay deleted.
+    /// The replay data is lost forever, but we usually only care about replays
+    /// of the best records anyway.
+    ///
+    /// # Panics
+    /// This function panics if `max_rank` is smaller than one, since we must
+    /// never delete every ghost replay.
+    async fn delete_old_ghosts(&self, max_rank: i64) -> Result<u64>;
 }
 
 #[cfg(test)]

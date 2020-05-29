@@ -1,16 +1,85 @@
 use std::fmt::{Display, Formatter};
+use std::str::FromStr;
 
+use semver::Version;
+
+use gbx::{NetStats, ServerInfo};
+
+use crate::config::Config;
 use crate::database::Map;
 
-/// Chat commands that can only be executed by admins.
+/// Chat commands that can only be executed by super admins.
 #[derive(Debug)]
-pub enum AdminCommand<'a> {
-    /// Print a reference of available commands to the chat.
+pub enum SuperAdminCommand {
+    /// Print a reference of available super admin commands.
     ///
     /// Usage: `/help`
     Help,
 
-    /// List the server's maps (including UID) in the chat.
+    /// Confirm and execute the previous, dangerous command.
+    ///
+    /// Usage: `/confirm`
+    Confirm,
+
+    /// Prepare a dangerous command, that will only be executed
+    /// after using the `/confirm` command.
+    ///
+    /// Usage: see `DangerousCommand`
+    Unconfirmed(DangerousCommand),
+}
+
+/// Destructive chat commands that can only be executed by super admins,
+/// after explicitly confirming them.
+#[derive(Debug, Clone)]
+pub enum DangerousCommand {
+    /// Delete a map that is not in the playlist from the database.
+    ///
+    /// Usage: `/delete_map <uid>`
+    DeleteMap { uid: String },
+
+    /// Delete a blacklisted player from the database.
+    ///
+    /// Usage: `/delete_player <login>`
+    DeletePlayer { login: String },
+
+    /// Shutdown the server.
+    ///
+    /// Usage: `/shutdown`
+    Shutdown,
+}
+
+impl SuperAdminCommand {
+    /// Parse a super admin command.
+    pub fn from(chat_message: &str) -> Option<SuperAdminCommand> {
+        use DangerousCommand::*;
+        use SuperAdminCommand::*;
+
+        let parts: Vec<&str> = chat_message.split_whitespace().collect();
+
+        match &parts[..] {
+            ["/confirm"] => Some(Confirm),
+            ["/delete_map", uid] => Some(Unconfirmed(DeleteMap {
+                uid: (*uid).to_string(),
+            })),
+            ["/delete_player", login] => Some(Unconfirmed(DeletePlayer {
+                login: (*login).to_string(),
+            })),
+            ["/help"] => Some(Help),
+            ["/shutdown"] => Some(Unconfirmed(Shutdown)),
+            _ => None,
+        }
+    }
+}
+
+/// Chat commands that can only be executed by admins.
+#[derive(Debug)]
+pub enum AdminCommand<'a> {
+    /// Print a reference of available admin commands.
+    ///
+    /// Usage: `/help`
+    Help,
+
+    /// List the server's maps (including UID).
     /// For each map, it should say whether it is in the playlist
     /// or not.
     ///
@@ -38,26 +107,77 @@ pub enum AdminCommand<'a> {
     ///
     /// Usage: `/map_import <id/uid>`
     ImportMap { id: &'a str },
+
+    /// End the current race immediately.
+    ///
+    /// Usage `/skip`
+    SkipCurrentMap,
+
+    /// Restart the current map after the race.
+    ///
+    /// Usage `/restart`
+    RestartCurrentMap,
+
+    /// Set the map that will be played after the current one.
+    /// Running this command multiple times will queue all maps
+    /// in order.
+    ///
+    /// Usage `/queue <uid>`
+    ForceQueue { uid: &'a str },
+
+    /// Set the duration of a race in seconds.
+    ///
+    /// Usage `/set_timelimit <seconds>`
+    SetRaceDuration(u32),
+
+    /// Set the outro duration in seconds.
+    ///
+    /// Usage `/set_outro <seconds>`
+    SetOutroDuration(u32),
+
+    /// Add a player to the server's blacklist, and kick them if they are
+    /// currently connected.
+    ///
+    /// Usage: `/blacklist <login>`
+    BlacklistAdd { login: &'a str },
+
+    /// Remove a player from the server's blacklist.
+    ///
+    /// Usage: `/unblacklist <login>`
+    BlacklistRemove { login: &'a str },
 }
 
 impl AdminCommand<'_> {
-    /// Parse an admin command. This returns `None` only for chat messages
-    /// that do not start with a `/`. For any messages that do start with `/`,
-    /// but are not known commands, `Some(Help)` will be returned.
+    /// Parse an admin command.
     pub fn from(chat_message: &str) -> Option<AdminCommand> {
         use AdminCommand::*;
 
-        if !chat_message.starts_with('/') {
-            return None;
-        }
         let parts: Vec<&str> = chat_message.split_whitespace().collect();
 
         match &parts[..] {
-            ["/maps"] => Some(ListMaps),
+            ["/blacklist", login] => Some(BlacklistAdd { login: *login }),
+            ["/help"] => Some(Help),
             ["/map_import", id] => Some(ImportMap { id: *id }),
-            ["/playlist_add", id] => Some(PlaylistAdd { uid: *id }),
-            ["/playlist_remove", id] => Some(PlaylistRemove { uid: *id }),
-            _ => Some(Help),
+            ["/maps"] => Some(ListMaps),
+            ["/playlist_add", uid] => Some(PlaylistAdd { uid: *uid }),
+            ["/playlist_remove", uid] => Some(PlaylistRemove { uid: *uid }),
+            ["/queue", uid] => Some(ForceQueue { uid: *uid }),
+            ["/restart"] => Some(RestartCurrentMap),
+            ["/set_race", secs] if secs.chars().all(|c| c.is_digit(10)) => {
+                match u32::from_str(*secs) {
+                    Ok(secs) if secs > 0 => Some(SetRaceDuration(secs)),
+                    _ => None,
+                }
+            }
+            ["/set_outro", secs] if secs.chars().all(|c| c.is_digit(10)) => {
+                match u32::from_str(*secs) {
+                    Ok(secs) if secs > 0 => Some(SetOutroDuration(secs)),
+                    _ => None,
+                }
+            }
+            ["/skip"] => Some(SkipCurrentMap),
+            ["/unblacklist", login] => Some(BlacklistRemove { login: *login }),
+            _ => None,
         }
     }
 }
@@ -65,21 +185,73 @@ impl AdminCommand<'_> {
 /// Chat commands for players.
 #[derive(Debug)]
 pub enum PlayerCommand {
-    // player commands would go here
+    /// Print a reference of available commands.
+    ///
+    /// Usage: `/help`
+    Help,
+
+    /// Print information about server & controller.
+    ///
+    /// Usage: `/info`
+    Info,
 }
 
 impl PlayerCommand {
-    /// Always returns `None`, since there are no player commands yet.
-    pub fn from(_chat_message: &str) -> Option<PlayerCommand> {
-        None // update in case we add player commands
+    /// Parse a player command.
+    pub fn from(chat_message: &str) -> Option<PlayerCommand> {
+        use PlayerCommand::*;
+
+        let parts: Vec<&str> = chat_message.split_whitespace().collect();
+
+        match &parts[..] {
+            ["/help"] => Some(Help),
+            ["/info"] => Some(Info),
+            _ => None,
+        }
     }
 }
 
+/// Super admin command reference that can be printed in-game.
+pub const SUPER_ADMIN_COMMAND_REFERENCE: &str = "
+/confirm           Confirm the execution of one of the commands below.
+/delete_map        Delete a map that is not in the playlist from the database. Needs confirmation.
+/delete_player     Delete a blacklisted player from the database. Needs confirmation.
+/shutdown          Shutdown the server. Needs confirmation.
+";
+
+/// Admin command reference that can be printed in-game.
+pub const ADMIN_COMMAND_REFERENCE: &str = "
+/map_import <id/uid>       Import the trackmania.exchange map with the given id.
+/playlist_add <uid>        Add the specified map to the playlist.
+/playlist_remove <uid>     Remove the specified map from the playlist.
+
+/skip            Start the next map immediately.
+/restart         Restart the current map after this race.
+/queue <uid>     Set the map that will be played after the current one.
+
+/set_timelimit <seconds>     Change the time limit.
+/set_outro <seconds>         Change the outro duration at the end of a map.
+
+/blacklist <login>       Add a player to the server's blacklist.
+/unblacklist <login>     Remove a player from the server's blacklist.
+";
+
+/// Player command reference that can be printed in-game.
+pub const PLAYER_COMMAND_REFERENCE: &str = "
+/help     Display this list.
+/info     Display information about server & controller.
+";
+
 /// Possible outputs of chat commands.
-pub enum CommandOutput {
-    /// Tell a player the command reference, f.e. when
-    /// they issued an unknown command.
-    CommandReference,
+pub enum CommandOutput<'a> {
+    /// Tell a super admin the command reference.
+    SuperAdminCommandReference,
+
+    /// Tell an admin the command reference.
+    AdminCommandReference,
+
+    /// Tell a player the command reference.
+    PlayerCommandReference,
 
     /// Response to the `/maps` command.
     MapList(Vec<Map>),
@@ -87,6 +259,16 @@ pub enum CommandOutput {
     /// Feedback for commands that affect the playlist:
     /// `/playlist_add`, `/playlist_remove`, `/map_import`
     InvalidPlaylistCommand(PlaylistCommandError),
+
+    /// Information about server & controller.
+    Info {
+        controller_version: &'a Version,
+        most_recent_controller_version: &'a Version,
+        config: &'a Config,
+        server_info: &'a ServerInfo,
+        net_stats: &'a NetStats,
+        blacklist: &'a Vec<String>,
+    },
 }
 
 /// Possible errors when issuing a command that changes the playlist.
@@ -117,13 +299,37 @@ pub enum PlaylistCommandError {
     MapImportFailed(Box<dyn std::error::Error + Send>),
 }
 
-impl Display for CommandOutput {
+impl Display for CommandOutput<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         use CommandOutput::*;
         use PlaylistCommandError::*;
 
         match self {
-            CommandReference => write!(f, "{}", COMMAND_REFERENCE),
+            SuperAdminCommandReference => {
+                writeln!(f, "Super admin commands:")?;
+                writeln!(f, "===============")?;
+                write!(f, "{}", SUPER_ADMIN_COMMAND_REFERENCE)?;
+                writeln!(f)?;
+                writeln!(f, "Admin commands:")?;
+                writeln!(f, "===============")?;
+                write!(f, "{}", ADMIN_COMMAND_REFERENCE)?;
+                writeln!(f)?;
+                writeln!(f, "Player commands:")?;
+                writeln!(f, "================")?;
+                write!(f, "{}", PLAYER_COMMAND_REFERENCE)
+            }
+
+            AdminCommandReference => {
+                writeln!(f, "Admin commands:")?;
+                writeln!(f, "===============")?;
+                write!(f, "{}", ADMIN_COMMAND_REFERENCE)?;
+                writeln!(f)?;
+                writeln!(f, "Player commands:")?;
+                writeln!(f, "================")?;
+                write!(f, "{}", PLAYER_COMMAND_REFERENCE)
+            }
+
+            PlayerCommandReference => write!(f, "{}", PLAYER_COMMAND_REFERENCE),
 
             InvalidPlaylistCommand(UnknownUid) => write!(f, "No server map with this UID!"),
 
@@ -156,28 +362,72 @@ impl Display for CommandOutput {
                 writeln!(f, "In playlist:")?;
                 writeln!(f, "============")?;
                 for map in maps.iter().filter(|map| map.in_playlist) {
-                    writeln!(f, "{} | {}", fill(&map.file_name, 30), map.uid)?;
+                    writeln!(
+                        f,
+                        "{} | {} | {}",
+                        fill(&map.file_name, 30),
+                        &map.uid,
+                        map.exchange_id.map(|id| id.to_string()).unwrap_or_default()
+                    )?;
                 }
                 writeln!(f)?;
                 writeln!(f, "Not in playlist:")?;
                 writeln!(f, "================")?;
                 for map in maps.iter().filter(|map| !map.in_playlist) {
-                    writeln!(f, "{} | {}", fill(&map.file_name, 30), map.uid)?;
+                    writeln!(
+                        f,
+                        "{} | {} | {}",
+                        fill(&map.file_name, 30),
+                        &map.uid,
+                        map.exchange_id.map(|id| id.to_string()).unwrap_or_default()
+                    )?;
                 }
                 Ok(())
+            }
+            Info {
+                controller_version,
+                most_recent_controller_version,
+                config,
+                server_info,
+                net_stats,
+                blacklist,
+            } => {
+                writeln!(
+                    f,
+                    "Controller: $L[https://github.com/timwie/steward]Steward"
+                )?;
+                writeln!(f, "Controller version: {}", controller_version)?;
+                writeln!(
+                    f,
+                    "Most recent controller version: {}",
+                    most_recent_controller_version
+                )?;
+                writeln!(f)?;
+
+                writeln!(f, "Uptime: {} hours", net_stats.uptime_secs / 60 / 60)?;
+                writeln!(f, "{:?}", server_info)?;
+                writeln!(f)?;
+
+                writeln!(f, "Time limit: {} seconds", config.race_duration_secs)?;
+                writeln!(f, "Outro duration: {} seconds", config.race_duration_secs)?;
+                writeln!(
+                    f,
+                    "Outro vote duration: {} seconds",
+                    config.vote_duration_secs()
+                )?;
+                writeln!(f)?;
+
+                writeln!(
+                    f,
+                    "Super Admins: {}",
+                    config.super_admin_whitelist.join(", ")
+                )?;
+                writeln!(f, "Admins: {}", config.admin_whitelist.join(", "))?;
+                writeln!(f, "Blacklisted: {}", blacklist.join(", "))
             }
         }
     }
 }
-
-/// Command reference that can be printed in-game.
-pub const COMMAND_REFERENCE: &str = "
-Admin Commands:
- -/help                  Display this list.
- -/playlist_remove <uid> Exclude the map with the given uid from playing.
- -/playlist_add <uid>    Allow the map with the given uid to be played.
- -/map_import <id/uid>   Import and enable the trackmania.exchange map with the given id.
-";
 
 /// Trims a text, or adds spaces to right, to fill the specified number of columns.
 fn fill(text: &str, columns: usize) -> String {

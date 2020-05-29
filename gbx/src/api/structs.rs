@@ -190,6 +190,17 @@ pub struct ServerOptions {
     pub client_inputs_max_latency: i32,
 }
 
+/// Reference: GetNetworkStats https://doc.maniaplanet.com/dedicated-server/references/xml-rpc-methods
+#[derive(Deserialize, Debug, PartialEq)]
+#[serde(rename_all = "PascalCase")]
+pub struct NetStats {
+    /// This value might be useful to check that a server has not been online
+    /// for more than 30 days. Apparently this can prevent players from joining the server.
+    /// (see https://doc.maniaplanet.com/dedicated-server/frequent-errors)
+    #[serde(rename = "Uptime")]
+    pub uptime_secs: i32,
+}
+
 /// Game mode information.
 ///
 /// Reference: GetModeScriptInfo https://doc.maniaplanet.com/dedicated-server/references/xml-rpc-methods
@@ -217,7 +228,7 @@ pub struct ModeInfo {
 pub struct ModeOptions {
     /// S_TimeLimit
     #[serde(rename = "S_TimeLimit")]
-    pub race_duration_secs: i32,
+    pub time_limit_secs: i32,
 
     /// S_ChatTime
     #[serde(rename = "S_ChatTime")]
@@ -360,14 +371,6 @@ impl MapInfo {
     pub fn is_campaign_map(&self) -> bool {
         &self.author_login == "Nadeo" && self.file_name.starts_with("Campaigns\\")
     }
-}
-
-/// A struct to be used for various script callbacks, f.e. `Trackmania.Event.GiveUp`.
-///
-/// Reference: https://github.com/maniaplanet/script-xmlrpc/blob/master/XmlRpcListing.md#trackmaniaeventgiveup
-#[derive(Deserialize, Debug, PartialEq, Clone)]
-pub(in crate) struct ScriptEventData {
-    pub login: String,
 }
 
 /// Run data at the time of crossing any checkpoint or the finish line.
