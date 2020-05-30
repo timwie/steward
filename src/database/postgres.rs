@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::str::FromStr;
 use std::sync::Arc;
 
@@ -454,19 +453,21 @@ impl Queries for PostgresClient {
         Ok(prefs)
     }
 
-    async fn count_map_preferences(&self, map_uid: &str) -> Result<HashMap<PreferenceValue, i64>> {
+    async fn count_map_preferences(&self, map_uid: &str) -> Result<Vec<(PreferenceValue, i64)>> {
         let conn = self.0.get().await?;
         let stmt = r#"
-            SELECT value, COUNT(value)
-            FROM steward.preference
-            WHERE map_uid = $1 AND value IS NOT NULL
-            GROUP BY value
+            SELECT
+                e.value, COUNT(p.value)
+            FROM (SELECT unnest(enum_range(NULL::steward.Pref)) AS value) e
+            LEFT JOIN steward.preference p
+            ON p.value = e.value AND map_uid = $1
+            GROUP BY e.value
         "#;
         let rows = conn.query(stmt, &[&map_uid]).await?;
 
-        let mut counts: HashMap<PreferenceValue, i64> = HashMap::new();
+        let mut counts = Vec::<(PreferenceValue, i64)>::with_capacity(3);
         for row in rows {
-            counts.insert(row.get(0), row.get(1));
+            counts.push((row.get("value"), row.get("count")));
         }
         Ok(counts)
     }

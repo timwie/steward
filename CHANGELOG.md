@@ -9,6 +9,15 @@ Version numbers consist of `MAJOR.MINOR.PATCH`:
 ## 0.1.0-alpha3
 All `0.1.0-alpha` releases are unstable, and have missing widgets.
 
+### Added
+- **Widget**: Intro
+  - This widget is displayed at the start of a map, until the player
+    starts their first run.
+  - Displays map name & author.
+  - Displays the player's current preference for this map.
+  - Displays the current distribution of all players' preferences for this map.
+  - Displays the player's current rank on this map.
+
 ### Changed
 - Only records on maps in the playlist count towards players' server rank,
   to prevent that new players are at an unfair disadvantage.

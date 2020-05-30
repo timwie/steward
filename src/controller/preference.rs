@@ -60,10 +60,10 @@ pub struct ActivePreference {
 #[repr(u8)]
 pub enum ActivePreferenceValue {
     // None = 0,
-    AutoPick = 1,
-    Pick = 2,
-    Veto = 3,
-    Remove = 4,
+    Pick = 1,
+    Veto = 2,
+    Remove = 3,
+    AutoPick = 100,
 }
 
 impl PreferenceState {
@@ -175,7 +175,7 @@ impl PreferenceController {
             let pref = ActivePreference {
                 player_uid: player.uid,
                 map_uid,
-                value: ActivePreferenceValue::Pick,
+                value: ActivePreferenceValue::AutoPick,
             };
             state.add_pref(pref);
         }
