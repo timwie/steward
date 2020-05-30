@@ -245,22 +245,34 @@ pub const PLAYER_COMMAND_REFERENCE: &str = "
 /// Possible outputs of chat commands.
 pub enum CommandOutput<'a> {
     /// Tell a super admin the command reference.
+    ///
+    /// Output for: `/help`
     SuperAdminCommandReference,
 
     /// Tell an admin the command reference.
+    ///
+    /// Output for: `/help`
     AdminCommandReference,
 
     /// Tell a player the command reference.
+    ///
+    /// Output for: `/help`
     PlayerCommandReference,
 
-    /// Response to the `/maps` command.
+    /// List all maps in the database, and group maps in- and outside
+    /// of the playlist.
+    ///
+    /// Output for `/maps`
     MapList(Vec<Map>),
 
-    /// Feedback for commands that affect the playlist:
-    /// `/playlist_add`, `/playlist_remove`, `/map_import`
+    /// Feedback for commands that affect the playlist.
+    ///
+    /// Output for `/playlist_add`, `/playlist_remove`, `/map_import`
     InvalidPlaylistCommand(PlaylistCommandError),
 
     /// Information about server & controller.
+    ///
+    /// Output for `/info`
     Info {
         controller_version: &'a Version,
         most_recent_controller_version: &'a Version,
@@ -269,6 +281,53 @@ pub enum CommandOutput<'a> {
         net_stats: &'a NetStats,
         blacklist: &'a Vec<String>,
     },
+
+    /// The specified login does not match any player.
+    ///
+    /// Output for `/delete_player`
+    UnknownPlayer,
+
+    /// The specified login does not match any blacklisted player.
+    ///
+    /// Output for `/blacklist`
+    UnknownBlacklistPlayer,
+
+    /// Tell a super admin that prior to deleting a player,
+    /// they have to blacklist them.
+    ///
+    /// Output for `/delete_player`
+    CannotDeleteWhitelistedPlayer,
+
+    /// The specified map UID does not match any map.
+    ///
+    /// Output for `/delete_map`, `/queue`
+    UnknownMap,
+
+    /// Tell a super admin that prior to deleting a map,
+    /// they have to remove it from the playlist.
+    ///
+    /// Output for `/delete_map`
+    CannotDeletePlaylistMap,
+
+    /// Tell a super admin that there is no command to confirm.
+    ///
+    /// Output for `/confirm`
+    NoCommandToConfirm,
+
+    /// Tell a super admin that all records for that map will be deleted.
+    ///
+    /// Output for `/delete_map`
+    ConfirmMapDeletion,
+
+    /// Tell a super admin that all records for that player will be deleted.
+    ///
+    /// Output for `/delete_player`
+    ConfirmPlayerDeletion,
+
+    /// Tell a super admin that the server will shutdown.
+    ///
+    /// Output for `/shutdown`
+    ConfirmShutdown,
 }
 
 /// Possible errors when issuing a command that changes the playlist.
@@ -425,6 +484,40 @@ impl Display for CommandOutput<'_> {
                 writeln!(f, "Admins: {}", config.admin_whitelist.join(", "))?;
                 writeln!(f, "Blacklisted: {}", blacklist.join(", "))
             }
+
+            UnknownPlayer => writeln!(f, "There is no player with that login!"),
+
+            UnknownBlacklistPlayer => {
+                writeln!(f, "There is no blacklisted player with that login!")
+            }
+
+            CannotDeleteWhitelistedPlayer => writeln!(
+                f,
+                "Only blacklisted players can be removed from the database!"
+            ),
+
+            UnknownMap => writeln!(f, "There is no map with that UID!"),
+
+            CannotDeletePlaylistMap => writeln!(
+                f,
+                "Only maps outside of the playlist can be removed from the database!"
+            ),
+
+            NoCommandToConfirm => {
+                writeln!(f, "No command to confirm. Use /confirm only when prompted.")
+            }
+
+            ConfirmMapDeletion => writeln!(
+                f,
+                "Use /confirm to delete this map, and all of its records."
+            ),
+
+            ConfirmPlayerDeletion => writeln!(
+                f,
+                "Use /confirm to delete this map, and all of their records."
+            ),
+
+            ConfirmShutdown => writeln!(f, "Use /confirm to stop the server."),
         }
     }
 }

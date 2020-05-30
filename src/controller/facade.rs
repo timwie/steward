@@ -388,14 +388,16 @@ impl Controller {
 
     async fn on_admin_cmd(&self, from_login: &str, cmd: AdminCommand<'_>) {
         use AdminCommand::*;
+        use CommandOutput::*;
+
         match cmd {
             Help => {
-                let msg = CommandOutput::AdminCommandReference;
+                let msg = AdminCommandReference;
                 self.widget.show_popup(msg, from_login).await;
             }
             ListMaps => {
                 let maps = self.db.maps().await.expect("failed to load maps");
-                let msg = CommandOutput::MapList(maps);
+                let msg = MapList(maps);
                 self.widget.show_popup(msg, from_login).await;
             }
             PlaylistAdd { uid } => {
@@ -439,7 +441,11 @@ impl Controller {
                 // TODO do we allow to force queue a map multiple times?
                 // TODO controller: force queue
                 // TODO chat: announce that an admin force queued a map
-                // TODO popup: print message if unknown uid
+
+                // TODO if unknown uid
+                if false {
+                    self.widget.show_popup(UnknownMap, from_login).await;
+                }
             }
             SetRaceDuration(secs) => {
                 self.settings
@@ -470,37 +476,31 @@ impl Controller {
                         .await
                         .expect("failed to save blacklist file");
                 } else {
-                    // TODO popup: print message if unknown player
+                    self.widget
+                        .show_popup(UnknownBlacklistPlayer, from_login)
+                        .await;
                 }
             }
         };
     }
 
     async fn on_super_admin_cmd(&self, from_login: &str, cmd: SuperAdminCommand) {
+        use CommandOutput::*;
         use DangerousCommand::*;
         use SuperAdminCommand::*;
 
-        match cmd {
-            Help => {
-                let msg = CommandOutput::SuperAdminCommandReference;
-                self.widget.show_popup(msg, from_login).await;
-            }
-            Confirm => {
-                // TODO popup: print message since no command to confirm
-            }
-            Unconfirmed(DeleteMap { uid }) => {
-                // TODO popup: print /confirm instruction
-            }
-            Unconfirmed(DeletePlayer { login }) => {
-                // TODO popup: print /confirm instruction
-            }
-            Unconfirmed(Shutdown) => {
-                // TODO popup: print /confirm instruction
-            }
-        }
+        let msg = match cmd {
+            Help => SuperAdminCommandReference,
+            Confirm => NoCommandToConfirm,
+            Unconfirmed(DeleteMap { .. }) => ConfirmMapDeletion,
+            Unconfirmed(DeletePlayer { .. }) => ConfirmPlayerDeletion,
+            Unconfirmed(Shutdown) => ConfirmShutdown,
+        };
+        self.widget.show_popup(msg, from_login).await;
     }
 
     async fn on_dangerous_cmd(&self, from_login: &str, cmd: DangerousCommand) {
+        use CommandOutput::*;
         use DangerousCommand::*;
 
         match cmd {
@@ -511,23 +511,31 @@ impl Controller {
                         // TODO chat: announce that an admin deleted a map
                     }
                     Some(_) => {
-                        // TODO popup: print message if still in playlist
+                        self.widget
+                            .show_popup(CannotDeletePlaylistMap, from_login)
+                            .await;
                     }
                     None => {
-                        // TODO popup: print message if not in database
+                        self.widget.show_popup(UnknownMap, from_login).await;
                     }
                 }
             }
             DeletePlayer { login } => {
                 let blacklist = self.server.blacklist().await;
                 if blacklist.contains(&login) {
-                    let _ = self
+                    let maybe_player = self
                         .db
                         .delete_player(&login)
                         .await
                         .expect("failed to delete player");
+
+                    if maybe_player.is_none() {
+                        self.widget.show_popup(UnknownPlayer, from_login).await;
+                    }
                 } else {
-                    // TODO popup: print message if not blacklisted or not in database
+                    self.widget
+                        .show_popup(CannotDeleteWhitelistedPlayer, from_login)
+                        .await;
                 }
             }
             Shutdown => {
