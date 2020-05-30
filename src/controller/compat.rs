@@ -7,13 +7,15 @@ use std::sync::Arc;
 
 use gbx::{SCRIPT_API_VERSION, SERVER_API_VERSION};
 
-use crate::config::Config;
+use crate::config::{Config, VERSION};
 use crate::database::{Database, Map, MapEvidence};
 use crate::ingame::{MapInfo, ModeInfo, ModeOptions, Server, ServerInfo, ServerOptions};
 use crate::network::exchange_id;
 
 /// Runs everything that needs to run at startup.
 pub async fn prepare(server: &Arc<dyn Server>, db: &Arc<dyn Database>, config: &Config) {
+    log::debug!("using Steward version '{}'", VERSION.to_string());
+
     log::debug!("using server API version '{}'", SERVER_API_VERSION);
     log::debug!("using script API version '{}'", SCRIPT_API_VERSION);
 
