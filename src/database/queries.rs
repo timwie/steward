@@ -25,9 +25,6 @@ pub trait Queries: Send + Sync {
     /// List all maps.
     async fn maps(&self) -> Result<Vec<Map>>;
 
-    /// Count all maps.
-    async fn nb_maps(&self) -> Result<i64>;
-
     /// List all maps in the playlist.
     async fn playlist(&self) -> Result<Vec<Map>>;
 

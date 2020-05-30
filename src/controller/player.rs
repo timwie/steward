@@ -35,10 +35,17 @@ pub trait LivePlayers: Send + Sync {
     /// Return the UIDs for all connected players.
     async fn uid_all(&self) -> HashSet<i32> {
         let state = self.lock().await;
-        state.playing.union(&state.spectating).copied().collect()
+        state
+            .playing
+            .union(&state.spectating)
+            .copied()
+            .collect::<HashSet<i32>>()
+            .union(&state.pure_spectating)
+            .copied()
+            .collect()
     }
 
-    /// Return the UIDs for all connected players that have a player slot.
+    /// Return the UIDs for all connected players that are not spectating.
     async fn uid_playing(&self) -> HashSet<i32> {
         self.lock().await.playing.iter().copied().collect()
     }
@@ -100,6 +107,14 @@ impl PlayersState {
     /// Return information for all connected players and spectators.
     pub fn info_all(&self) -> Vec<&PlayerInfo> {
         self.uid_to_info.values().collect()
+    }
+
+    /// Return information for all connected players that are not spectating.
+    pub fn info_playing(&self) -> Vec<&PlayerInfo> {
+        self.uid_to_info
+            .values()
+            .filter(|info| self.playing.contains(&info.uid))
+            .collect()
     }
 
     pub fn login(&self, player_uid: i32) -> Option<&str> {

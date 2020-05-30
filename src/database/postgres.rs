@@ -143,16 +143,6 @@ impl Queries for PostgresClient {
         Ok(maps)
     }
 
-    async fn nb_maps(&self) -> Result<i64> {
-        let conn = self.0.get().await?;
-        let stmt = r#"
-            SELECT COUNT(*)
-            FROM steward.map
-        "#;
-        let row = conn.query_one(stmt, &[]).await?;
-        Ok(row.get(0))
-    }
-
     async fn playlist(&self) -> Result<Vec<Map>> {
         let conn = self.0.get().await?;
         let stmt = r#"
@@ -506,10 +496,11 @@ impl Queries for PostgresClient {
                     PARTITION BY r.map_uid
                     ORDER BY r.millis ASC
                 ) pos,
-                COUNT(*) OVER (PARTITION BY r.map_uid) max_pos
+                COUNT(*) OVER (PARTITION BY r.map_uid) max_pos,
+                m.in_playlist
             FROM steward.record r
-            LEFT JOIN steward.player p
-            ON r.player_login = p.login
+            INNER JOIN steward.player p ON r.player_login = p.login
+            INNER JOIN steward.map m ON r.map_uid = m.uid
         "#;
         let rows = conn.query(stmt, &[]).await?;
         Ok(rows
@@ -520,6 +511,7 @@ impl Queries for PostgresClient {
                 player_nick_name: row.get("nick_name"),
                 pos: row.get("pos"),
                 max_pos: row.get("max_pos"),
+                in_playlist: row.get("in_playlist"),
             })
             .collect())
     }

@@ -202,4 +202,7 @@ pub struct MapRank {
     /// The maximum map rank; or the number of players that have set a
     /// record on this map.
     pub max_pos: i64,
+
+    /// `True` if the map is in the current playlist.
+    pub in_playlist: bool,
 }
