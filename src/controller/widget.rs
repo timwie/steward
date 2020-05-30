@@ -181,10 +181,15 @@ impl WidgetController {
     /// Add or update widgets that should display server ranks.
     pub async fn refresh_server_ranking(&self, change: &ServerRankingDiff) {
         let mut phase = self.phase.write().await;
-        match *phase {
-            MapPhase::Outro { .. } => {}
-            _ => return,
+
+        if *phase == MapPhase::Race {
+            let players = self.live_players.lock().await;
+            for info in players.info_playing() {
+                self.show_curr_rank_for(info).await;
+            }
+            return;
         }
+
         *phase = MapPhase::Outro {
             has_ranking: true,
             voting: match *phase {

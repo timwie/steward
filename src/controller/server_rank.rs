@@ -71,8 +71,10 @@ pub struct ServerRank {
 /// - maps a player's login to their server rank,
 /// - and is iterated from rank 1 to the last in order.
 ///
-/// Players will earn a "win" on each map, for every player
-/// that has a worse personal best (or none at all).
+/// Players will earn a "win" on each map in the playlist, for every player
+/// that has a worse personal best (or none at all). Maps that are not
+/// in the playlist should not count, since new players cannot set records
+/// on them, making it hard for them to catch up to other players.
 ///
 /// For example, if a player has the 50th rank on a map, and the
 /// server has had 200 players (with at least one record on any map) in total,
@@ -86,46 +88,60 @@ async fn calc_server_ranking(db: &Arc<dyn Database>) -> IndexMap<Cow<'static, st
     // should be enough to update the server rankings (as long as records
     // are the only metric used).
 
-    let max_wins = {
-        let nb_players_with_record = db
-            .nb_players_with_record()
+    // Every player with at least one record will be ranked.
+    let nb_ranked_players =
+        db.nb_players_with_record()
             .await
-            .expect("failed to load amount of players with at least one record")
-            as usize;
+            .expect("failed to load amount of players with at least one record") as usize;
 
-        let max_wins_per_map = max(1, nb_players_with_record) - 1 as usize;
-
-        let nb_maps = db.nb_maps().await.expect("failed to load amount of maps") as usize;
-
-        nb_maps * max_wins_per_map
+    // You can beat (nb_ranked_players - 1) players on every map.
+    let max_total_wins = {
+        let max_wins_per_map = max(0, nb_ranked_players - 1);
+        let nb_maps_in_playlist = db
+            .playlist()
+            .await
+            .expect("failed to load amount of maps")
+            .len();
+        nb_maps_in_playlist * max_wins_per_map
     };
 
+    // Using the map rankings, we can count the number of wins for each player.
+    // Note that we cannot count the losses, since you also gain losses by not having
+    // a map rank at all.
     let map_ranks = db
         .map_rankings()
         .await
         .expect("failed to load map rankings");
 
-    let mut losses = IndexMap::<&str, usize>::new(); // player login -> nb of losses
+    let mut nb_wins = IndexMap::<&str, usize>::new(); // player login -> nb of wins
     let mut nick_names = HashMap::<&str, String>::new(); // player login -> nick name
 
     for map_rank in map_ranks.iter() {
-        *losses.entry(&map_rank.player_login).or_insert(0) += map_rank.max_pos as usize - 1;
-        nick_names.insert(&map_rank.player_login, map_rank.player_nick_name.clone());
+        if !map_rank.in_playlist {
+            continue;
+        }
+
+        let nb_map_wins = nb_ranked_players - map_rank.pos as usize;
+        *nb_wins.entry(&map_rank.player_login).or_insert(0) += nb_map_wins;
+
+        if !nick_names.contains_key(map_rank.player_login.as_str()) {
+            nick_names.insert(&map_rank.player_login, map_rank.player_nick_name.clone());
+        }
     }
 
-    // Less losses is better
-    losses.sort_by(|_, a_losses, _, b_losses| a_losses.cmp(b_losses));
+    // More wins is better: put them first.
+    nb_wins.sort_by(|_, a_wins, _, b_wins| b_wins.cmp(a_wins));
 
-    losses
+    nb_wins
         .into_iter()
         .enumerate()
-        .map(|(idx, (login, nb_losses))| {
+        .map(|(idx, (login, nb_wins))| {
             let rank = ServerRank {
                 pos: idx + 1,
                 player_login: login.to_string(),
                 player_nick_name: nick_names.remove(login).unwrap(),
-                nb_wins: max_wins - nb_losses,
-                nb_losses,
+                nb_wins,
+                nb_losses: max_total_wins - nb_wins,
             };
             (login.to_string().into(), rank)
         })

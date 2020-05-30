@@ -298,6 +298,11 @@ impl Controller {
                 self.queue.insert_or_remove(&diff).await;
                 self.prefs.update_for_map(&diff).await;
                 self.widget.refresh_playlist().await;
+
+                // At this point, we could update the server ranking, since adding &
+                // removing maps will affect it. But, doing so would give us weird
+                // server ranking diffs during the outro. The diffs are only meaningful
+                // if we calculate the ranking once per map.
             }
 
             ControllerEvent::NewServerRanking(change) => {

@@ -9,6 +9,10 @@ Version numbers consist of `MAJOR.MINOR.PATCH`:
 ## 0.1.0-alpha3
 All `0.1.0-alpha` releases are unstable, and have missing widgets.
 
+### Changed
+- Only records on maps in the playlist count towards players' server rank,
+  to prevent that new players are at an unfair disadvantage.
+
 ### Fixed
 - Fixed not updating improved records in the database.
 
