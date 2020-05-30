@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use anyhow::Result;
 
 use async_trait::async_trait;
@@ -89,7 +87,7 @@ pub trait Queries: Send + Sync {
     async fn map_preferences(&self, map_uid: &str) -> Result<Vec<Preference>>;
 
     /// Count the number of times each preference was set by any player, for the specified map.
-    async fn count_map_preferences(&self, map_uid: &str) -> Result<HashMap<PreferenceValue, i64>>;
+    async fn count_map_preferences(&self, map_uid: &str) -> Result<Vec<(PreferenceValue, i64)>>;
 
     /// Insert a player's map preference, overwriting any previous preference.
     async fn upsert_preference(&self, pref: &Preference) -> Result<()>;

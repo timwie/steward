@@ -1,13 +1,27 @@
 {% block vars %}
+    {% set col_tm_green = "2bb189" %}
+    {% set col_tm_blue  = "14a7e5" %}
 
-    {% set col_white   = "EFF2F1" %}
-    {% set col_success = "14a7e5" %}
+    {% set col_success = col_tm_blue %}
     {% set col_fail    = "FF1F57" %}
     {% set col_neutral = "211826" %}
+
+    {% set col_white = "EFF2F1" %}
+    {% set col_bg    = col_neutral %}
 
     {% set font_text = "BiryaniDemiBold" %}
     {% set font_bold_big = "TextButtonMedium" %}
     {% set font_bold_small = "TextButtonSmall" %}
+
+    {% set PREF_NONE     = 0 %}
+    {% set PREF_PICK     = 1 %}
+    {% set PREF_VETO     = 2 %}
+    {% set PREF_REMOVE   = 3 %}
+    {% set PREF_AUTOPICK = 100 %}
+
+    {% set col_pick = "00c853" %}
+    {% set col_veto = "fbc02d" %}
+    {% set col_remove = "f44336" %}
 
 {% endblock vars %}
 

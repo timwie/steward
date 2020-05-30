@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -334,7 +333,7 @@ impl WidgetController {
             .map(|p| p.nick_name);
 
         let nb_records = self.live_records.nb_records().await;
-        let preference_counts: HashMap<PreferenceValue, usize> = self
+        let preference_counts: Vec<(PreferenceValue, usize)> = self
             .db
             .count_map_preferences(&map.uid)
             .await
