@@ -31,3 +31,10 @@ All services are configured to be restarted whenever they go down.
 The service logs can be viewed, f.e. using `$ docker logs -f <container id>`.
 
 You can directly inspect the database using `$ docker run -it --rm --network container_default postgres psql -h database -U steward`.
+
+You can update the server by using `$ docker-compose run dedicated bash`, and
+`$ ./updater.sh`. Run `$ docker-compose restart` afterwards.
+
+You can update the controller by using `$ docker-compose run -u 0 controller bash`, and
+`$ ./updater.sh`. Run `$ docker-compose restart` afterwards. Refer to the changelog
+to see if you need to update your config.

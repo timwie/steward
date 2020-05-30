@@ -7,12 +7,16 @@ ARG DEDICATED_URL=http://files.v04.maniaplanet.com/server/ManiaplanetServer_2019
 ARG TITLE=TMStadium@nadeo
 ARG TITLE_PACK_URL=https://v4.live.maniaplanet.com/ingame/public/titles/download/TMStadium@nadeo.Title.Pack.gbx
 
-RUN apt-get update && apt-get -y install wget unzip
+RUN apt-get update \
+    && apt-get -y install unzip wget
 
 RUN groupadd -r maniaplanet -g 1000 \
     && useradd -u 1000 -g 1000 -m maniaplanet
 
 WORKDIR /home/maniaplanet/
+
+COPY updater.sh updater.sh
+RUN chmod +x ./updater.sh
 
 USER maniaplanet
 
