@@ -53,6 +53,7 @@ impl ServerRankingState {
     }
 }
 
+#[derive(Debug, PartialEq)]
 pub struct ServerRank {
     pub pos: usize,
     pub player_login: String,
@@ -96,7 +97,7 @@ async fn calc_server_ranking(db: &Arc<dyn Database>) -> IndexMap<Cow<'static, st
 
     // You can beat (nb_ranked_players - 1) players on every map.
     let max_total_wins = {
-        let max_wins_per_map = max(0, nb_ranked_players - 1);
+        let max_wins_per_map: usize = max(1, nb_ranked_players) - 1;
         let nb_maps_in_playlist = db
             .playlist()
             .await
@@ -234,5 +235,157 @@ impl ServerRankController {
 impl LiveServerRanking for ServerRankController {
     async fn lock(&self) -> RwLockReadGuard<'_, ServerRankingState> {
         self.state.read().await
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::database::test::MockDatabase;
+
+    use super::*;
+
+    #[tokio::test]
+    async fn empty_server_ranking() {
+        let mock_db = MockDatabase::new();
+        let ranking = calc_server_ranking(&mock_db.into_arc()).await;
+        assert!(ranking.is_empty());
+    }
+
+    #[tokio::test]
+    async fn trivial_server_ranking() {
+        let mut mock_db = MockDatabase::new();
+        mock_db.push_player("login1", "nick1");
+        mock_db.push_map("uid1", true);
+        mock_db.push_record("login1", "uid1", 10000);
+
+        let ranking = calc_server_ranking(&mock_db.into_arc()).await;
+        assert_eq!(1, ranking.len());
+
+        let actual = ranking.values().next().unwrap();
+        let expected = ServerRank {
+            pos: 1,
+            player_login: "login1".to_string(),
+            player_nick_name: "nick1".to_string(),
+            nb_wins: 0,
+            nb_losses: 0,
+        };
+        assert_eq!(actual, &expected);
+    }
+
+    #[tokio::test]
+    async fn single_map_server_ranking() {
+        let mut mock_db = MockDatabase::new();
+        mock_db.push_player("login1", "nick1");
+        mock_db.push_player("login2", "nick2");
+        mock_db.push_player("login3", "nick3");
+        mock_db.push_map("uid1", true);
+        mock_db.push_record("login1", "uid1", 10000);
+        mock_db.push_record("login2", "uid1", 20000);
+        mock_db.push_record("login3", "uid1", 30000);
+
+        let ranking = calc_server_ranking(&mock_db.into_arc()).await;
+
+        let actual = ranking.values().next().unwrap();
+        let expected = ServerRank {
+            pos: 1,
+            player_login: "login1".to_string(),
+            player_nick_name: "nick1".to_string(),
+            nb_wins: 2,
+            nb_losses: 0,
+        };
+        assert_eq!(actual, &expected);
+
+        let actual = ranking.values().nth(1).unwrap();
+        let expected = ServerRank {
+            pos: 2,
+            player_login: "login2".to_string(),
+            player_nick_name: "nick2".to_string(),
+            nb_wins: 1,
+            nb_losses: 1,
+        };
+        assert_eq!(actual, &expected);
+
+        let actual = ranking.values().nth(2).unwrap();
+        let expected = ServerRank {
+            pos: 3,
+            player_login: "login3".to_string(),
+            player_nick_name: "nick3".to_string(),
+            nb_wins: 0,
+            nb_losses: 2,
+        };
+        assert_eq!(actual, &expected);
+    }
+
+    #[tokio::test]
+    async fn multi_map_server_ranking() {
+        let mut mock_db = MockDatabase::new();
+        mock_db.push_player("login1", "nick1");
+        mock_db.push_player("login2", "nick2");
+        mock_db.push_map("uid1", true);
+        mock_db.push_map("uid2", true);
+        mock_db.push_map("uid3", true);
+        mock_db.push_record("login1", "uid1", 10000);
+        mock_db.push_record("login2", "uid1", 20000);
+        mock_db.push_record("login1", "uid2", 10000);
+        mock_db.push_record("login2", "uid2", 20000);
+        mock_db.push_record("login1", "uid3", 20000);
+        mock_db.push_record("login2", "uid3", 10000);
+
+        let ranking = calc_server_ranking(&mock_db.into_arc()).await;
+
+        let actual = ranking.values().next().unwrap();
+        let expected = ServerRank {
+            pos: 1,
+            player_login: "login1".to_string(),
+            player_nick_name: "nick1".to_string(),
+            nb_wins: 2,
+            nb_losses: 1,
+        };
+        assert_eq!(actual, &expected);
+
+        let actual = ranking.values().nth(1).unwrap();
+        let expected = ServerRank {
+            pos: 2,
+            player_login: "login2".to_string(),
+            player_nick_name: "nick2".to_string(),
+            nb_wins: 1,
+            nb_losses: 2,
+        };
+        assert_eq!(actual, &expected);
+    }
+
+    #[tokio::test]
+    async fn only_rank_playlist_maps() {
+        let mut mock_db = MockDatabase::new();
+        mock_db.push_player("login1", "nick1");
+        mock_db.push_player("login2", "nick2");
+        mock_db.push_map("uid1", true);
+        mock_db.push_map("uid2", false);
+        mock_db.push_record("login1", "uid1", 10000);
+        mock_db.push_record("login2", "uid1", 20000);
+        mock_db.push_record("login1", "uid2", 20000);
+        mock_db.push_record("login2", "uid2", 10000);
+
+        let ranking = calc_server_ranking(&mock_db.into_arc()).await;
+
+        let actual = ranking.values().next().unwrap();
+        let expected = ServerRank {
+            pos: 1,
+            player_login: "login1".to_string(),
+            player_nick_name: "nick1".to_string(),
+            nb_wins: 1,
+            nb_losses: 0,
+        };
+        assert_eq!(actual, &expected);
+
+        let actual = ranking.values().nth(1).unwrap();
+        let expected = ServerRank {
+            pos: 2,
+            player_login: "login2".to_string(),
+            player_nick_name: "nick2".to_string(),
+            nb_wins: 0,
+            nb_losses: 1,
+        };
+        assert_eq!(actual, &expected);
     }
 }

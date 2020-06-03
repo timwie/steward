@@ -100,3 +100,227 @@ pub trait Queries: Send + Sync {
     /// the server ranking.
     async fn map_rankings(&self) -> Result<Vec<MapRank>>;
 }
+
+#[cfg(test)]
+pub mod test {
+    use std::collections::{HashMap, HashSet};
+    use std::sync::Arc;
+    use std::time::SystemTime;
+
+    use async_trait::async_trait;
+
+    use crate::database::Database;
+
+    use super::*;
+
+    pub struct MockDatabase {
+        pub maps: Vec<MapEvidence>,
+        pub players: Vec<Player>,
+        pub records: Vec<RecordEvidence>,
+    }
+
+    impl MockDatabase {
+        pub fn new() -> Self {
+            MockDatabase {
+                maps: vec![],
+                players: vec![],
+                records: vec![],
+            }
+        }
+
+        pub fn into_arc(self) -> Arc<dyn Database> {
+            Arc::new(self) as Arc<dyn Database>
+        }
+
+        pub fn push_player(&mut self, login: &str, nick_name: &str) {
+            self.players.push(Player {
+                login: login.to_string(),
+                nick_name: nick_name.to_string(),
+            });
+        }
+
+        pub fn push_map(&mut self, uid: &str, in_playlist: bool) {
+            self.maps.push(MapEvidence {
+                metadata: Map {
+                    uid: uid.to_string(),
+                    file_name: "".to_string(),
+                    name: "".to_string(),
+                    author_login: "".to_string(),
+                    added_since: SystemTime::now(),
+                    in_playlist,
+                    exchange_id: None,
+                },
+                data: vec![],
+            });
+        }
+
+        pub fn push_record(&mut self, login: &str, uid: &str, millis: i32) {
+            self.records.push(RecordEvidence {
+                player_login: login.to_string(),
+                map_uid: uid.to_string(),
+                millis,
+                timestamp: SystemTime::now(),
+                sectors: vec![],
+                validation: vec![],
+                ghost: None,
+            });
+        }
+
+        fn expect_player(&self, login: &str) -> &Player {
+            self.players
+                .iter()
+                .find(|p| p.login == login)
+                .expect("player login not in mock database")
+        }
+
+        fn expect_map(&self, uid: &str) -> &Map {
+            &self
+                .maps
+                .iter()
+                .find(|m| m.metadata.uid == uid)
+                .expect("map uid not in mock database")
+                .metadata
+        }
+    }
+
+    #[async_trait]
+    impl Queries for MockDatabase {
+        async fn migrate(&self) -> Result<()> {
+            unimplemented!()
+        }
+
+        async fn player(&self, _login: &str) -> Result<Option<Player>> {
+            unimplemented!()
+        }
+
+        async fn upsert_player(&self, _player: &PlayerInfo) -> Result<()> {
+            unimplemented!()
+        }
+
+        async fn map_files(&self) -> Result<Vec<MapEvidence>> {
+            unimplemented!()
+        }
+
+        async fn maps(&self) -> Result<Vec<Map>> {
+            unimplemented!()
+        }
+
+        async fn playlist(&self) -> Result<Vec<Map>> {
+            Ok(self
+                .maps
+                .iter()
+                .filter(|ev| ev.metadata.in_playlist)
+                .map(|ev| ev.metadata.clone())
+                .collect())
+        }
+
+        async fn map(&self, _map_uid: &str) -> Result<Option<Map>> {
+            unimplemented!()
+        }
+
+        async fn upsert_map(&self, _map: &MapEvidence) -> Result<()> {
+            unimplemented!()
+        }
+
+        async fn playlist_add(&self, _map_uid: &str) -> Result<Option<Map>> {
+            unimplemented!()
+        }
+
+        async fn playlist_remove(&self, _map_uid: &str) -> Result<Option<Map>> {
+            unimplemented!()
+        }
+
+        async fn nb_records(&self, _map_uid: &str) -> Result<i64> {
+            unimplemented!()
+        }
+
+        async fn top_record(&self, _map_uid: &str) -> Result<Option<RecordDetailed>> {
+            unimplemented!()
+        }
+
+        async fn top_records(&self, _map_uid: &str, _limit: i64) -> Result<Vec<Record>> {
+            unimplemented!()
+        }
+
+        async fn player_record(
+            &self,
+            _map_uid: &str,
+            _player_login: &str,
+        ) -> Result<Option<RecordDetailed>> {
+            unimplemented!()
+        }
+
+        async fn nb_players_with_record(&self) -> Result<i64> {
+            let logins: HashSet<&str> = self
+                .records
+                .iter()
+                .map(|rec| rec.player_login.as_str())
+                .collect();
+            Ok(logins.len() as i64)
+        }
+
+        async fn maps_without_player_record(&self, _player_login: &str) -> Result<Vec<String>> {
+            unimplemented!()
+        }
+
+        async fn players_without_map_record(&self, _map_uid: &str) -> Result<Vec<String>> {
+            unimplemented!()
+        }
+
+        async fn record_preview(&self, _record: &RecordEvidence) -> Result<i32> {
+            unimplemented!()
+        }
+
+        async fn upsert_record(&self, _rec: &RecordEvidence) -> Result<()> {
+            unimplemented!()
+        }
+
+        async fn player_preferences(&self, _player_login: &str) -> Result<Vec<Preference>> {
+            unimplemented!()
+        }
+
+        async fn map_preferences(&self, _map_uid: &str) -> Result<Vec<Preference>> {
+            unimplemented!()
+        }
+
+        async fn count_map_preferences(
+            &self,
+            _map_uid: &str,
+        ) -> Result<Vec<(PreferenceValue, i64)>> {
+            unimplemented!()
+        }
+
+        async fn upsert_preference(&self, _pref: &Preference) -> Result<()> {
+            unimplemented!()
+        }
+
+        async fn map_rankings(&self) -> Result<Vec<MapRank>> {
+            let mut grp_by_map = HashMap::<&str, Vec<&RecordEvidence>>::new();
+            for rec in self.records.iter() {
+                grp_by_map.entry(&rec.map_uid).or_insert(vec![]).push(&rec);
+            }
+            for map_recs in grp_by_map.values_mut() {
+                map_recs.sort_by_key(|rec| rec.millis);
+            }
+            Ok(grp_by_map
+                .into_iter()
+                .flat_map(|(map_uid, map_recs)| {
+                    let max_pos = map_recs.len() as i64;
+                    map_recs.into_iter().enumerate().map(move |(idx, rec)| {
+                        let player_nick_name =
+                            self.expect_player(&rec.player_login).nick_name.clone();
+                        let in_playlist = self.expect_map(&rec.map_uid).in_playlist;
+                        MapRank {
+                            map_uid: map_uid.to_string(),
+                            player_login: rec.player_login.clone(),
+                            player_nick_name,
+                            pos: idx as i64 + 1,
+                            max_pos,
+                            in_playlist,
+                        }
+                    })
+                })
+                .collect())
+        }
+    }
+}
