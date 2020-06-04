@@ -2,19 +2,23 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use anyhow::Result;
-use include_dir::Dir;
 use tokio_postgres::Row;
 
 use async_trait::async_trait;
+use include_dir::{include_dir, Dir};
 
-use crate::config::Config;
 use crate::database::queries::Queries;
 use crate::database::structs::*;
 use crate::server::{GameString, PlayerInfo};
 
 /// Connect to the Postgres database and open a connection pool.
-pub async fn pg_connect(config: &Config) -> Arc<dyn Queries> {
-    let config = tokio_postgres::config::Config::from_str(&config.postgres_connection)
+pub async fn db_connect(conn: &str) -> Arc<dyn Queries> {
+    let client = pg_connect(conn).await;
+    Arc::new(client) as Arc<dyn Queries>
+}
+
+pub async fn pg_connect(conn: &str) -> PostgresClient {
+    let config = tokio_postgres::config::Config::from_str(&conn)
         .expect("failed to parse postgres connection string");
 
     log::debug!("using postgres connection config:");
@@ -27,7 +31,7 @@ pub async fn pg_connect(config: &Config) -> Arc<dyn Queries> {
         .await
         .expect("failed to build database pool");
 
-    Arc::new(PostgresClient(pool)) as Arc<dyn Queries>
+    PostgresClient(pool)
 }
 
 /// A connection pool that maintains a set of open
@@ -37,7 +41,7 @@ type PostgresPool = bb8::Pool<bb8_postgres::PostgresConnectionManager<tokio_post
 
 /// `Queries` implementation that produces `bb8::RunError<tokio_postgres::Error>s`.
 #[derive(Clone)]
-struct PostgresClient(PostgresPool);
+pub struct PostgresClient(pub PostgresPool);
 
 impl PostgresClient {
     async fn playlist_edit(&self, map_uid: &str, in_playlist: bool) -> Result<Option<Map>> {

@@ -1,11 +1,10 @@
 use std::fmt::Debug;
 
-use include_dir::Dir;
 use lazy_static::*;
 use serde::Serialize;
 use tera::Tera;
 
-pub use action::*;
+use include_dir::{include_dir, Dir};
 pub use intro::*;
 pub use outro_map_rankings::*;
 pub use outro_queue::*;

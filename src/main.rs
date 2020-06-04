@@ -1,6 +1,3 @@
-#[macro_use]
-extern crate include_dir;
-
 mod chat;
 mod compat;
 mod config;
@@ -34,7 +31,7 @@ async fn main() {
 
     let config = Config::load();
 
-    let db = db_connect(&config).await;
+    let db = db_connect(&config.postgres_connection).await;
 
     const RETRY_CONNECT_AFTER_SECS: u64 = 1;
 

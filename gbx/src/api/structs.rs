@@ -259,11 +259,11 @@ pub struct PlayerInfo {
 
     /// (see functions)
     #[serde(rename = "Flags")]
-    flag_digit_mask: i32,
+    pub flag_digit_mask: i32,
 
     /// (see functions)
     #[serde(rename = "SpectatorStatus")]
-    spectator_digit_mask: i32,
+    pub spectator_digit_mask: i32,
 }
 
 impl PlayerInfo {
