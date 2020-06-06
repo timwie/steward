@@ -342,15 +342,15 @@ pub mod test {
                 .collect())
         }
 
-        async fn delete_player(&self, player_login: &str) -> Result<Option<Player>> {
+        async fn delete_player(&self, _player_login: &str) -> Result<Option<Player>> {
             unimplemented!()
         }
 
-        async fn delete_map(&self, map_uid: &str) -> Result<Option<Map>> {
+        async fn delete_map(&self, _map_uid: &str) -> Result<Option<Map>> {
             unimplemented!()
         }
 
-        async fn delete_old_ghosts(&self, max_rank: i64) -> Result<u64> {
+        async fn delete_old_ghosts(&self, _max_rank: i64) -> Result<u64> {
             unimplemented!()
         }
     }

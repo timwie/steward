@@ -213,10 +213,10 @@ impl PlayerCommand {
 
 /// Super admin command reference that can be printed in-game.
 pub const SUPER_ADMIN_COMMAND_REFERENCE: &str = "
-/confirm           Confirm the execution of one of the commands below.
-/delete_map        Delete a map that is not in the playlist from the database. Needs confirmation.
-/delete_player     Delete a blacklisted player from the database. Needs confirmation.
-/shutdown          Shutdown the server. Needs confirmation.
+/confirm                  Confirm the execution of one of dangerous the commands below.
+/delete_map <uid>         Delete a map that is not in the playlist from the database. Needs confirmation.
+/delete_player <login>    Delete a blacklisted player from the database. Needs confirmation.
+/shutdown                 Shutdown the server. Needs confirmation.
 ";
 
 /// Admin command reference that can be printed in-game.

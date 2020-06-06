@@ -20,6 +20,9 @@ rpc_password = "SuperAdmin"
 postgres_connection = "host=127.0.0.1 user=postgres password=123"
 
 # List of player logins that can execute (super) admin commands.
+# You should only add people that you trust as super admins, since
+# they have the ability to delete players, maps and records from the
+# database.
 super_admin_whitelist = ["admin1", "admin2"]
 admin_whitelist = ["admin3", "admin4"]
 
