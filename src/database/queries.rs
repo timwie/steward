@@ -138,14 +138,13 @@ pub mod test {
     use std::collections::{HashMap, HashSet};
     use std::sync::Arc;
 
-    use chrono::{NaiveDateTime, SubsecRound, Utc};
-
     use async_trait::async_trait;
 
     use crate::database::Database;
     use crate::server::GameString;
 
     use super::*;
+    use chrono::Utc;
 
     pub struct MockDatabase {
         pub maps: Vec<MapEvidence>,
@@ -276,11 +275,11 @@ pub mod test {
             unimplemented!()
         }
 
-        async fn player_record(
+        async fn player_records(
             &self,
             _map_uid: &str,
-            _player_login: &str,
-        ) -> Result<Option<RecordDetailed>> {
+            _player_logins: Vec<&str>,
+        ) -> Result<Vec<RecordDetailed>> {
             unimplemented!()
         }
 
