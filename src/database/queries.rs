@@ -58,7 +58,20 @@ pub trait Queries: Send + Sync {
         &self,
         map_uid: &str,
         player_login: &str,
-    ) -> Result<Option<RecordDetailed>>;
+    ) -> Result<Option<RecordDetailed>> {
+        Ok(self
+            .player_records(map_uid, vec![player_login])
+            .await?
+            .into_iter()
+            .next())
+    }
+    /// Return the personal best for each of the specified players on the specified map,
+    /// if they have one.
+    async fn player_records(
+        &self,
+        map_uid: &str,
+        player_logins: Vec<&str>,
+    ) -> Result<Vec<RecordDetailed>>;
 
     /// Return the number of players that have set a record on at least one map.
     async fn nb_players_with_record(&self) -> Result<i64>;
@@ -124,7 +137,8 @@ pub trait Queries: Send + Sync {
 pub mod test {
     use std::collections::{HashMap, HashSet};
     use std::sync::Arc;
-    use std::time::SystemTime;
+
+    use chrono::{NaiveDateTime, SubsecRound, Utc};
 
     use async_trait::async_trait;
 
@@ -166,7 +180,7 @@ pub mod test {
                     file_name: "".to_string(),
                     name: GameString::from("".to_string()),
                     author_login: "".to_string(),
-                    added_since: SystemTime::now(),
+                    added_since: Utc::now().naive_utc(),
                     in_playlist,
                     exchange_id: None,
                 },
@@ -179,7 +193,7 @@ pub mod test {
                 player_login: login.to_string(),
                 map_uid: uid.to_string(),
                 millis,
-                timestamp: SystemTime::now(),
+                timestamp: Utc::now().naive_utc(),
                 sectors: vec![],
                 validation: vec![],
                 ghost: None,

@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::time::SystemTime;
 
+use chrono::Utc;
 use tokio::sync::{RwLock, RwLockReadGuard};
 
 use async_trait::async_trait;
@@ -149,7 +149,7 @@ impl RecordState {
                 player_login: record.player_login.clone(),
                 player_nick_name: record.player_nick_name.clone(),
                 millis: record.millis,
-                timestamp: SystemTime::now(),
+                timestamp: Utc::now().naive_utc(),
             };
             self.top_records.insert(idx, ranking_rec);
             self.top_records.truncate(MAX_DISPLAYED_MAP_RANKS);
@@ -249,14 +249,20 @@ impl RecordController {
         state.pbs.clear();
 
         let live_players = self.live_players.lock().await;
-        for player_info in live_players.info_all() {
-            let maybe_pb = self
-                .db
-                .player_record(&loaded_map.uid, &player_info.login)
-                .await
-                .expect("failed to load player PB");
-            if let Some(pb) = maybe_pb {
-                state.pbs.insert(player_info.uid, pb);
+        let all_logins = live_players
+            .info_all()
+            .iter()
+            .map(|info| info.login.as_str())
+            .collect();
+        let pbs = self
+            .db
+            .player_records(&loaded_map.uid, all_logins)
+            .await
+            .expect("failed to load player PBs");
+
+        for pb in pbs {
+            if let Some(uid) = live_players.uid(&pb.player_login) {
+                state.pbs.insert(*uid, pb);
             }
         }
     }
@@ -340,7 +346,7 @@ impl RecordController {
             millis: finish_ev.race_time_millis,
             validation,
             ghost: None,
-            timestamp: SystemTime::now(),
+            timestamp: Utc::now().naive_utc(),
             sectors,
         };
 

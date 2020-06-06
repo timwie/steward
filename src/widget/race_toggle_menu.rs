@@ -1,6 +1,6 @@
 use std::cmp::Ordering;
-use std::time::SystemTime;
 
+use chrono::{NaiveDateTime, SubsecRound, Utc};
 use serde::{Serialize, Serializer};
 
 use crate::controller::ActivePreferenceValue;
@@ -71,7 +71,7 @@ pub struct MapListEntry<'a> {
 
     /// The moment this map was added to the server.
     #[serde(serialize_with = "format_duration_since")]
-    pub added_since: SystemTime,
+    pub added_since: NaiveDateTime,
 
     /// `True` if this map is currently being played.
     /// This is significant, because the record stats will
@@ -131,7 +131,7 @@ pub struct MapRankingEntry<'a> {
 
     /// The moment this record was set.
     #[serde(serialize_with = "format_duration_since")]
-    pub timestamp: SystemTime,
+    pub timestamp: NaiveDateTime,
 
     /// `True` if this is the player's own record.
     pub is_own: bool,
@@ -173,14 +173,14 @@ pub struct ServerRankingEntry<'a> {
 
 /// Serialize the duration since the given timestamp as a readable string.
 #[allow(clippy::trivially_copy_pass_by_ref)]
-fn format_duration_since<S>(x: &SystemTime, s: S) -> Result<S::Ok, S::Error>
+fn format_duration_since<S>(x: &NaiveDateTime, s: S) -> Result<S::Ok, S::Error>
 where
     S: Serializer,
 {
-    let seconds_since = match x.elapsed() {
-        Ok(duration) => duration.as_secs(),
-        Err(_) => return s.serialize_str(""),
-    };
+    let now = Utc::now().naive_utc().round_subsecs(0);
+    let seconds_since = now.timestamp() - x.timestamp();
+    assert!(seconds_since >= 0);
+
     let days_since = seconds_since / 60 / 60 / 24; // div rounds down
     let weeks_since = days_since / 7;
     let months_since = days_since / 30;

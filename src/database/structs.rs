@@ -1,5 +1,4 @@
-use std::time::SystemTime;
-
+use chrono::{NaiveDateTime, Utc};
 use postgres_types::{FromSql, ToSql};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 
@@ -31,7 +30,7 @@ pub struct Map {
     pub author_login: String,
 
     /// The moment this map was added to the database.
-    pub added_since: SystemTime,
+    pub added_since: NaiveDateTime,
 
     /// `True` if the map is in the server's playlist.
     pub in_playlist: bool,
@@ -47,7 +46,7 @@ impl From<MapInfo> for Map {
             file_name: info.file_name,
             name: info.name,
             author_login: info.author_login,
-            added_since: SystemTime::now(),
+            added_since: Utc::now().naive_utc(),
             in_playlist: true,
             exchange_id: None,
         }
@@ -90,7 +89,7 @@ pub struct RecordEvidence {
     pub player_login: String,
     pub map_uid: String,
     pub millis: i32,
-    pub timestamp: SystemTime,
+    pub timestamp: NaiveDateTime,
     pub sectors: Vec<RecordSector>,
 
     /// Validation replay file data.
@@ -130,7 +129,7 @@ pub struct RecordSector {
 
 /// Detailed record data, that is only missing speed & distance
 /// for each checkpoint.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct RecordDetailed {
     /// The player's map rank, which is the rank of this record
     /// in the ranking of all records on this map.
@@ -146,7 +145,7 @@ pub struct RecordDetailed {
     pub millis: i32,
 
     /// The moment this record was set.
-    pub timestamp: SystemTime,
+    pub timestamp: NaiveDateTime,
 
     /// The milliseconds at the time of passing each checkpoint -
     /// the finish line being the last.
@@ -171,7 +170,7 @@ pub struct Record {
     pub player_login: String,
     pub player_nick_name: GameString,
     pub millis: i32,
-    pub timestamp: SystemTime,
+    pub timestamp: NaiveDateTime,
 }
 
 impl From<RecordDetailed> for Record {

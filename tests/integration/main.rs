@@ -1,7 +1,7 @@
 use std::sync::Arc;
-use std::time::SystemTime;
 
 use anyhow::Result;
+use chrono::{NaiveDateTime, SubsecRound, Utc};
 use testcontainers::*;
 
 use gbx::PlayerInfo;
@@ -159,7 +159,6 @@ async fn test_nb_records_one_per_player() -> Result<()> {
 
 // TODO test .top_record
 // TODO test .top_records
-// TODO test .player_record
 // TODO test .nb_players_with_record
 // TODO test .maps_without_player_record
 // TODO test .players_without_map_record
@@ -170,6 +169,97 @@ async fn test_nb_records_one_per_player() -> Result<()> {
 // TODO test .map_preferences
 // TODO test .count_map_preferences
 // TODO test .upsert_preference
+
+#[tokio::test]
+async fn test_player_record_some() -> Result<()> {
+    let db = clean_db().await?;
+
+    let player = player_info("login", "nickname");
+    let map = map_evidence("uid1", "file1");
+    let rec = record_evidence("login", "uid1", 10000);
+    db.upsert_player(&player).await?;
+    db.upsert_map(&map).await?;
+    db.upsert_record(&rec).await?;
+
+    let expected = record_detailed(1, "nickname", rec);
+    let expected = Some(expected);
+
+    let actual = db.player_record("uid1", "login").await?;
+    assert_eq!(expected, actual);
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_player_records_single() -> Result<()> {
+    let db = clean_db().await?;
+
+    let player = player_info("login", "nickname");
+    let map = map_evidence("uid1", "file1");
+    let rec = record_evidence("login", "uid1", 10000);
+    db.upsert_player(&player).await?;
+    db.upsert_map(&map).await?;
+    db.upsert_record(&rec).await?;
+
+    let expected = record_detailed(1, "nickname", rec);
+    let expected = vec![expected];
+
+    let actual = db.player_records("uid1", vec!["login"]).await?;
+    assert_eq!(expected, actual);
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_player_records_multiple_players() -> Result<()> {
+    let db = clean_db().await?;
+
+    let player1 = player_info("login1", "nickname1");
+    let player2 = player_info("login2", "nickname2");
+    let map = map_evidence("uid1", "file1");
+    let rec1 = record_evidence("login1", "uid1", 9000);
+    let rec2 = record_evidence("login2", "uid1", 10000);
+    db.upsert_player(&player1).await?;
+    db.upsert_player(&player2).await?;
+    db.upsert_map(&map).await?;
+    db.upsert_record(&rec1).await?;
+    db.upsert_record(&rec2).await?;
+
+    let expected1 = record_detailed(1, "nickname1", rec1);
+    let expected2 = record_detailed(2, "nickname2", rec2);
+    let expected = vec![expected1, expected2];
+
+    let actual = db.player_records("uid1", vec!["login1", "login2"]).await?;
+    assert_eq!(expected, actual);
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_player_records_multiple_maps() -> Result<()> {
+    let db = clean_db().await?;
+
+    let player1 = player_info("login1", "nickname1");
+    let player2 = player_info("login2", "nickname2");
+    let map1 = map_evidence("uid1", "file1");
+    let map2 = map_evidence("uid2", "file2");
+    let rec1 = record_evidence("login1", "uid1", 10000);
+    let rec2 = record_evidence("login2", "uid2", 10000);
+    db.upsert_player(&player1).await?;
+    db.upsert_player(&player2).await?;
+    db.upsert_map(&map1).await?;
+    db.upsert_map(&map2).await?;
+    db.upsert_record(&rec1).await?;
+    db.upsert_record(&rec2).await?;
+
+    let expected = record_detailed(1, "nickname1", rec1);
+    let expected = vec![expected];
+
+    let actual = db.player_records("uid1", vec!["login1", "login2"]).await?;
+    assert_eq!(expected, actual);
+
+    Ok(())
+}
 
 fn player_info(login: &str, nick_name: &str) -> PlayerInfo {
     PlayerInfo {
@@ -188,7 +278,7 @@ fn map_evidence(uid: &str, file_name: &str) -> MapEvidence {
             file_name: file_name.to_string(),
             name: "".to_string(),
             author_login: "".to_string(),
-            added_since: SystemTime::now(),
+            added_since: now(),
             in_playlist: true,
             exchange_id: None,
         },
@@ -201,7 +291,7 @@ fn record_evidence(login: &str, map_uid: &str, millis: i32) -> RecordEvidence {
         player_login: login.to_string(),
         map_uid: map_uid.to_string(),
         millis,
-        timestamp: SystemTime::now(),
+        timestamp: now(),
         validation: "validation replay".as_bytes().to_owned(),
         ghost: Some("ghost replay".as_bytes().to_owned()),
         sectors: (0..5)
@@ -213,4 +303,23 @@ fn record_evidence(login: &str, map_uid: &str, millis: i32) -> RecordEvidence {
             })
             .collect(),
     }
+}
+
+fn record_detailed(pos: i64, nick_name: &str, ev: RecordEvidence) -> RecordDetailed {
+    RecordDetailed {
+        map_rank: pos,
+        player_login: ev.player_login,
+        player_nick_name: nick_name.to_string(),
+        millis: ev.millis,
+        timestamp: ev.timestamp,
+        cp_millis: ev.sectors.iter().map(|sector| sector.cp_millis).collect(),
+    }
+}
+
+fn now() -> NaiveDateTime {
+    // If we want to test date equality, we need to round at least a few nano
+    // digits, since we lose some precision when storing in the database, f.e.
+    //      before: 2020-06-06T19:49:59.973170303
+    //       after: 2020-06-06T19:49:59.973170
+    Utc::now().naive_utc().round_subsecs(5)
 }

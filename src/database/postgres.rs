@@ -273,16 +273,20 @@ impl Queries for PostgresClient {
             .collect())
     }
 
-    async fn player_record(
+    async fn player_records(
         &self,
         map_uid: &str,
-        player_login: &str,
-    ) -> Result<Option<RecordDetailed>> {
+        player_logins: Vec<&str>,
+    ) -> Result<Vec<RecordDetailed>> {
         let conn = self.0.get().await?;
         let stmt = r#"
-            SELECT r.pos, p.login, p.nick_name, r.millis, r.timestamp, s.cp_millis
+            SELECT
+                r.pos, r.millis, r.timestamp,
+                p.login, p.nick_name,
+                s.cp_millis
             FROM (
                 SELECT
+                   map_uid,
                    player_login,
                    millis,
                    timestamp,
@@ -292,20 +296,29 @@ impl Queries for PostgresClient {
                 FROM steward.record
                 WHERE map_uid = $1
             ) r
-            RIGHT JOIN steward.sector s ON r.player_login = s.player_login
-            LEFT JOIN steward.player p ON r.player_login = p.login
-            WHERE map_uid = $1 AND r.player_login = $2
-            ORDER BY s.index ASC
+            NATURAL JOIN (
+                SELECT
+                    map_uid,
+                    player_login,
+                    ARRAY_AGG(cp_millis ORDER BY index ASC) cp_millis
+                FROM steward.sector
+                WHERE map_uid = $1 AND player_login = ANY($2)
+                GROUP BY map_uid, player_login
+            ) s
+            INNER JOIN steward.player p ON r.player_login = p.login
         "#;
-        let rows = conn.query(stmt, &[&map_uid, &player_login]).await?;
-        Ok(rows.first().map(|row| RecordDetailed {
-            map_rank: row.get("pos"),
-            player_login: row.get("login"),
-            player_nick_name: GameString::from(row.get("nick_name")),
-            timestamp: row.get("timestamp"),
-            millis: row.get("millis"),
-            cp_millis: rows.iter().map(|row| row.get("cp_millis")).collect(),
-        }))
+        let rows = conn.query(stmt, &[&map_uid, &player_logins]).await?;
+        Ok(rows
+            .into_iter()
+            .map(|row| RecordDetailed {
+                map_rank: row.get("pos"),
+                player_login: row.get("login"),
+                player_nick_name: GameString::from(row.get("nick_name")),
+                timestamp: row.get("timestamp"),
+                millis: row.get("millis"),
+                cp_millis: row.get::<_, Vec<i32>>("cp_millis"),
+            })
+            .collect())
     }
 
     async fn nb_players_with_record(&self) -> Result<i64> {
