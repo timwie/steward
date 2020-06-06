@@ -132,6 +132,7 @@ $ ./steward
   the Postgres database, you only need to backup the latter. 
 
 #### Upgrading
+- You can check for new releases using the `/info` command.
 - If the [changelog](CHANGELOG.md) does not state otherwise,
   you can simply exchange the `steward` executable to upgrade to a newer version.
 - New versions may alter the database schema on launch.
