@@ -16,6 +16,23 @@ pub const USER_AGENT: &str = concat!(
     ")"
 );
 
+/// Images used by widgets are located in the `src/res/img`, but need
+/// to be hosted somewhere. Using jsDelivr, we can serve files from the GitHub
+/// repository via their CDN.
+///
+/// Reference: https://www.jsdelivr.com/features#gh
+// use @<branch>, @<tag>, or @latest (most recent tag)
+pub const CDN_PREFIX: &str = concat!(
+    "https://cdn.jsdelivr.net/gh/timwie/steward@v",
+    env!("CARGO_PKG_VERSION"),
+    "/src/res/img"
+);
+
+/// Same as `CDN_PREFIX`, but using images from the master branch.
+/// Useful for development, but not for production, since images might disappear
+/// for older versions.
+pub const CDN_PREFIX_MASTER: &str = "https://cdn.jsdelivr.net/gh/timwie/steward@master/src/res/img";
+
 /// Require this percentage of players for the first restart vote.
 pub const DEFAULT_MIN_RESTART_VOTE_RATIO: f32 = 0.5;
 

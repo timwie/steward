@@ -3,30 +3,18 @@
 {% block manialink %}
 {{ super() }}
 
-<<<<<<< HEAD
-<frame id="intro" pos="0 0">
-    <quad size="80 50" pos="20 10" z-index="-2" style="Bgs1" substyle="BgEmpty" valign="center"/>
-    <quad size="80 50" pos="20 10" z-index="-1" bgcolor="{{col_neutral}}5" valign="center"/>
-=======
 {% set width   = 90 %}
 {% set padding = 8 %}
 {% set labelw  = width - padding*2 %}
 {% set prefw   = 15 %}
->>>>>>> Initial design for intro widget
 
 {% set top_height = 5 + 3 + padding %}
 {% set height  = 50 %}
 
 <frame id="intro" pos="30 {{height/2.0}}" valign="bottom">
     <quad size="{{width}} {{height}}" pos="0 0" z-index="-2" style="Bgs1" substyle="BgEmpty"/>
-<<<<<<< HEAD
-    <quad size="{{width}} {{height}}" pos="0 0" z-index="-1" bgcolor="{{col_bg}}A"/>
-    <quad size="{{width}} 18" pos="0 0" z-index="-1" bgcolor="{{col_bg}}A"/>
-=======
->>>>>>> Updated design for intro widget
-
-    <quad size="{{width}} {{top_height}}" pos="0 0" z-index="-1" bgcolor="{{col_tm_green}}5"/>
-    <quad bgcolor="{{col_tm_green}}" size="{{width}} 1" pos="0 -{{top_height}}" valign="center"/>
+    <quad size="{{width}} {{top_height}}" pos="0 0" z-index="-1"
+          image="{{cdn}}/gradient_green_vertical.png" opacity="0.8"/>
 
     <quad size="{{width}} {{height - top_height}}" pos="0 -{{top_height}}" z-index="-1" bgcolor="{{col_bg}}A"/>
 

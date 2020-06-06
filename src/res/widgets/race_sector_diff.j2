@@ -304,6 +304,10 @@ Void OnCheckpoint(CTmRaceClientEvent Event) {
     declare SectorIdx = Event.CheckpointInRace;
     if (SectorIdx == 0) {
         Reset(Event);
+    } else if (SectorIdx > P_RunSectorMillis.count) {
+        // If this script is added during a player's run, we might have missed some
+        // sector data already. Ignore this run to prevent inconsistencies.
+        return;
     }
 
     declare SectorMillis_Live = Event.RaceTime - P_RunLastCpMillis;
