@@ -366,6 +366,7 @@ impl Controller {
                 let msg = CommandOutput::PlayerCommandReference;
                 self.widget.show_popup(msg, from_login).await;
             }
+
             Info => {
                 let controller = self.clone(); // 'self' with 'static lifetime
                 let from_login = from_login.to_string(); // allow data to outlive the current scope
@@ -390,24 +391,43 @@ impl Controller {
         use AdminCommand::*;
         use CommandOutput::*;
 
+        let from_nick_name = match self.players.nick_name(from_login).await {
+            Some(name) => name,
+            None => return,
+        };
+
+        let or_nickname = |login: String| async move {
+            self
+                .db
+                .player(&login)
+                .await
+                .expect("failed to load player")
+                .map(|p| p.nick_name)
+                .unwrap_or_else(|| login)
+        };
+
         match cmd {
             Help => {
                 let msg = AdminCommandReference;
                 self.widget.show_popup(msg, from_login).await;
             }
+
             ListMaps => {
                 let maps = self.db.maps().await.expect("failed to load maps");
                 let msg = MapList(maps);
                 self.widget.show_popup(msg, from_login).await;
             }
+
             PlaylistAdd { uid } => {
                 self.on_playlist_cmd(from_login, self.playlist.add(&uid).await)
                     .await
             }
+
             PlaylistRemove { uid } => {
                 self.on_playlist_cmd(from_login, self.playlist.remove(&uid).await)
                     .await
             }
+
             ImportMap { id } => {
                 // Download maps in a separate task.
                 let controller = self.clone(); // 'self' with 'static lifetime
@@ -419,44 +439,59 @@ impl Controller {
                         .await;
                 });
             }
+
             SkipCurrentMap => {
-                let maybe_info = self.players.info(&from_login).await;
-                let maybe_nick_name: Option<&str> = match &maybe_info {
-                    Some(info) => Some(&info.nick_name),
-                    None => None,
-                };
                 let _ = self.queue.next_maps().await; // set next playlist index
                 self.server.playlist_skip().await;
                 self.chat
-                    .announce(ServerMessage::AdminSkippedMap {
-                        name: maybe_nick_name.unwrap_or(from_login),
+                    .announce(ServerMessage::CurrentMapSkipped {
+                        admin_name: &from_nick_name,
                     })
                     .await;
             }
-            RestartCurrentMap => {
-                // TODO controller: force restart in queue
-                // TODO chat: announce that an admin restarted the current map
-            }
-            ForceQueue { uid } => {
-                // TODO do we allow to force queue a map multiple times?
-                // TODO controller: force queue
-                // TODO chat: announce that an admin force queued a map
 
-                // TODO if unknown uid
-                if false {
-                    self.widget.show_popup(UnknownMap, from_login).await;
+            RestartCurrentMap => {
+                if self.queue.force_restart().await {
+                    self.chat
+                        .announce(ServerMessage::ForceRestart {
+                            admin_name: &from_nick_name,
+                        })
+                        .await;
                 }
             }
+
+            ForceQueue { uid } => {
+                let playlist = self.playlist.lock().await;
+                let playlist_index = match playlist.index_of(uid) {
+                    Some(idx) => idx,
+                    None => {
+                        self.widget.show_popup(UnknownMap, from_login).await;
+                        return;
+                    }
+                };
+                let map = playlist.at_index(playlist_index).unwrap();
+
+                self.queue.force_queue(playlist_index).await;
+                self.chat
+                    .announce(ServerMessage::ForceQueued {
+                        admin_name: &from_nick_name,
+                        map_name: &map.name,
+                    })
+                    .await;
+            }
+
             SetRaceDuration(secs) => {
                 self.settings
                     .edit_config(|cfg: &mut Config| cfg.race_duration_secs = secs)
                     .await;
             }
+
             SetOutroDuration(secs) => {
                 self.settings
                     .edit_config(|cfg: &mut Config| cfg.outro_duration_secs = secs)
                     .await;
             }
+
             BlacklistAdd { login } => {
                 let _ = self.players.remove_player(&login).await;
                 let _ = self.server.kick_player(&login, Some("Blacklisted")).await;
@@ -465,21 +500,34 @@ impl Controller {
                     .save_blacklist(BLACKLIST_FILE)
                     .await
                     .expect("failed to save blacklist file");
-                // TODO chat: announce that an admin blacklisted a player
+
+                self.chat
+                    .announce(ServerMessage::PlayerBlacklisted {
+                        admin_name: &from_nick_name,
+                        player_name: &or_nickname(login.to_string()).await,
+                    })
+                    .await;
             }
+
             BlacklistRemove { login } => {
                 let blacklist = self.server.blacklist().await;
-                if blacklist.contains(&login.to_string()) {
-                    self.server.blacklist_remove(&login).await;
-                    self.server
-                        .save_blacklist(BLACKLIST_FILE)
-                        .await
-                        .expect("failed to save blacklist file");
-                } else {
+                if !blacklist.contains(&login.to_string()) {
                     self.widget
                         .show_popup(UnknownBlacklistPlayer, from_login)
                         .await;
+                    return
                 }
+                self.server.blacklist_remove(&login).await;
+                self.server
+                    .save_blacklist(BLACKLIST_FILE)
+                    .await
+                    .expect("failed to save blacklist file");
+                self.chat
+                    .announce(ServerMessage::PlayerUnblacklisted {
+                        admin_name: &from_nick_name,
+                        player_name: &or_nickname(login.to_string()).await,
+                    })
+                    .await;
             }
         };
     }
@@ -503,23 +551,39 @@ impl Controller {
         use CommandOutput::*;
         use DangerousCommand::*;
 
+        log::warn!("{}> {:?}", from_login, &cmd);
+
+        let from_nick_name = match self.players.nick_name(from_login).await {
+            Some(name) => name,
+            None => return,
+        };
+
         match cmd {
-            DeleteMap { uid } => {
-                match self.db.map(&uid).await.expect("failed to load map") {
-                    Some(map) if !map.in_playlist => {
-                        let _ = self.db.delete_map(&uid).await;
-                        // TODO chat: announce that an admin deleted a map
-                    }
-                    Some(_) => {
-                        self.widget
-                            .show_popup(CannotDeletePlaylistMap, from_login)
-                            .await;
-                    }
-                    None => {
-                        self.widget.show_popup(UnknownMap, from_login).await;
-                    }
+            DeleteMap { uid } => match self.db.map(&uid).await.expect("failed to load map") {
+                Some(map) if !map.in_playlist => {
+                    let map = self
+                        .db
+                        .delete_map(&uid)
+                        .await
+                        .expect("failed to delete map")
+                        .expect("map already deleted");
+                    self.chat
+                        .announce(ServerMessage::MapDeleted {
+                            admin_name: &from_nick_name,
+                            map_name: &map.name,
+                        })
+                        .await;
                 }
-            }
+                Some(_) => {
+                    self.widget
+                        .show_popup(CannotDeletePlaylistMap, from_login)
+                        .await;
+                }
+                None => {
+                    self.widget.show_popup(UnknownMap, from_login).await;
+                }
+            },
+
             DeletePlayer { login } => {
                 let blacklist = self.server.blacklist().await;
                 if blacklist.contains(&login) {
@@ -538,6 +602,7 @@ impl Controller {
                         .await;
                 }
             }
+
             Shutdown => {
                 self.server.stop_server().await;
             }

@@ -50,11 +50,22 @@ pub trait LivePlayers: Send + Sync {
         self.lock().await.playing.iter().copied().collect()
     }
 
+    /// Return the login of the player with the specified UID, or `None` if no
+    /// player with that UID is connected.
     async fn login(&self, player_uid: i32) -> Option<String> {
         self.lock()
             .await
             .login(player_uid)
             .map(|login| login.to_string())
+    }
+
+    /// Return the nick name of the player with the specified login, or `None` if no
+    /// player with that login is connected.
+    async fn nick_name(&self, login: &str) -> Option<String> {
+        self.lock()
+            .await
+            .info(login)
+            .map(|info| info.nick_name.to_string())
     }
 }
 

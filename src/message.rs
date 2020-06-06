@@ -10,7 +10,7 @@ use crate::config::{
 use crate::event::{ControllerEvent, PbDiff, PlayerDiff, PlaylistDiff, ServerRankingDiff};
 
 /// Chat announcements from the controller to all players.
-/// All variants are derived from `ControllerEvent`s.
+/// Many variants can be derived from `ControllerEvent`s.
 ///
 /// Note: messages should typically convey information that is
 /// not already conveyed by widgets.
@@ -55,7 +55,34 @@ pub enum ServerMessage<'a> {
     VoteNow { duration: Duration, threshold: f32 },
 
     /// Tell players that an admin skipped the current map.
-    AdminSkippedMap { name: &'a str },
+    CurrentMapSkipped { admin_name: &'a str },
+
+    /// Tell players that an admin deleted a map and its records.
+    MapDeleted {
+        admin_name: &'a str,
+        map_name: &'a str,
+    },
+
+    /// Tell players that an admin has blacklisted a player.
+    PlayerBlacklisted {
+        admin_name: &'a str,
+        player_name: &'a str,
+    },
+
+    /// Tell players that an admin has removed a player from the blacklist.
+    PlayerUnblacklisted {
+        admin_name: &'a str,
+        player_name: &'a str,
+    },
+
+    /// Tell players that an admin has forced a restart of the current map.
+    ForceRestart { admin_name: &'a str },
+
+    /// Tell players that an admin has pushed a map to the top of the queue.
+    ForceQueued {
+        admin_name: &'a str,
+        map_name: &'a str,
+    },
 }
 
 pub struct TopRankMessage<'a> {
@@ -249,7 +276,53 @@ impl Display for ServerMessage<'_> {
                 duration.as_secs()
             ),
 
-            AdminSkippedMap { name } => write!(f, "Admin {} skipped the current map.", name),
+            CurrentMapSkipped { admin_name } => write!(
+                f,
+                "Admin {}{}{} skipped the current map!",
+                admin_name, RESET, NOTICE
+            ),
+
+            MapDeleted {
+                admin_name,
+                map_name,
+            } => write!(
+                f,
+                "Admin {}{}{} deleted {}{}{} and all of its records!",
+                admin_name, RESET, NOTICE, map_name, RESET, NOTICE
+            ),
+
+            PlayerBlacklisted {
+                admin_name,
+                player_name,
+            } => write!(
+                f,
+                "Admin {}{}{} blacklisted player {}{}{}!",
+                admin_name, RESET, NOTICE, player_name, RESET, NOTICE
+            ),
+
+            PlayerUnblacklisted {
+                admin_name,
+                player_name,
+            } => write!(
+                f,
+                "Admin {}{}{} un-blacklisted player {}{}{}!",
+                admin_name, RESET, NOTICE, player_name, RESET, NOTICE
+            ),
+
+            ForceRestart { admin_name } => write!(
+                f,
+                "Admin {}{}{} forced a map restart!",
+                admin_name, RESET, NOTICE
+            ),
+
+            ForceQueued {
+                admin_name,
+                map_name,
+            } => write!(
+                f,
+                "Admin {}{}{} queued map {}{}{}!",
+                admin_name, RESET, NOTICE, map_name, RESET, NOTICE
+            ),
         }
     }
 }

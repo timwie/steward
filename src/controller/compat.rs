@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 use gbx::{SCRIPT_API_VERSION, SERVER_API_VERSION};
 
-use crate::config::{Config, BLACKLIST_FILE, MAX_GHOST_REPLAY_RANK};
+use crate::config::{Config, BLACKLIST_FILE, MAX_GHOST_REPLAY_RANK, VERSION};
 use crate::database::{Database, Map, MapEvidence};
 use crate::ingame::{MapInfo, ModeInfo, ModeOptions, Server, ServerInfo, ServerOptions};
 use crate::network::exchange_id;
