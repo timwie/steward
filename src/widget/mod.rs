@@ -15,6 +15,8 @@ pub use race_run_outro::*;
 pub use race_sector_diff::*;
 pub use race_toggle_menu::*;
 
+use crate::config::{CDN_PREFIX, CDN_PREFIX_MASTER};
+
 mod intro;
 mod outro_map_rankings;
 mod outro_queue;
@@ -38,13 +40,15 @@ where
     /// one widget with another.
     const ID: &'static str = Self::FILE;
 
-    /// Render the template file with this context.
+    /// Render the template file with this context, extended by
+    /// - `widget_id`: use as `<manialink>` ID
+    /// - `cdn`: prefix URL for images in `src/res/img`
     fn render(&self) -> String {
         log::debug!("render widget context: {:?}", &self);
 
         let mut tera_context =
             tera::Context::from_serialize(self).expect("failed to create widget context!");
-        tera_context.insert("widget_id", Self::ID);
+        Self::extend_ctxt(&mut tera_context);
 
         TEMPLATES
             .render(Self::FILE, &tera_context)
@@ -55,10 +59,22 @@ where
     /// of this type.
     fn hidden() -> String {
         let mut tera_context = tera::Context::new();
-        tera_context.insert("widget_id", Self::ID);
+        Self::extend_ctxt(&mut tera_context);
         TEMPLATES
             .render("empty.j2", &tera_context)
             .expect("failed to render widget!")
+    }
+
+    fn extend_ctxt(ctxt: &mut tera::Context) {
+        ctxt.insert("widget_id", Self::ID);
+        ctxt.insert(
+            "cdn",
+            if cfg!(debug_assertions) {
+                CDN_PREFIX_MASTER
+            } else {
+                CDN_PREFIX
+            },
+        );
     }
 }
 
