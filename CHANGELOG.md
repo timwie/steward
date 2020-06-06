@@ -18,9 +18,40 @@ All `0.1.0-alpha` releases are unstable, and have missing widgets.
   - Displays the current distribution of all players' preferences for this map.
   - Displays the player's current rank on this map.
 
+- **Chat**: Super Admin Commands
+  - `/confirm` confirms the execution of one of the dangerous commands below.
+  - `/delete_map <uid>` deletes a map that is not in the playlist from the database. Needs confirmation.
+  - `/delete_player <login>` deletes a blacklisted player from the database. Needs confirmation.
+  - `/shutdown` shuts down the server. Needs confirmation.
+ 
+- **Chat**: Admin Commands
+  - `/skip` starts the next map immediately.
+  - `/restart` restarts the current map after this race.
+  - `/queue <uid>` pushes a map to the top of the queue.
+  - `/set_timelimit <seconds>` changes the race time limit, and updates `race_duration_secs` in your config
+  - `/set_outro <seconds>` changes the outro duration at the end of a map, and updates `outro_duration_secs` in your config.
+  - `/blacklist <login>` adds a player to the server's blacklist.
+    The list is persisted in the `blacklist.txt` file created by the server.
+  - `/unblacklist <login>` removes a player from the server's blacklist.
+
+- **Chat**: Player Commands
+  - `/info` prints information about the server & controller
+
 ### Changed
-- Only records on maps in the playlist count towards players' server rank,
+- **Server Rank**: Only records on maps in the playlist count towards players' server rank,
   to prevent that new players are at an unfair disadvantage.
+
+- **Records**: The controller will now store ghost replays for three top records,
+  instead of just one.
+
+- **Admin**: Changes to the controller config
+  - added `super_admin_whitelist` to list super admins, that have extended admin rights (see new commands)
+  - renamed `super_admin_name` as `rpc_login`
+  - renamed `super_admin_pw` as `rpc_password`
+  - removed `vote_duration_secs`; now uses a fixed ⅔ of `outro_duration_secs`
+
+- **Admin**: The controller will delete ghost replays of records that are not
+  in the top three at startup.
 
 ### Fixed
 - Fixed not updating improved records in the database.
