@@ -374,10 +374,15 @@ impl WidgetController {
         let records = self.live_records.lock().await;
         let playlist = self.live_playlist.lock().await;
         let server_ranking = self.live_server_ranking.lock().await;
+
+        let map_ranking = self.curr_map_ranking(&*records, &player).await;
+        let server_ranking = self.curr_server_ranking(&*server_ranking, &player).await;
+        let map_list = self.curr_map_list(&*playlist, &player).await;
+
         let menu = ToggleMenuWidget {
-            map_ranking: self.curr_map_ranking(&*records, &player).await,
-            server_ranking: self.curr_server_ranking(&*server_ranking, &player).await,
-            map_list: self.curr_map_list(&*playlist, &player).await,
+            map_ranking,
+            server_ranking,
+            map_list,
             max_displayed_race_ranks: MAX_DISPLAYED_RACE_RANKS,
         };
         self.show_for(&menu, player.uid).await;

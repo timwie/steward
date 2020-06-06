@@ -254,7 +254,7 @@ impl RecordController {
             state
                 .run_sectors
                 .entry(player_info.uid)
-                .or_insert_with(|| vec![])
+                .or_insert_with(Vec::new)
                 .push(RecordSector {
                     index: ev.cp_index,
                     cp_millis: ev.race_time_millis,
