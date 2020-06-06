@@ -397,8 +397,7 @@ impl Controller {
         };
 
         let or_nickname = |login: String| async move {
-            self
-                .db
+            self.db
                 .player(&login)
                 .await
                 .expect("failed to load player")
@@ -515,7 +514,7 @@ impl Controller {
                     self.widget
                         .show_popup(UnknownBlacklistPlayer, from_login)
                         .await;
-                    return
+                    return;
                 }
                 self.server.blacklist_remove(&login).await;
                 self.server
@@ -567,6 +566,14 @@ impl Controller {
                         .await
                         .expect("failed to delete map")
                         .expect("map already deleted");
+
+                    // Delete file, otherwise the map will be scanned back into the
+                    // database at the next launch.
+                    let map_path = self.settings.maps_dir().await.join(map.file_name);
+                    if map_path.is_file() {
+                        std::fs::remove_file(map_path).expect("failed to delete map file");
+                    }
+
                     self.chat
                         .announce(ServerMessage::MapDeleted {
                             admin_name: &from_nick_name,
