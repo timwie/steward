@@ -1,10 +1,11 @@
 use std::sync::Arc;
+use std::time::SystemTime;
 
 use anyhow::Result;
 use testcontainers::*;
 
 use gbx::PlayerInfo;
-use steward::database::{pg_connect, Database, Player};
+use steward::database::*;
 
 /// Spins up a Postgres database in a Docker container.
 async fn clean_db() -> Result<Arc<dyn Database>> {
@@ -46,7 +47,7 @@ async fn clean_db() -> Result<Arc<dyn Database>> {
 #[tokio::test]
 async fn test_player_insert() -> Result<()> {
     let db = clean_db().await?;
-    let expected_info = player_info(0, "login", "nickname");
+    let expected_info = player_info("login", "nickname");
     let expected = Player {
         login: "login".to_string(),
         nick_name: "nickname".to_string(),
@@ -62,8 +63,8 @@ async fn test_player_insert() -> Result<()> {
 #[tokio::test]
 async fn test_player_update() -> Result<()> {
     let db = clean_db().await?;
-    let old_info = player_info(0, "login", "nickname");
-    let new_info = player_info(0, "login", "new nickname");
+    let old_info = player_info("login", "nickname");
+    let new_info = player_info("login", "new nickname");
     let expected = Player {
         login: "login".to_string(),
         nick_name: "new nickname".to_string(),
@@ -77,12 +78,139 @@ async fn test_player_update() -> Result<()> {
     Ok(())
 }
 
-fn player_info(uid: i32, login: &str, nick_name: &str) -> PlayerInfo {
+#[tokio::test]
+async fn test_nb_records_zero() -> Result<()> {
+    let db = clean_db().await?;
+    assert_eq!(0, db.nb_records("uid1").await?);
+
+    let map = map_evidence("uid1", "file1");
+    db.upsert_map(&map).await?;
+    assert_eq!(0, db.nb_records("uid1").await?);
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_nb_records_one() -> Result<()> {
+    let db = clean_db().await?;
+
+    let player = player_info("login", "nickname");
+    let map = map_evidence("uid1", "file1");
+    let rec = record_evidence("login", "uid1", 10000);
+    db.upsert_player(&player).await?;
+    db.upsert_map(&map).await?;
+    db.upsert_record(&rec).await?;
+
+    assert_eq!(1, db.nb_records("uid1").await?);
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_nb_records_multiple_maps() -> Result<()> {
+    let db = clean_db().await?;
+
+    let player1 = player_info("login1", "nickname1");
+    let player2 = player_info("login2", "nickname2");
+    let map1 = map_evidence("uid1", "file1");
+    let map2 = map_evidence("uid2", "file2");
+    let rec11 = record_evidence("login1", "uid1", 10000);
+    let rec12 = record_evidence("login2", "uid1", 10000);
+    let rec21 = record_evidence("login1", "uid2", 10000);
+    db.upsert_player(&player1).await?;
+    db.upsert_player(&player2).await?;
+    db.upsert_map(&map1).await?;
+    db.upsert_map(&map2).await?;
+    db.upsert_record(&rec11).await?;
+    db.upsert_record(&rec12).await?;
+    db.upsert_record(&rec21).await?;
+
+    assert_eq!(2, db.nb_records("uid1").await?);
+    assert_eq!(1, db.nb_records("uid2").await?);
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_nb_records_one_per_player() -> Result<()> {
+    let db = clean_db().await?;
+
+    let player = player_info("login", "nickname");
+    let map = map_evidence("uid1", "file1");
+    let rec1 = record_evidence("login", "uid1", 10000);
+    let rec2 = record_evidence("login", "uid1", 9000);
+    db.upsert_player(&player).await?;
+    db.upsert_map(&map).await?;
+    db.upsert_record(&rec1).await?;
+    db.upsert_record(&rec2).await?;
+
+    assert_eq!(1, db.nb_records("uid1").await?);
+
+    Ok(())
+}
+
+// TODO test .upsert_map insert
+// TODO test .upsert_map update filename, exchangeid
+// TODO test .upsert_map update does not set NULL exchangeid
+// => assert with .map, .maps, .map_files, .playlist
+
+// TODO test .playlist_add & .playlist_remove
+// => assert with .playlist
+
+// TODO test .top_record
+// TODO test .top_records
+// TODO test .player_record
+// TODO test .nb_players_with_record
+// TODO test .maps_without_player_record
+// TODO test .players_without_map_record
+// TODO test .record_preview
+// TODO test .map_rankings
+
+// TODO test .player_preferences
+// TODO test .map_preferences
+// TODO test .count_map_preferences
+// TODO test .upsert_preference
+
+fn player_info(login: &str, nick_name: &str) -> PlayerInfo {
     PlayerInfo {
-        uid,
+        uid: 0,
         login: login.to_string(),
         nick_name: nick_name.to_string(),
         flag_digit_mask: 101_000_000,
         spectator_digit_mask: 2_551_010,
+    }
+}
+
+fn map_evidence(uid: &str, file_name: &str) -> MapEvidence {
+    MapEvidence {
+        metadata: Map {
+            uid: uid.to_string(),
+            file_name: file_name.to_string(),
+            name: "".to_string(),
+            author_login: "".to_string(),
+            added_since: SystemTime::now(),
+            in_playlist: true,
+            exchange_id: None,
+        },
+        data: "map file".as_bytes().to_owned(),
+    }
+}
+
+fn record_evidence(login: &str, map_uid: &str, millis: i32) -> RecordEvidence {
+    RecordEvidence {
+        player_login: login.to_string(),
+        map_uid: map_uid.to_string(),
+        millis,
+        timestamp: SystemTime::now(),
+        validation: "validation replay".as_bytes().to_owned(),
+        ghost: Some("ghost replay".as_bytes().to_owned()),
+        sectors: (0..5)
+            .map(|i| RecordSector {
+                index: i,
+                cp_millis: (i + 1) * (millis / 5),
+                cp_speed: 420.1337,
+                cp_distance: 1337.42 + i as f32,
+            })
+            .collect(),
     }
 }
