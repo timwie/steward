@@ -121,10 +121,8 @@ $ ./steward
 ```
 
 #### Admin Commands
-- `/map_import <mx id/uid>` imports maps from ManiaExchange.
-- `/maps` lists map names and UIDs.
-- `/playlist_add <uid>` adds a map to the playlist.
-- `/playlist_remove <uid>` removes a map from the playlist.
+- Make sure you add your own login to the `super_admin_whitelist` in the controller config.
+- List available commands by typing `/help` into the chat in-game.
 
 #### Supervision
 - The controller will not try to recover when encountering errors.
