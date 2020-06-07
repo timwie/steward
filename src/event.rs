@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::time::Duration;
 
 use crate::action::Action;
-use crate::command::{AdminCommand, DangerousCommand, PlayerCommand, SuperAdminCommand};
+use crate::command::{AdminCommand, PlayerCommand, SuperAdminCommand};
 use crate::database::{Map, RecordDetailed};
 use crate::ingame::PlayerInfo;
 
@@ -228,9 +228,5 @@ pub enum Command<'a> {
     SuperAdmin {
         from: &'a str,
         cmd: SuperAdminCommand,
-    },
-    Dangerous {
-        from: &'a str,
-        cmd: DangerousCommand,
     },
 }

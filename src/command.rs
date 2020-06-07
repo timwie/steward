@@ -16,13 +16,8 @@ pub enum SuperAdminCommand {
     /// Usage: `/help`
     Help,
 
-    /// Confirm and execute the previous, dangerous command.
-    ///
-    /// Usage: `/confirm`
-    Confirm,
-
     /// Prepare a dangerous command, that will only be executed
-    /// after using the `/confirm` command.
+    /// after taking futher action.
     ///
     /// Usage: see `DangerousCommand`
     Unconfirmed(DangerousCommand),
@@ -34,12 +29,12 @@ pub enum SuperAdminCommand {
 pub enum DangerousCommand {
     /// Delete a map that is not in the playlist from the database.
     ///
-    /// Usage: `/delete_map <uid>`
+    /// Usage: `/delete map <uid>`
     DeleteMap { uid: String },
 
     /// Delete a blacklisted player from the database.
     ///
-    /// Usage: `/delete_player <login>`
+    /// Usage: `/delete player <login>`
     DeletePlayer { login: String },
 
     /// Shutdown the server.
@@ -57,11 +52,10 @@ impl SuperAdminCommand {
         let parts: Vec<&str> = chat_message.split_whitespace().collect();
 
         match &parts[..] {
-            ["/confirm"] => Some(Confirm),
-            ["/delete_map", uid] => Some(Unconfirmed(DeleteMap {
+            ["/delete", "map", uid] => Some(Unconfirmed(DeleteMap {
                 uid: (*uid).to_string(),
             })),
-            ["/delete_player", login] => Some(Unconfirmed(DeletePlayer {
+            ["/delete", "player", login] => Some(Unconfirmed(DeletePlayer {
                 login: (*login).to_string(),
             })),
             ["/help"] => Some(Help),
@@ -127,12 +121,12 @@ pub enum AdminCommand<'a> {
 
     /// Set the duration of a race in seconds.
     ///
-    /// Usage `/set_timelimit <seconds>`
+    /// Usage `/set timelimit <seconds>`
     SetRaceDuration(u32),
 
     /// Set the outro duration in seconds.
     ///
-    /// Usage `/set_outro <seconds>`
+    /// Usage `/set chattime <seconds>`
     SetOutroDuration(u32),
 
     /// Add a player to the server's blacklist, and kick them if they are
@@ -163,13 +157,13 @@ impl AdminCommand<'_> {
             ["/playlist_remove", uid] => Some(PlaylistRemove { uid: *uid }),
             ["/queue", uid] => Some(ForceQueue { uid: *uid }),
             ["/restart"] => Some(RestartCurrentMap),
-            ["/set_race", secs] if secs.chars().all(|c| c.is_digit(10)) => {
+            ["/set", "timelimit", secs] if secs.chars().all(|c| c.is_digit(10)) => {
                 match u32::from_str(*secs) {
                     Ok(secs) if secs > 0 => Some(SetRaceDuration(secs)),
                     _ => None,
                 }
             }
-            ["/set_outro", secs] if secs.chars().all(|c| c.is_digit(10)) => {
+            ["/set", "chattime", secs] if secs.chars().all(|c| c.is_digit(10)) => {
                 match u32::from_str(*secs) {
                     Ok(secs) if secs > 0 => Some(SetOutroDuration(secs)),
                     _ => None,
@@ -213,9 +207,8 @@ impl PlayerCommand {
 
 /// Super admin command reference that can be printed in-game.
 pub const SUPER_ADMIN_COMMAND_REFERENCE: &str = "
-/confirm                  Confirm the execution of one of dangerous the commands below.
-/delete_map <uid>         Delete a map that is not in the playlist from the database. Needs confirmation.
-/delete_player <login>    Delete a blacklisted player from the database. Needs confirmation.
+/delete map <uid>         Delete a map from the database. Needs confirmation.
+/delete player <login>    Delete a player from the database. Needs confirmation.
 /shutdown                 Shutdown the server. Needs confirmation.
 ";
 
@@ -229,8 +222,8 @@ pub const ADMIN_COMMAND_REFERENCE: &str = "
 /restart         Restart the current map after this race.
 /queue <uid>     Set the map that will be played after the current one.
 
-/set_timelimit <seconds>     Change the time limit.
-/set_outro <seconds>         Change the outro duration at the end of a map.
+/set timelimit <seconds>     Change the time limit.
+/set chattime <seconds>      Change the outro duration at the end of a map.
 
 /blacklist <login>       Add a player to the server's blacklist.
 /unblacklist <login>     Remove a player from the server's blacklist.
@@ -284,7 +277,7 @@ pub enum CommandOutput<'a> {
 
     /// The specified login does not match any player.
     ///
-    /// Output for `/delete_player`
+    /// Output for `/delete player`
     UnknownPlayer,
 
     /// The specified login does not match any blacklisted player.
@@ -295,34 +288,29 @@ pub enum CommandOutput<'a> {
     /// Tell a super admin that prior to deleting a player,
     /// they have to blacklist them.
     ///
-    /// Output for `/delete_player`
+    /// Output for `/delete player`
     CannotDeleteWhitelistedPlayer,
 
     /// The specified map UID does not match any map.
     ///
-    /// Output for `/delete_map`, `/queue`
+    /// Output for `/delete map`, `/queue`
     UnknownMap,
 
     /// Tell a super admin that prior to deleting a map,
     /// they have to remove it from the playlist.
     ///
-    /// Output for `/delete_map`
+    /// Output for `/delete map`
     CannotDeletePlaylistMap,
-
-    /// Tell a super admin that there is no command to confirm.
-    ///
-    /// Output for `/confirm`
-    NoCommandToConfirm,
 
     /// Tell a super admin that all records for that map will be deleted.
     ///
-    /// Output for `/delete_map`
-    ConfirmMapDeletion,
+    /// Output for `/delete map`
+    ConfirmMapDeletion, // TODO map name
 
     /// Tell a super admin that all records for that player will be deleted.
     ///
-    /// Output for `/delete_player`
-    ConfirmPlayerDeletion,
+    /// Output for `/delete player`
+    ConfirmPlayerDeletion, // TODO player name
 
     /// Tell a super admin that the server will shutdown.
     ///
@@ -366,21 +354,21 @@ impl Display for CommandOutput<'_> {
         match self {
             SuperAdminCommandReference => {
                 writeln!(f, "Super admin commands:")?;
-                writeln!(f, "===============")?;
+                write!(f, "====================")?;
                 write!(f, "{}", SUPER_ADMIN_COMMAND_REFERENCE)?;
                 writeln!(f)?;
                 writeln!(f, "Admin commands:")?;
-                writeln!(f, "===============")?;
+                write!(f, "===============")?;
                 write!(f, "{}", ADMIN_COMMAND_REFERENCE)?;
                 writeln!(f)?;
                 writeln!(f, "Player commands:")?;
-                writeln!(f, "================")?;
+                write!(f, "================")?;
                 write!(f, "{}", PLAYER_COMMAND_REFERENCE)
             }
 
             AdminCommandReference => {
                 writeln!(f, "Admin commands:")?;
-                writeln!(f, "===============")?;
+                write!(f, "===============")?;
                 write!(f, "{}", ADMIN_COMMAND_REFERENCE)?;
                 writeln!(f)?;
                 writeln!(f, "Player commands:")?;
@@ -453,18 +441,15 @@ impl Display for CommandOutput<'_> {
             } => {
                 writeln!(
                     f,
-                    "Controller: $L[https://github.com/timwie/steward]Steward"
+                    "This server uses the 'Steward' controller (https://github.com/timwie/steward)"
                 )?;
+                writeln!(f)?;
                 writeln!(f, "Controller version: {}", controller_version)?;
-                writeln!(
-                    f,
-                    "Most recent controller version: {}",
-                    most_recent_controller_version
-                )?;
+                writeln!(f, "Most recent version: {}", most_recent_controller_version)?;
                 writeln!(f)?;
 
                 writeln!(f, "Uptime: {} hours", net_stats.uptime_secs / 60 / 60)?;
-                writeln!(f, "{:?}", server_info)?;
+                writeln!(f, "{:#?}", server_info)?;
                 writeln!(f)?;
 
                 writeln!(f, "Time limit: {} seconds", config.race_duration_secs)?;
@@ -503,21 +488,17 @@ impl Display for CommandOutput<'_> {
                 "Only maps outside of the playlist can be removed from the database!"
             ),
 
-            NoCommandToConfirm => {
-                writeln!(f, "No command to confirm. Use /confirm only when prompted.")
-            }
-
             ConfirmMapDeletion => writeln!(
                 f,
-                "Use /confirm to delete this map, and all of its records."
+                "Warning: this action will delete this map, and all of its records."
             ),
 
             ConfirmPlayerDeletion => writeln!(
                 f,
-                "Use /confirm to delete this map, and all of their records."
+                "Warning: this action will delete this player, and all of their records."
             ),
 
-            ConfirmShutdown => writeln!(f, "Use /confirm to stop the server."),
+            ConfirmShutdown => writeln!(f, "Warning: this will stop the server."),
         }
     }
 }

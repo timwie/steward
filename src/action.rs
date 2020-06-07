@@ -19,6 +19,12 @@ pub enum Action<'a> {
     /// Update whether a player is for or against a restart
     /// of the current map.
     VoteRestart { vote: bool },
+
+    /// Confirm the execution of a pending, dangerous command.
+    CommandConfirm,
+
+    /// Cancel the execution of a pending, dangerous command.
+    CommandCancel,
 }
 
 impl Action<'_> {

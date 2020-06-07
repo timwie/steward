@@ -17,6 +17,7 @@ use crate::event::{Command, ControllerEvent, PlaylistDiff, VoteInfo};
 use crate::ingame::{Server, ServerEvent};
 use crate::message::ServerMessage;
 use crate::network::most_recent_controller_version;
+use crate::widget::PopupMode;
 
 /// This facade hides all specific controllers behind one interface
 /// that can react to server events.
@@ -327,10 +328,6 @@ impl Controller {
                 self.on_super_admin_cmd(&from, cmd).await
             }
 
-            ControllerEvent::IssuedCommand(Command::Dangerous { from, cmd }) => {
-                self.on_dangerous_cmd(&from, cmd).await
-            }
-
             ControllerEvent::IssuedAction { from_login, action } => {
                 if let Some(info) = self.players.info(&from_login).await {
                     self.on_action(&info, action).await;
@@ -340,8 +337,18 @@ impl Controller {
     }
 
     async fn on_action(&self, player: &PlayerInfo, action: Action<'_>) {
+        use Action::*;
+
         match action {
-            Action::SetPreference {
+            CommandConfirm => {
+                if let Some(cmd) = self.chat.pop_unconfirmed_command(&player.login).await {
+                    self.on_dangerous_cmd(&player.login, cmd).await;
+                }
+            }
+            CommandCancel => {
+                let _ = self.chat.pop_unconfirmed_command(&player.login).await;
+            }
+            SetPreference {
                 map_uid,
                 preference,
             } => {
@@ -352,7 +359,7 @@ impl Controller {
                 };
                 self.prefs.set_preference(pref).await;
             }
-            Action::VoteRestart { vote } => {
+            VoteRestart { vote } => {
                 self.prefs.set_restart_vote(player.uid, vote).await;
             }
         }
@@ -364,7 +371,9 @@ impl Controller {
         match cmd {
             Help => {
                 let msg = CommandOutput::PlayerCommandReference;
-                self.widget.show_popup(msg, from_login).await;
+                self.widget
+                    .show_popup(msg, from_login, PopupMode::Default)
+                    .await;
             }
 
             Info => {
@@ -381,7 +390,10 @@ impl Controller {
                         net_stats: &controller.server.net_stats().await,
                         blacklist: &controller.server.blacklist().await,
                     };
-                    controller.widget.show_popup(msg, &from_login).await;
+                    controller
+                        .widget
+                        .show_popup(msg, &from_login, PopupMode::Default)
+                        .await;
                 });
             }
         }
@@ -408,13 +420,17 @@ impl Controller {
         match cmd {
             Help => {
                 let msg = AdminCommandReference;
-                self.widget.show_popup(msg, from_login).await;
+                self.widget
+                    .show_popup(msg, from_login, PopupMode::Default)
+                    .await;
             }
 
             ListMaps => {
                 let maps = self.db.maps().await.expect("failed to load maps");
                 let msg = MapList(maps);
-                self.widget.show_popup(msg, from_login).await;
+                self.widget
+                    .show_popup(msg, from_login, PopupMode::Default)
+                    .await;
             }
 
             PlaylistAdd { uid } => {
@@ -450,6 +466,7 @@ impl Controller {
             }
 
             RestartCurrentMap => {
+                // FIXME this does not work
                 if self.queue.force_restart().await {
                     self.chat
                         .announce(ServerMessage::ForceRestart {
@@ -460,11 +477,14 @@ impl Controller {
             }
 
             ForceQueue { uid } => {
+                // FIXME this does not work
                 let playlist = self.playlist.lock().await;
                 let playlist_index = match playlist.index_of(uid) {
                     Some(idx) => idx,
                     None => {
-                        self.widget.show_popup(UnknownMap, from_login).await;
+                        self.widget
+                            .show_popup(UnknownMap, from_login, PopupMode::Default)
+                            .await;
                         return;
                     }
                 };
@@ -494,7 +514,7 @@ impl Controller {
             BlacklistAdd { login } => {
                 let _ = self.players.remove_player(&login).await;
                 let _ = self.server.kick_player(&login, Some("Blacklisted")).await;
-                self.server.blacklist_add(&login).await;
+                let _ = self.server.blacklist_add(&login).await;
                 self.server
                     .save_blacklist(BLACKLIST_FILE)
                     .await
@@ -512,15 +532,19 @@ impl Controller {
                 let blacklist = self.server.blacklist().await;
                 if !blacklist.contains(&login.to_string()) {
                     self.widget
-                        .show_popup(UnknownBlacklistPlayer, from_login)
+                        .show_popup(UnknownBlacklistPlayer, from_login, PopupMode::Default)
                         .await;
                     return;
                 }
-                self.server.blacklist_remove(&login).await;
+
+                let _ = self.server.blacklist_remove(&login).await;
+
+                // FIXME fails with msg: "Invalid file name."
                 self.server
                     .save_blacklist(BLACKLIST_FILE)
                     .await
                     .expect("failed to save blacklist file");
+
                 self.chat
                     .announce(ServerMessage::PlayerUnblacklisted {
                         admin_name: &from_nick_name,
@@ -536,14 +560,23 @@ impl Controller {
         use DangerousCommand::*;
         use SuperAdminCommand::*;
 
-        let msg = match cmd {
-            Help => SuperAdminCommandReference,
-            Confirm => NoCommandToConfirm,
+        // TODO move validation here, out of on_dangerous_cmd
+        //  => for DeleteMap, DeletePlayer
+        //  => if failed, immediately call chat.pop_unconfirmed_command
+        let confirm_msg = match cmd {
+            Help => {
+                self.widget
+                    .show_popup(SuperAdminCommandReference, from_login, PopupMode::Default)
+                    .await;
+                return;
+            }
             Unconfirmed(DeleteMap { .. }) => ConfirmMapDeletion,
             Unconfirmed(DeletePlayer { .. }) => ConfirmPlayerDeletion,
             Unconfirmed(Shutdown) => ConfirmShutdown,
         };
-        self.widget.show_popup(msg, from_login).await;
+        self.widget
+            .show_popup(confirm_msg, from_login, PopupMode::Confirm)
+            .await;
     }
 
     async fn on_dangerous_cmd(&self, from_login: &str, cmd: DangerousCommand) {
@@ -583,11 +616,13 @@ impl Controller {
                 }
                 Some(_) => {
                     self.widget
-                        .show_popup(CannotDeletePlaylistMap, from_login)
+                        .show_popup(CannotDeletePlaylistMap, from_login, PopupMode::Default)
                         .await;
                 }
                 None => {
-                    self.widget.show_popup(UnknownMap, from_login).await;
+                    self.widget
+                        .show_popup(UnknownMap, from_login, PopupMode::Default)
+                        .await;
                 }
             },
 
@@ -601,11 +636,17 @@ impl Controller {
                         .expect("failed to delete player");
 
                     if maybe_player.is_none() {
-                        self.widget.show_popup(UnknownPlayer, from_login).await;
+                        self.widget
+                            .show_popup(UnknownPlayer, from_login, PopupMode::Default)
+                            .await;
                     }
                 } else {
                     self.widget
-                        .show_popup(CannotDeleteWhitelistedPlayer, from_login)
+                        .show_popup(
+                            CannotDeleteWhitelistedPlayer,
+                            from_login,
+                            PopupMode::Default,
+                        )
                         .await;
                 }
             }
@@ -628,7 +669,11 @@ impl Controller {
             }
             Err(err) => {
                 self.widget
-                    .show_popup(CommandOutput::InvalidPlaylistCommand(err), from_login)
+                    .show_popup(
+                        CommandOutput::InvalidPlaylistCommand(err),
+                        from_login,
+                        PopupMode::Default,
+                    )
                     .await;
             }
         }

@@ -48,19 +48,24 @@ impl ChatController {
         }
     }
 
+    /// If the specified super admin has issued a dangerous command,
+    /// this will return it. Subsequent calls would return `None`, until
+    /// the admin issues another dangerous command.
+    pub async fn pop_unconfirmed_command(&self, from_login: &str) -> Option<DangerousCommand> {
+        (*self.state.write().await)
+            .unconfirmed
+            .remove(&from_login.to_string())
+    }
+
     /// Forward incoming chat messages:
     /// - if not a `/command`, print the message for all players
     /// - if the `/command` doesn't exist, print the reference for the sender
     /// - if the `/command` is only for admins and the sender isn't one,
     ///   print the reference for the sender
     /// - if proper command, print nothing and return it
-    ///
-    /// Dangerous commands are handled like this:
-    /// - Dangerous commands are stored until any other command is issued,
-    ///   and `None` is returned.
-    /// - If the next command is `/confirm`, the stored, dangerous command will be returned.
-    /// - Issuing `/confirm` without having a command stored
-    ///   will return `Some(SuperAdminCommand::Confirm)`
+    /// - dangerous commands in `SuperAdminCommand::Unconfirmed` will be stored,
+    ///   and can be retrieved using `pop_unconfirmed_command`, once they have been
+    ///   confirmed
     pub async fn forward<'a>(&self, message: &'a str, from_login: &'a str) -> Option<Command<'a>> {
         if !message.starts_with('/') {
             // Neither player nor admin command: forward as normal message.
@@ -70,31 +75,14 @@ impl ChatController {
 
         // Check if super admin command.
         if self.live_settings.is_super_admin(&from_login).await {
-            let maybe_unconfirmed = (*self.state.write().await)
-                .unconfirmed
-                .remove(&from_login.to_string());
-
             match SuperAdminCommand::from(message) {
                 None => {}
-                Some(SuperAdminCommand::Confirm) => {
-                    return match maybe_unconfirmed {
-                        Some(cmd) => Some(Command::Dangerous {
-                            cmd,
-                            from: from_login,
-                        }),
-                        None => Some(Command::SuperAdmin {
-                            cmd: SuperAdminCommand::Confirm,
-                            from: from_login,
-                        }),
-                    }
-                }
-                Some(SuperAdminCommand::Unconfirmed(cmd)) => {
-                    (*self.state.write().await)
-                        .unconfirmed
-                        .insert(from_login.to_string(), cmd.clone());
-                    return None;
-                }
                 Some(cmd) => {
+                    if let SuperAdminCommand::Unconfirmed(dangerous_cmd) = &cmd {
+                        (*self.state.write().await)
+                            .unconfirmed
+                            .insert(from_login.to_string(), dangerous_cmd.clone());
+                    }
                     return Some(Command::SuperAdmin {
                         cmd,
                         from: from_login,
@@ -109,7 +97,7 @@ impl ChatController {
                 return Some(Command::Admin {
                     cmd,
                     from: from_login,
-                });
+                })
             }
         }
 
@@ -118,7 +106,7 @@ impl ChatController {
             return Some(Command::Player {
                 cmd,
                 from: from_login,
-            });
+            })
         }
 
         // Not a known command - return the appropriate ::Help command

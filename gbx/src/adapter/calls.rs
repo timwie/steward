@@ -281,14 +281,14 @@ impl Calls for RpcClient {
         self.trigger_callback(response_id, call).await;
     }
 
-    async fn blacklist_add(&self, player_login: &str) {
-        self.call_method_unwrap_unit("BlackList", args!(player_login))
-            .await;
+    async fn blacklist_add(&self, player_login: &str) -> Result<()> {
+        self.call_method_unit("BlackList", args!(player_login))
+            .await
     }
 
-    async fn blacklist_remove(&self, player_login: &str) {
-        self.call_method_unwrap_unit("UnBlackList", args!(player_login))
-            .await;
+    async fn blacklist_remove(&self, player_login: &str) -> Result<()> {
+        self.call_method_unit("UnBlackList", args!(player_login))
+            .await
     }
 
     async fn blacklist(&self) -> Vec<String> {
@@ -331,6 +331,7 @@ impl Calls for RpcClient {
     }
 
     async fn stop_server(&self) {
+        self.call_method_unwrap_unit("StopServer", args!()).await;
         self.call_method_unwrap_unit("QuitGame", args!()).await;
     }
 }

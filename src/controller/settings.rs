@@ -57,6 +57,12 @@ impl SettingsController {
         let mut cfg = self.config.write().await;
         block(&mut *cfg);
         (*cfg).save(); // write to file
+
+        // Sync with server
+        let mut mode_options = self.server.mode_options().await;
+        mode_options.chat_time_secs = cfg.outro_duration_secs as i32;
+        mode_options.time_limit_secs = cfg.race_duration_secs as i32;
+        self.server.set_mode_options(&mode_options).await;
     }
 }
 

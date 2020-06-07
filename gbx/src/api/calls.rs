@@ -318,15 +318,19 @@ pub trait Calls: Send + Sync {
 
     /// Blacklist the player with the specified login.
     ///
+    /// Faults if that player is already blacklisted.
+    ///
     /// Calls method:
     ///     BlackList
-    async fn blacklist_add(&self, player_login: &str);
+    async fn blacklist_add(&self, player_login: &str) -> Result<()>;
 
     /// Remove the specified player from the blacklist.
     ///
+    /// Faults if that player is not blacklisted.
+    ///
     /// Calls method:
     ///     UnBlackList
-    async fn blacklist_remove(&self, player_login: &str);
+    async fn blacklist_remove(&self, player_login: &str) -> Result<()>;
 
     /// Fetch the list of blacklisted players.
     ///
@@ -353,6 +357,8 @@ pub trait Calls: Send + Sync {
 
     /// Kick the player with the specified login, with an optional message.
     ///
+    /// Faults if no such player is connected.
+    ///
     /// Calls method:
     ///     Kick
     async fn kick_player(&self, login: &str, reason: Option<&str>) -> Result<()>;
@@ -365,7 +371,8 @@ pub trait Calls: Send + Sync {
 
     /// Quit the server application.
     ///
-    /// Calls method:
-    ///     QuitGame
+    /// Calls methods:
+    ///     - StopServer
+    ///     - QuitGame
     async fn stop_server(&self);
 }

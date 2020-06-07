@@ -19,17 +19,20 @@ All `0.1.0-alpha` releases are unstable, and have missing widgets.
   - Displays the player's current rank on this map.
 
 - **Chat**: Super Admin Commands
-  - `/confirm` confirms the execution of one of the dangerous commands below.
-  - `/delete_map <uid>` deletes a map that is not in the playlist from the database. Needs confirmation.
-  - `/delete_player <login>` deletes a blacklisted player from the database. Needs confirmation.
-  - `/shutdown` shuts down the server. Needs confirmation.
+  - Since these commands are dangerous, they will require clicking a button to
+    confirm their execution.
+  - `/delete map <uid>` deletes a map that is not in the playlist from the database.
+  - `/delete player <login>` deletes a blacklisted player from the database.
+  - `/shutdown` shuts down the server.
  
 - **Chat**: Admin Commands
   - `/skip` starts the next map immediately.
   - `/restart` restarts the current map after this race.
   - `/queue <uid>` pushes a map to the top of the queue.
-  - `/set_timelimit <seconds>` changes the race time limit, and updates `race_duration_secs` in your config
-  - `/set_outro <seconds>` changes the outro duration at the end of a map, and updates `outro_duration_secs` in your config.
+  - `/set timelimit <seconds>` changes the race time limit,
+    and updates `race_duration_secs` in your config.
+  - `/set chattime <seconds>` changes the outro duration at the end of a map,
+    and updates `outro_duration_secs` in your config.
   - `/blacklist <login>` adds a player to the server's blacklist.
     The list is persisted in the `blacklist.txt` file created by the server.
   - `/unblacklist <login>` removes a player from the server's blacklist.

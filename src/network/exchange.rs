@@ -33,6 +33,10 @@ pub struct ExchangeMetadata {
     #[serde(rename = "TrackID")]
     pub exchange_id: i32,
 
+    /// The map name without its formatting.
+    #[serde(rename = "Name")]
+    pub name_plain: String,
+
     /// The formatted map name.
     #[serde(rename = "GbxMapName")]
     pub name: String,
