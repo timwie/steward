@@ -10,6 +10,7 @@ main() {
     {% block main %}{% endblock main %}
     while(True) {
         yield;
+        {% block loop %}{% endblock loop %}
         foreach (Event in RaceEvents) {
             {% block race_events %}{% endblock race_events %}
         }

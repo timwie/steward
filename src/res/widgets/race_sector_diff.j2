@@ -18,7 +18,8 @@
 
     {% set sector_div_w = 0.2 %}
 
-    {% set color_bar_h = 1.5 %}
+    {% set color_bar_w = nb_sectors * sector_w %}
+    {% set color_bar_h = 1 %}
 
     {% set frame_w = (nb_sectors + 2) * sector_w %}
     {% set frame_h = color_bar_h + sector_h*2 + sector_label_h %}
@@ -29,10 +30,18 @@
 {% block manialink %}
 {{ super() }}
 
+<frame id="cp_diff" pos="0 33">
+    <quad id="cp_diff_bg" z-index="1"
+          size="18 6" halign="center"/>
+    <label id="cp_diff_lbl" z-index="2"
+           size="16" pos="0 -1.5" halign="center"
+           textemboss="1" text_color="{{col_white}}" style="{{ font_bold_big }}"/>
+</frame>
+
 <!-- Colored bar at the top indicates whether the run is on course to become a new PB -->
 <frame z-index="101">
-    <quad id="color_bar" pos="-160 90" size="320 {{color_bar_h}}" bgcolor="{{col_neutral}}" z-index="1"/>
-    <quad size="320 0.2" pos="-160 {{90 - color_bar_h}}" bgcolor="{{col_neutral}}" opacity="0.1" valign="center"/>
+    <quad id="color_bar" pos="0 90" size="{{color_bar_w}} {{color_bar_h}}" bgcolor="{{col_neutral}}" z-index="1" halign="center"/>
+    <quad size="{{color_bar_w}} 0.2" pos="0 {{90 - color_bar_h}}" bgcolor="{{col_neutral}}" opacity="0.1" halign="center" valign="center"/>
 </frame>
 
 <frame pos="{{frame_x_offset}} {{90 - color_bar_h}}" z-index="100">
@@ -109,19 +118,22 @@
 #Include "ColorLib" as ColorLib
 #Include "MathLib" as MathLib
 
-#Const MAX_SECTOR_WEIGHT 3.0
 
-declare Integer   G_PbMillis;         // this player's pb time
-declare Integer[] G_PbSectorMillis;   // this player's pb sector times
+#Const MAX_SECTOR_WEIGHT      3.0
+#Const CP_DIFF_DISPLAY_MILLIS 2000
 
-declare Integer   G_Top1Millis;       // top1 record time
-declare Integer[] G_Top1SectorMillis; // top1 record sector times
 
-declare Integer   G_NbSectors;        // nb checkpoints + 1
+declare Integer   G_PbMillis;          // this player's pb time
+declare Integer[] G_PbSectorMillis;    // this player's pb sector times
 
-declare Boolean   G_PbIsTop1;
+declare Integer   G_Top1Millis;        // top1 record time
+declare Integer[] G_Top1SectorMillis;  // top1 record sector times
 
-declare Real[]    G_SectorWeights;
+declare Integer   G_NbSectors;         // nb checkpoints + 1
+
+declare Boolean   G_PbIsTop1;          // True if pb == top1
+
+declare Integer   G_RunLastCpGameTime; // game time (millis) at time of crossing last cp
 
 
 Text TimeToText(Integer MillisIn) {
@@ -238,6 +250,7 @@ Void OnReset() {
 }
 
 Void SetSectorWeights() {
+    declare Real[] SectorWeights;
     declare Integer MinSectorMillis = 0;
 
     for(i, 0, G_NbSectors - 1) {
@@ -253,7 +266,7 @@ Void SetSectorWeights() {
             Millis = MathLib::Max(0.0, Millis - 2000.0);
         }
         declare Weight = MathLib::Min(MAX_SECTOR_WEIGHT, Millis / MinSectorMillis);
-        G_SectorWeights.add(Weight);
+        SectorWeights.add(Weight);
     }
 
     for(i, 0, G_NbSectors - 1) {
@@ -264,9 +277,9 @@ Void SetSectorWeights() {
         declare UI_SectorDiv = (Page.GetFirstChild("""sector_div_{{{i}}}""") as CMlQuad);
         {% endraw %}
 
-        declare WeightedHeight = G_SectorWeights[i]*{{sector_label_h}};
+        declare WeightedHeight = SectorWeights[i]*{{sector_label_h}};
 
-        UI_SectorLabel.TextSizeReal = 0.5 * G_SectorWeights[i];
+        UI_SectorLabel.TextSizeReal = 0.5 * SectorWeights[i];
         UI_SectorLabel.RelativePosition_V3.Y = {{sector_h * -2}} - WeightedHeight/2;
 
         UI_SectorWeight.Size.Y = WeightedHeight;
@@ -300,7 +313,9 @@ Void Reset(CTmRaceClientEvent Event) {
 Void OnCheckpoint(CTmRaceClientEvent Event) {
     declare Integer[] P_RunSectorMillis for Event.Player;
     declare Integer   P_RunLastCpMillis for Event.Player;
-    
+
+    G_RunLastCpGameTime = GameTime;
+
     declare SectorIdx = Event.CheckpointInRace;
     if (SectorIdx == 0) {
         Reset(Event);
@@ -331,21 +346,31 @@ Void OnCheckpoint(CTmRaceClientEvent Event) {
     {% raw %}
     declare UI_ColorBar      = (Page.GetFirstChild("color_bar") as CMlQuad);
     declare UI_LiveDiffText  = (Page.GetFirstChild("""live_diff_text_{{{SectorIdx}}}""") as CMlLabel);
+    declare UI_Diff       = (Page.GetFirstChild("cp_diff") as CMlFrame);
+    declare UI_DiffLbl       = (Page.GetFirstChild("cp_diff_lbl") as CMlLabel);
+    declare UI_DiffBg        = (Page.GetFirstChild("cp_diff_bg") as CMlQuad);
     {% endraw %}
 
-    if (SectorMillis_Live > SectorMillis_Pb) {
+    if (SectorMillis_Live >= SectorMillis_Pb) {
         SetSectorColor(SectorIdx, "{{col_fail}}");
     } else {
         SetSectorColor(SectorIdx, "{{col_success}}");
     }
 
-    if (TotalMillis_Live > TotalMillis_Pb) {
+    if (TotalMillis_Live >= TotalMillis_Pb) {
+        UI_DiffBg.BgColor = ColorLib::HexToRgb("{{col_fail}}");
         UI_ColorBar.BgColor = ColorLib::HexToRgb("{{col_fail}}");
     } else {
         UI_ColorBar.BgColor = ColorLib::HexToRgb("{{col_success}}");
+        UI_DiffBg.BgColor = ColorLib::HexToRgb("{{col_success}}");
     }
 
     UI_LiveDiffText.Value = "$s" ^ Diff(SectorMillis_Top1, SectorMillis_Live);
+
+    UI_Diff.Visible = !Event.IsEndRace;
+    if (!Event.IsEndRace) {
+        UI_DiffLbl.Value = Diff(TotalMillis_Pb, TotalMillis_Live);
+    }
 }
 
 Void OnNewTop1() {
@@ -424,3 +449,12 @@ switch (Event.Type) {
 }
 
 {% endblock race_events %}
+{# ============================= LOOP ============================= #}
+{% block loop %}
+
+if (GameTime >= G_RunLastCpGameTime + CP_DIFF_DISPLAY_MILLIS) {
+    declare UI_Diff = (Page.GetFirstChild("cp_diff") as CMlFrame);
+    UI_Diff.Visible = False;
+}
+
+{% endblock loop %}
