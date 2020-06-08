@@ -129,6 +129,7 @@ pub mod test {
     use async_trait::async_trait;
 
     use crate::database::Database;
+    use crate::ingame::GameString;
 
     use super::*;
 
@@ -154,7 +155,7 @@ pub mod test {
         pub fn push_player(&mut self, login: &str, nick_name: &str) {
             self.players.push(Player {
                 login: login.to_string(),
-                nick_name: nick_name.to_string(),
+                nick_name: GameString::from(nick_name.to_string()),
             });
         }
 
@@ -163,7 +164,7 @@ pub mod test {
                 metadata: Map {
                     uid: uid.to_string(),
                     file_name: "".to_string(),
-                    name: "".to_string(),
+                    name: GameString::from("".to_string()),
                     author_login: "".to_string(),
                     added_since: SystemTime::now(),
                     in_playlist,

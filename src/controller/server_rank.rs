@@ -266,7 +266,7 @@ mod test {
         let expected = ServerRank {
             pos: 1,
             player_login: "login1".to_string(),
-            player_nick_name: "nick1".to_string(),
+            player_nick_name: GameString::from("nick1".to_string()),
             nb_wins: 0,
             nb_losses: 0,
         };
@@ -290,7 +290,7 @@ mod test {
         let expected = ServerRank {
             pos: 1,
             player_login: "login1".to_string(),
-            player_nick_name: "nick1".to_string(),
+            player_nick_name: GameString::from("nick1".to_string()),
             nb_wins: 2,
             nb_losses: 0,
         };
@@ -300,7 +300,7 @@ mod test {
         let expected = ServerRank {
             pos: 2,
             player_login: "login2".to_string(),
-            player_nick_name: "nick2".to_string(),
+            player_nick_name: GameString::from("nick2".to_string()),
             nb_wins: 1,
             nb_losses: 1,
         };
@@ -310,7 +310,7 @@ mod test {
         let expected = ServerRank {
             pos: 3,
             player_login: "login3".to_string(),
-            player_nick_name: "nick3".to_string(),
+            player_nick_name: GameString::from("nick3".to_string()),
             nb_wins: 0,
             nb_losses: 2,
         };
@@ -338,7 +338,7 @@ mod test {
         let expected = ServerRank {
             pos: 1,
             player_login: "login1".to_string(),
-            player_nick_name: "nick1".to_string(),
+            player_nick_name: GameString::from("nick1".to_string()),
             nb_wins: 2,
             nb_losses: 1,
         };
@@ -348,7 +348,7 @@ mod test {
         let expected = ServerRank {
             pos: 2,
             player_login: "login2".to_string(),
-            player_nick_name: "nick2".to_string(),
+            player_nick_name: GameString::from("nick2".to_string()),
             nb_wins: 1,
             nb_losses: 2,
         };
@@ -373,7 +373,7 @@ mod test {
         let expected = ServerRank {
             pos: 1,
             player_login: "login1".to_string(),
-            player_nick_name: "nick1".to_string(),
+            player_nick_name: GameString::from("nick1".to_string()),
             nb_wins: 1,
             nb_losses: 0,
         };
@@ -383,7 +383,7 @@ mod test {
         let expected = ServerRank {
             pos: 2,
             player_login: "login2".to_string(),
-            player_nick_name: "nick2".to_string(),
+            player_nick_name: GameString::from("nick2".to_string()),
             nb_wins: 0,
             nb_losses: 1,
         };
