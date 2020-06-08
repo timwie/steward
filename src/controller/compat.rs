@@ -57,9 +57,24 @@ async fn prepare_server(server: &Arc<dyn Server>) {
     log::info!("{:?}", &server_options);
     server.set_server_options(&server_options).await;
 
-    // Load player blacklist from disk
-    if server.load_blacklist(BLACKLIST_FILE).await.is_err() {
-        log::warn!("failed to load blacklist file")
+    // Load the player blacklist from disk, or create the file so that it can be written to.
+    let blacklist_file = server
+        .user_data_dir()
+        .await
+        .join("Config")
+        .join(BLACKLIST_FILE);
+    if !blacklist_file.is_file() {
+        // Saving the empty list allows to load it without a fault.
+        std::fs::File::create(blacklist_file).expect("failed to create blacklist file");
+        server
+            .save_blacklist(BLACKLIST_FILE)
+            .await
+            .expect("failed to write empty blacklist file");
+    } else {
+        server
+            .load_blacklist(BLACKLIST_FILE)
+            .await
+            .expect("failed to load blacklist file");
     }
 }
 

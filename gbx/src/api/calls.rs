@@ -352,7 +352,8 @@ pub trait Calls: Send + Sync {
     ///     GetBlackList
     async fn blacklist(&self) -> Vec<String>;
 
-    /// Load the blacklist file with the specified file name.
+    /// Load the blacklist file with the specified file name in
+    /// the `/UserData/Config/` directory.
     ///
     /// Faults if the specified file is not valid or does not exist.
     ///
@@ -360,7 +361,8 @@ pub trait Calls: Send + Sync {
     ///     LoadBlackList
     async fn load_blacklist(&self, file_name: &str) -> Result<()>;
 
-    /// Save the blacklist in the file with specified file name.
+    /// Save the blacklist in the file with specified file name in
+    /// the `/UserData/Config/` directory.
     ///
     /// Faults if the specified path is not valid or the file
     /// could not be written.

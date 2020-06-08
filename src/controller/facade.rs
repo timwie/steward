@@ -550,8 +550,6 @@ impl Controller {
                 }
 
                 let _ = self.server.blacklist_remove(&login).await;
-
-                // FIXME fails with msg: "Invalid file name."
                 self.server
                     .save_blacklist(BLACKLIST_FILE)
                     .await
