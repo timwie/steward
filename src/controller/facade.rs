@@ -126,7 +126,7 @@ impl Controller {
     /// Server events are converted to controller events with the
     /// help of one or more controllers.
     pub async fn on_server_event(&self, event: ServerEvent) {
-        log::debug!("{:?}", &event);
+        log::debug!("{:#?}", &event);
         match event {
             ServerEvent::PlayerInfoChanged { info } => {
                 if let Some(diff) = self.players.update_player(info).await {
@@ -142,15 +142,21 @@ impl Controller {
                 }
             }
 
-            ServerEvent::MapBegin { map: game_map } => {
-                let loaded_map = self.playlist.set_current_index(&game_map).await;
-                let ev = ControllerEvent::BeginIntro { loaded_map };
-                self.on_controller_event(ev).await;
+            ServerEvent::MapBegin { is_restart } => {
+                if let Some(loaded_map) = self.playlist.set_current_index().await {
+                    let ev = ControllerEvent::BeginIntro {
+                        loaded_map,
+                        is_restart,
+                    };
+                    self.on_controller_event(ev).await;
+                }
             }
 
-            ServerEvent::MapEnd { .. } => {
-                let ev = ControllerEvent::EndOutro;
-                self.on_controller_event(ev).await;
+            ServerEvent::MapEnd => {
+                if self.playlist.current_index().await.is_some() {
+                    let ev = ControllerEvent::EndOutro;
+                    self.on_controller_event(ev).await;
+                }
             }
 
             ServerEvent::RaceEnd => {
@@ -259,17 +265,24 @@ impl Controller {
         if let Some(server_msg) = ServerMessage::from_event(&event) {
             self.chat.announce(server_msg).await;
         }
-        log::debug!("{:?}", &event);
+        log::debug!("{:#?}", &event);
         match event {
             ControllerEvent::BeginRun { player_login } => {
                 self.records.reset_run(&player_login).await;
                 self.widget.end_run_outro_for(&player_login).await;
             }
 
-            ControllerEvent::BeginIntro { loaded_map } => {
+            ControllerEvent::BeginIntro {
+                loaded_map,
+                is_restart,
+            } => {
                 self.race.reset().await;
-                self.records.load_for_map(&loaded_map).await;
                 self.prefs.reset_restart_votes().await;
+
+                if !is_restart {
+                    self.records.load_for_map(&loaded_map).await;
+                }
+
                 self.widget.begin_intro().await;
             }
 
@@ -292,6 +305,8 @@ impl Controller {
             }
 
             ControllerEvent::EndVote { queue_preview } => {
+                log::debug!(">>>>>>>>>>>>>>>>>>>>>");
+                log::debug!("{:#?}", &queue_preview);
                 self.widget.end_vote(queue_preview).await;
             }
 
@@ -456,8 +471,7 @@ impl Controller {
             }
 
             SkipCurrentMap => {
-                let _ = self.queue.next_maps().await; // set next playlist index
-                self.server.playlist_skip().await;
+                self.server.end_map().await;
                 self.chat
                     .announce(ServerMessage::CurrentMapSkipped {
                         admin_name: &from_nick_name,
@@ -466,7 +480,6 @@ impl Controller {
             }
 
             RestartCurrentMap => {
-                // FIXME this does not work
                 if self.queue.force_restart().await {
                     self.chat
                         .announce(ServerMessage::ForceRestart {
@@ -477,7 +490,6 @@ impl Controller {
             }
 
             ForceQueue { uid } => {
-                // FIXME this does not work
                 let playlist = self.playlist.lock().await;
                 let playlist_index = match playlist.index_of(uid) {
                     Some(idx) => idx,
@@ -583,7 +595,7 @@ impl Controller {
         use CommandOutput::*;
         use DangerousCommand::*;
 
-        log::warn!("{}> {:?}", from_login, &cmd);
+        log::warn!("{}> {:#?}", from_login, &cmd);
 
         let from_nick_name = match self.players.nick_name(from_login).await {
             Some(name) => name,

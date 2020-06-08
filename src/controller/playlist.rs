@@ -8,7 +8,6 @@ use std::time::SystemTime;
 use tokio::sync::{RwLock, RwLockReadGuard};
 
 use async_trait::async_trait;
-use gbx::MapInfo;
 
 use crate::command::PlaylistCommandError;
 use crate::controller::LiveSettings;
@@ -148,17 +147,16 @@ impl PlaylistController {
     }
 
     /// Update the current map when the server loads a new one.
-    pub async fn set_current_index(&self, info: &MapInfo) -> Map {
+    pub async fn set_current_index(&self) -> Option<Map> {
         let mut state = self.state.write().await;
-        let new_index = state
-            .index_of(&info.uid)
-            .expect("server loaded map that is not in playlist");
-        state.curr_index = Some(new_index);
-        state
-            .playlist
-            .get(new_index)
-            .expect("no map at this playlist index")
-            .clone()
+        state.curr_index = self.server.playlist_current_index().await;
+        state.curr_index.map(|idx| {
+            state
+                .playlist
+                .get(idx)
+                .expect("no map at this playlist index")
+                .clone()
+        })
     }
 
     /// Add the specified map to the server playlist.

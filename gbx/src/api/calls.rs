@@ -219,7 +219,8 @@ pub trait Calls: Send + Sync {
     /// A successful restart vote will still replay the current map though.
     ///
     /// Faults if the specified index is the same as the current one,
-    /// or doesn't exist.
+    /// or doesn't exist, which means this function cannot be used
+    /// to restart a map.
     ///
     /// Calls method:
     ///     SetNextMapIndex
@@ -233,11 +234,24 @@ pub trait Calls: Send + Sync {
     ///     JumpToMapIndex
     async fn playlist_change_current(&self, map_index: i32) -> Result<()>;
 
+    /// Restart the current map.
+    ///
+    /// This call will make sure that the current map is not unloaded, which means
+    /// the `MapEnd` callback will be skipped.
+    ///
+    /// Calls method:
+    ///     RestartMap
+    async fn restart_map(&self);
+
     /// Switch to the next map.
+    ///
+    /// This call is equivalent to setting the remaining time limit to zero.
+    /// All end-of-race callbacks will be invoked, and the chat time will
+    /// last the usual amount of time.
     ///
     /// Calls method:
     ///     NextMap
-    async fn playlist_skip(&self);
+    async fn end_map(&self);
 
     /// Send chat message to all players. This message will have no sender.
     ///

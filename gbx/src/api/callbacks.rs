@@ -18,10 +18,10 @@ pub enum Callback {
     /// Triggered by `ManiaPlanet.PlayerDisconnect`
     PlayerDisconnect { login: String },
 
-    /// Sent when a map has been loaded.
+    /// Sent when a map has been loaded, or restarted.
     ///
-    /// Triggered by `ManiaPlanet.BeginMap`
-    MapBegin { map: MapInfo },
+    /// Triggered by `Maniaplanet.LoadingMap_Start`
+    MapBegin { is_restart: bool },
 
     /// Sent when the race ends - `S_TimeLimit` seconds after `RaceBegin`.
     ///
@@ -29,9 +29,10 @@ pub enum Callback {
     RaceEnd,
 
     /// Sent when the map is unloaded - `S_ChatTime` seconds  after `RaceEnd`.
+    /// A map is not unloaded when restarted.
     ///
     /// Triggered by `ManiaPlanet.EndMap`
-    MapEnd { map: MapInfo },
+    MapEnd,
 
     /// Sent alongside `RaceEnd` and `MapEnd`.
     ///

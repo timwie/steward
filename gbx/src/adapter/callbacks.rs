@@ -17,7 +17,7 @@ use crate::xml::{from_value, Call, Value};
 ///
 /// Panics if the callback `Receiver` was dropped.
 pub fn forward_callback(cb_out: &Sender<Callback>, call: Call) -> CallbackType {
-    log::debug!("callback: {:?}", &call);
+    log::debug!("callback: {:#?}", &call);
     if &call.name == "ManiaPlanet.ModeScriptCallbackArray" {
         forward_script_callback(cb_out, call)
     } else {
@@ -51,19 +51,8 @@ fn forward_regular_callback(cb_out: &Sender<Callback>, call: Call) -> CallbackTy
     }
 
     match call.name.as_ref() {
-        "ManiaPlanet.BeginMap" => {
-            if let [Struct(map)] = &call.args[..] {
-                return success(MapBegin {
-                    map: de!(Struct(map.clone())),
-                });
-            }
-        }
         "ManiaPlanet.EndMap" => {
-            if let [Struct(map)] = &call.args[..] {
-                return success(MapEnd {
-                    map: de!(Struct(map.clone())),
-                });
-            }
+            return success(MapEnd);
         }
         "ManiaPlanet.EndMatch" => {
             if let [Array(_rankings), Int(_winner_team)] = &call.args[..] {
@@ -145,6 +134,12 @@ fn forward_script_callback(cb_out: &Sender<Callback>, call: Call) -> CallbackTyp
         pub login: std::string::String,
     }
 
+    /// Reference: https://github.com/maniaplanet/script-xmlrpc/blob/master/XmlRpcListing.md#maniaplanetloadingmap_start
+    #[derive(Deserialize, Debug, PartialEq, Clone)]
+    struct LoadingMapEvent {
+        pub restarted: bool,
+    }
+
     if let [String(cb_name), Array(value_args)] = &call.args[..] {
         // All arguments of script callbacks are strings.
         let str_args: Vec<std::string::String> = value_args
@@ -155,19 +150,26 @@ fn forward_script_callback(cb_out: &Sender<Callback>, call: Call) -> CallbackTyp
             })
             .collect();
 
-        return match cb_name.as_ref() {
+        let (cb, cb_type) = match cb_name.as_ref() {
+            "Maniaplanet.LoadingMap_Start" => {
+                let data: LoadingMapEvent = de!(&str_args[0]);
+                let cb = MapBegin {
+                    is_restart: data.restarted,
+                };
+                (cb, CallbackType::Unprompted)
+            }
             "Trackmania.Event.StartLine" => {
                 let data: ScriptEventData = de!(&str_args[0]);
-                send(RunStartline {
+                let cb = RunStartline {
                     player_login: data.login,
-                });
-                CallbackType::Unprompted
+                };
+                (cb, CallbackType::Unprompted)
             }
             "Trackmania.Event.WayPoint" => {
-                send(RunCheckpoint {
+                let cb = RunCheckpoint {
                     event: de!(&str_args[0]),
-                });
-                CallbackType::Unprompted
+                };
+                (cb, CallbackType::Unprompted)
             }
             "Trackmania.Scores" => {
                 let scores: Scores = de!(&str_args[0]);
@@ -177,8 +179,8 @@ fn forward_script_callback(cb_out: &Sender<Callback>, call: Call) -> CallbackTyp
                         response_id: response_id.to_string(),
                     },
                 };
-                send(MapScores { scores });
-                cb_type
+                let cb = MapScores { scores };
+                (cb, cb_type)
             }
             "Maniaplanet.ChannelProgression_End"
             | "Maniaplanet.ChannelProgression_Start"
@@ -192,7 +194,6 @@ fn forward_script_callback(cb_out: &Sender<Callback>, call: Call) -> CallbackTyp
             | "Maniaplanet.EndTurn_End"
             | "Maniaplanet.EndTurn_Start"
             | "Maniaplanet.LoadingMap_End"
-            | "Maniaplanet.LoadingMap_Start"
             | "Maniaplanet.Podium_End"
             | "Maniaplanet.Podium_Start"
             | "Maniaplanet.StartMap_End"
@@ -215,13 +216,16 @@ fn forward_script_callback(cb_out: &Sender<Callback>, call: Call) -> CallbackTyp
             | "Trackmania.Event.Stunt"
             | "Maniaplanet.StartServer_Start" => {
                 // ignore without logging
-                CallbackType::Unprompted
+                return CallbackType::Unprompted;
             }
             _ => {
                 log::warn!("ignored script callback {:?}", call);
-                CallbackType::Unprompted
+                return CallbackType::Unprompted;
             }
         };
+
+        send(cb);
+        return cb_type;
     }
 
     panic!("unexpected signature for {:?}", call)

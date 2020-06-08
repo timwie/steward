@@ -189,7 +189,11 @@ impl Calls for RpcClient {
             .await
     }
 
-    async fn playlist_skip(&self) {
+    async fn restart_map(&self) {
+        self.call_method_unwrap_unit("RestartMap", args!()).await;
+    }
+
+    async fn end_map(&self) {
         self.call_method_unwrap_unit("NextMap", args!()).await;
     }
 

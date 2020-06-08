@@ -14,7 +14,7 @@ use crate::ingame::PlayerInfo;
 pub enum ControllerEvent<'a> {
     /// Signals that a new map was loaded by the server, and the race
     /// is about to begin.
-    BeginIntro { loaded_map: Map },
+    BeginIntro { loaded_map: Map, is_restart: bool },
 
     /// Signals that a player has loaded the map, and is entering
     /// the race by starting their first run. This event is triggered at

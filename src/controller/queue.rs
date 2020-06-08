@@ -50,11 +50,15 @@ impl QueueState {
         self.force_queue.push_front(index);
     }
 
-    fn force_queue(&mut self, index: usize) {
+    fn force_queue_back(&mut self, index: usize) {
         if self.force_queue.back() == Some(&index) {
             return;
         }
         self.force_queue.push_back(index);
+    }
+
+    fn force_queue_pos(&self, index: usize) -> Option<usize> {
+        self.force_queue.iter().position(|i| i == &index)
     }
 
     fn remove(&mut self, index: usize) {
@@ -102,7 +106,7 @@ impl QueueController {
         match diff {
             PlaylistDiff::AppendNew(_) => {
                 let new_idx = state.extend();
-                state.force_queue(new_idx);
+                state.force_queue_back(new_idx);
             }
             PlaylistDiff::Append(_) => {
                 state.extend();
@@ -132,7 +136,7 @@ impl QueueController {
     /// that was force-queued before them.
     pub async fn force_queue(&self, playlist_index: usize) {
         let mut state = self.state.write().await;
-        state.force_queue(playlist_index);
+        state.force_queue_back(playlist_index);
     }
 
     /// Returns a subset of the queue, ordered by priority.
@@ -164,13 +168,31 @@ impl QueueController {
         };
 
         // Every map was skipped once more, except for the current map, which
-        // was no skipped zero times.
+        // was skipped zero times.
         state.times_skipped.iter_mut().for_each(|n| *n += 1);
         if let Some(curr_index) = maybe_curr_index {
             if let Some(n) = state.times_skipped.get_mut(curr_index) {
                 *n = 0;
             }
         }
+
+        let pref_sum = |idx: usize| -> i32 {
+            use ActivePreferenceValue::*;
+
+            let map_uid = &live_playlist
+                .at_index(idx)
+                .expect("no map at this playlist index")
+                .uid;
+            let active_prefs = live_prefs.map_prefs(map_uid);
+            active_prefs
+                .iter()
+                .map(|pv| match pv {
+                    AutoPick => 1,
+                    Pick => 1,
+                    _ => -1,
+                })
+                .sum()
+        };
 
         let mut priorities: Vec<(usize, QueuePriority)> = state
             .times_skipped
@@ -179,25 +201,12 @@ impl QueueController {
             .map(|(idx, skip_count)| {
                 let prio = if voted_restart && Some(idx) == maybe_curr_index {
                     QueuePriority::VoteRestart
-                } else if let Some(pos) = state.force_queue.iter().position(|i| i == &idx) {
+                } else if let Some(pos) = state.force_queue_pos(idx) {
                     QueuePriority::Force(pos)
                 } else if Some(idx) == maybe_curr_index {
                     QueuePriority::NoRestart
                 } else {
-                    let map_uid = &live_playlist
-                        .at_index(idx)
-                        .expect("no map at this playlist index")
-                        .uid;
-                    let active_prefs = live_prefs.map_prefs(map_uid);
-                    let pref_sum: i32 = active_prefs
-                        .iter()
-                        .map(|pv| match pv {
-                            ActivePreferenceValue::AutoPick => 1,
-                            ActivePreferenceValue::Pick => 1,
-                            _ => -1,
-                        })
-                        .sum();
-                    QueuePriority::Score(pref_sum + *skip_count as i32)
+                    QueuePriority::Score(pref_sum(idx) + *skip_count as i32)
                 };
                 (idx, prio)
             })
@@ -226,10 +235,12 @@ impl QueueController {
         priorities.truncate(MAX_DISPLAYED_IN_QUEUE);
 
         let (next_idx, _) = priorities.first().expect("playlist is empty");
+        let is_restart = maybe_curr_index == Some(*next_idx);
 
         // Tell server the next map.
-        if self.server.playlist_current_index().await != Some(*next_idx) {
-            // This call faults if next_idx == current index.
+        if is_restart {
+            self.server.restart_map().await;
+        } else {
             self.server
                 .playlist_change_next(*next_idx as i32)
                 .await

@@ -75,19 +75,16 @@ impl ChatController {
 
         // Check if super admin command.
         if self.live_settings.is_super_admin(&from_login).await {
-            match SuperAdminCommand::from(message) {
-                None => {}
-                Some(cmd) => {
-                    if let SuperAdminCommand::Unconfirmed(dangerous_cmd) = &cmd {
-                        (*self.state.write().await)
-                            .unconfirmed
-                            .insert(from_login.to_string(), dangerous_cmd.clone());
-                    }
-                    return Some(Command::SuperAdmin {
-                        cmd,
-                        from: from_login,
-                    })
+            if let Some(cmd) = SuperAdminCommand::from(message) {
+                if let SuperAdminCommand::Unconfirmed(dangerous_cmd) = &cmd {
+                    (*self.state.write().await)
+                        .unconfirmed
+                        .insert(from_login.to_string(), dangerous_cmd.clone());
                 }
+                return Some(Command::SuperAdmin {
+                    cmd,
+                    from: from_login,
+                });
             }
         }
 
@@ -97,7 +94,7 @@ impl ChatController {
                 return Some(Command::Admin {
                     cmd,
                     from: from_login,
-                })
+                });
             }
         }
 
@@ -106,7 +103,7 @@ impl ChatController {
             return Some(Command::Player {
                 cmd,
                 from: from_login,
-            })
+            });
         }
 
         // Not a known command - return the appropriate ::Help command

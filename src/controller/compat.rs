@@ -15,30 +15,22 @@ use crate::network::exchange_id;
 /// Runs everything that needs to run at startup.
 pub async fn prepare(server: &Arc<dyn Server>, db: &Arc<dyn Database>, config: &Config) {
     log::debug!("using Steward version '{}'", VERSION.to_string());
-
     log::debug!("using server API version '{}'", SERVER_API_VERSION);
     log::debug!("using script API version '{}'", SCRIPT_API_VERSION);
 
     prepare_rpc(server, config).await;
     prepare_server(server).await;
     prepare_mode(server, config).await;
-
-    db.migrate().await.expect("failed to migrate database");
-
+    prepare_db(db).await;
     prepare_playlist(server, db).await;
 
-    // Database maintenance: remove outdated ghost replays.
-    let nb_removed_ghosts = db
-        .delete_old_ghosts(MAX_GHOST_REPLAY_RANK as i64)
-        .await
-        .expect("failed to clean up ghost replays");
-    if nb_removed_ghosts > 0 {
-        log::info!("removed {} old ghost replays", nb_removed_ghosts);
-    }
+    // Whenever the controller is shut down, it won't remove widgets for players,
+    // so it's best to clear them here. Especially helpful during development.
+    server.clear_manialinks().await;
 
-    // Load player blacklist from disk
-    if server.load_blacklist(BLACKLIST_FILE).await.is_err() {
-        log::warn!("failed to load blacklist file")
+    // "Clearing" the chat is also helpful during development.
+    for _ in 0..10 {
+        server.chat_send("").await;
     }
 }
 
@@ -51,11 +43,6 @@ async fn prepare_rpc(server: &Arc<dyn Server>, config: &Config) {
     server.enable_callbacks().await;
     server.set_api_version().await;
     server.enable_manual_chat_routing().await;
-
-    // Whenever the controller is shut down, it won't remove widgets for players,
-    // so it is possible that we need to clear them first. Especially helpful
-    // during development.
-    server.clear_manialinks().await;
 }
 
 /// Check server compatibility and override some server options in the
@@ -69,6 +56,11 @@ async fn prepare_server(server: &Arc<dyn Server>) {
     log::info!("using server options:");
     log::info!("{:?}", &server_options);
     server.set_server_options(&server_options).await;
+
+    // Load player blacklist from disk
+    if server.load_blacklist(BLACKLIST_FILE).await.is_err() {
+        log::warn!("failed to load blacklist file")
+    }
 }
 
 /// There are a few server options that will be overridden
@@ -180,6 +172,21 @@ fn check_mode_compat(info: ModeInfo) -> bool {
 fn add_mode_option_constraints(config: &Config, options: &mut ModeOptions) {
     options.chat_time_secs = config.outro_duration_secs as i32;
     options.time_limit_secs = config.race_duration_secs as i32;
+}
+
+/// If needed, migrate the database to a newer version.
+/// Clears outdated ghost replays to reduce size.
+async fn prepare_db(db: &Arc<dyn Database>) {
+    db.migrate().await.expect("failed to migrate database");
+
+    // Maintenance: remove outdated ghost replays.
+    let nb_removed_ghosts = db
+        .delete_old_ghosts(MAX_GHOST_REPLAY_RANK as i64)
+        .await
+        .expect("failed to clean up ghost replays");
+    if nb_removed_ghosts > 0 {
+        log::info!("removed {} old ghost replays", nb_removed_ghosts);
+    }
 }
 
 /// When starting a server, there are three sources for a map list:
