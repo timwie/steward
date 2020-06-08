@@ -5,7 +5,7 @@ use std::time::Duration;
 use crate::action::Action;
 use crate::command::{AdminCommand, PlayerCommand, SuperAdminCommand};
 use crate::database::{Map, RecordDetailed};
-use crate::ingame::PlayerInfo;
+use crate::ingame::{GameString, PlayerInfo};
 
 /// This data type is introduced to complement `ServerEvent`s,
 /// and to make it easier to understand the controller flow.
@@ -176,7 +176,7 @@ pub struct ServerRankingDiff {
 #[derive(Debug, Clone)]
 pub struct ServerRankDiff {
     /// The player's formatted nick name.
-    pub player_nick_name: String,
+    pub player_nick_name: GameString,
 
     /// The server rank.
     pub new_pos: usize,

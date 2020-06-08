@@ -13,7 +13,7 @@ use crate::command::PlaylistCommandError;
 use crate::controller::LiveSettings;
 use crate::database::{Database, Map, MapEvidence};
 use crate::event::PlaylistDiff;
-use crate::ingame::Server;
+use crate::ingame::{GameString, Server};
 use crate::network::{exchange_map, ExchangeError};
 
 /// Use to lookup the current playlist, and the map that is currently being played.
@@ -187,7 +187,11 @@ impl PlaylistController {
         // 3. add to controller playlist
         state.playlist.push(map.clone());
 
-        log::info!("added '{}' ({}) to the playlist", &map.name, &map.uid);
+        log::info!(
+            "added '{}' ({}) to the playlist",
+            map.name.plain(),
+            &map.uid
+        );
         Ok(PlaylistDiff::Append(map))
     }
 
@@ -230,7 +234,11 @@ impl PlaylistController {
         }
         state.playlist.remove(map_index);
 
-        log::info!("remove '{}' ({}) from the playlist", &map.name, &map.uid);
+        log::info!(
+            "remove '{}' ({}) from the playlist",
+            map.name.plain(),
+            &map.uid
+        );
         Ok(PlaylistDiff::Remove {
             was_index: map_index,
             map,
@@ -287,7 +295,7 @@ impl PlaylistController {
         let db_map = Map {
             uid: import_map.metadata.uid,
             file_name,
-            name: import_map.metadata.name,
+            name: GameString::from(import_map.metadata.name),
             author_login: map_info.author_login,
             added_since: SystemTime::now(),
             in_playlist: true,
@@ -310,7 +318,7 @@ impl PlaylistController {
 
         log::info!(
             "imported map '{}' ({}) into the playlist",
-            &db_map.name,
+            db_map.name.plain(),
             &db_map.uid
         );
         Ok(PlaylistDiff::AppendNew(db_map))

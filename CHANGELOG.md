@@ -26,6 +26,7 @@ All `0.1.0-alpha` releases are unstable, and have missing widgets.
   - `/shutdown` shuts down the server.
  
 - **Chat**: Admin Commands
+  - `/players` lists logins and nicknames of connected players.
   - `/skip` starts the next map immediately.
   - `/restart` restarts the current map after this race.
   - `/queue <uid>` pushes a map to the top of the queue.

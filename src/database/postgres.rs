@@ -10,7 +10,7 @@ use async_trait::async_trait;
 use crate::config::Config;
 use crate::database::queries::Queries;
 use crate::database::structs::*;
-use crate::ingame::PlayerInfo;
+use crate::ingame::{GameString, PlayerInfo};
 
 /// Connect to the Postgres database and open a connection pool.
 pub async fn pg_connect(config: &Config) -> Arc<dyn Queries> {
@@ -115,7 +115,7 @@ impl Queries for PostgresClient {
                 nick_name = excluded.nick_name
         "#;
         let _ = conn
-            .execute(stmt, &[&player.login, &player.nick_name])
+            .execute(stmt, &[&player.login, &player.nick_name.formatted])
             .await?;
         Ok(())
     }
@@ -188,7 +188,7 @@ impl Queries for PostgresClient {
                     &map.metadata.uid,
                     &map.metadata.file_name,
                     &map.data,
-                    &map.metadata.name,
+                    &map.metadata.name.formatted,
                     &map.metadata.author_login,
                     &map.metadata.added_since,
                     &map.metadata.in_playlist,
@@ -238,7 +238,7 @@ impl Queries for PostgresClient {
         Ok(rows.first().map(|row| RecordDetailed {
             map_rank: 1,
             player_login: row.get("login"),
-            player_nick_name: row.get("nick_name"),
+            player_nick_name: GameString::from(row.get("nick_name")),
             timestamp: row.get("timestamp"),
             millis: row.get("millis"),
             cp_millis: rows.iter().map(|row| row.get("cp_millis")).collect(),
@@ -262,7 +262,7 @@ impl Queries for PostgresClient {
             .iter()
             .map(|row| Record {
                 player_login: row.get("login"),
-                player_nick_name: row.get("nick_name"),
+                player_nick_name: GameString::from(row.get("nick_name")),
                 timestamp: row.get("timestamp"),
                 millis: row.get("millis"),
             })
@@ -297,7 +297,7 @@ impl Queries for PostgresClient {
         Ok(rows.first().map(|row| RecordDetailed {
             map_rank: row.get("pos"),
             player_login: row.get("login"),
-            player_nick_name: row.get("nick_name"),
+            player_nick_name: GameString::from(row.get("nick_name")),
             timestamp: row.get("timestamp"),
             millis: row.get("millis"),
             cp_millis: rows.iter().map(|row| row.get("cp_millis")).collect(),
@@ -509,7 +509,7 @@ impl Queries for PostgresClient {
             .map(|row| MapRank {
                 map_uid: row.get("map_uid"),
                 player_login: row.get("login"),
-                player_nick_name: row.get("nick_name"),
+                player_nick_name: GameString::from(row.get("nick_name")),
                 pos: row.get("pos"),
                 max_pos: row.get("max_pos"),
                 in_playlist: row.get("in_playlist"),
@@ -588,7 +588,7 @@ impl From<Row> for Map {
         Map {
             uid: row.get("uid"),
             file_name: row.get("file_name"),
-            name: row.get("name"),
+            name: GameString::from(row.get("name")),
             author_login: row.get("author_login"),
             added_since: row.get("added_since"),
             in_playlist: row.get("in_playlist"),
@@ -610,7 +610,7 @@ impl From<Row> for Player {
     fn from(row: Row) -> Self {
         Player {
             login: row.get("login"),
-            nick_name: row.get("nick_name"),
+            nick_name: GameString::from(row.get("nick_name")),
         }
     }
 }

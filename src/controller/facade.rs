@@ -3,7 +3,6 @@ use std::sync::Arc;
 use semver::Version;
 
 use async_recursion::async_recursion;
-use gbx::PlayerInfo;
 
 use crate::action::Action;
 use crate::command::{
@@ -14,7 +13,7 @@ use crate::config::{Config, BLACKLIST_FILE, VERSION};
 use crate::controller::*;
 use crate::database::{Database, Preference};
 use crate::event::{Command, ControllerEvent, PlaylistDiff, VoteInfo};
-use crate::ingame::{Server, ServerEvent};
+use crate::ingame::{PlayerInfo, Server, ServerEvent};
 use crate::message::ServerMessage;
 use crate::network::most_recent_controller_version;
 
@@ -427,7 +426,7 @@ impl Controller {
                 .player(&login)
                 .await
                 .expect("failed to load player")
-                .map(|p| p.nick_name)
+                .map(|p| p.nick_name.formatted)
                 .unwrap_or_else(|| login)
         };
 
@@ -439,7 +438,15 @@ impl Controller {
 
             ListMaps => {
                 let maps = self.db.maps().await.expect("failed to load maps");
-                let msg = CommandResponse::Output(CommandOutputResponse::MapList(maps));
+                let msg =
+                    CommandResponse::Output(CommandOutputResponse::MapList(maps.iter().collect()));
+                self.widget.show_popup(msg, from_login).await;
+            }
+
+            ListPlayers => {
+                let players = self.players.lock().await;
+                let msg =
+                    CommandResponse::Output(CommandOutputResponse::PlayerList(players.info_all()));
                 self.widget.show_popup(msg, from_login).await;
             }
 
@@ -469,7 +476,7 @@ impl Controller {
                 self.server.end_map().await;
                 self.chat
                     .announce(ServerMessage::CurrentMapSkipped {
-                        admin_name: &from_nick_name,
+                        admin_name: &from_nick_name.formatted,
                     })
                     .await;
             }
@@ -478,7 +485,7 @@ impl Controller {
                 if self.queue.force_restart().await {
                     self.chat
                         .announce(ServerMessage::ForceRestart {
-                            admin_name: &from_nick_name,
+                            admin_name: &from_nick_name.formatted,
                         })
                         .await;
                 }
@@ -499,8 +506,8 @@ impl Controller {
                 self.queue.force_queue(playlist_index).await;
                 self.chat
                     .announce(ServerMessage::ForceQueued {
-                        admin_name: &from_nick_name,
-                        map_name: &map.name,
+                        admin_name: &from_nick_name.formatted,
+                        map_name: &map.name.formatted,
                     })
                     .await;
             }
@@ -533,7 +540,7 @@ impl Controller {
 
                 self.chat
                     .announce(ServerMessage::PlayerBlacklisted {
-                        admin_name: &from_nick_name,
+                        admin_name: &from_nick_name.formatted,
                         player_name: &or_nickname(login.to_string()).await,
                     })
                     .await;
@@ -555,7 +562,7 @@ impl Controller {
 
                 self.chat
                     .announce(ServerMessage::PlayerUnblacklisted {
-                        admin_name: &from_nick_name,
+                        admin_name: &from_nick_name.formatted,
                         player_name: &or_nickname(login.to_string()).await,
                     })
                     .await;
@@ -645,8 +652,8 @@ impl Controller {
 
                 self.chat
                     .announce(ServerMessage::MapDeleted {
-                        admin_name: &from_nick_name,
-                        map_name: &map.name,
+                        admin_name: &from_nick_name.formatted,
+                        map_name: &map.name.formatted,
                     })
                     .await;
             }

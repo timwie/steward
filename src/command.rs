@@ -3,10 +3,11 @@ use std::str::FromStr;
 
 use semver::Version;
 
-use gbx::{NetStats, ServerInfo};
+use gbx::PlayerInfo;
 
 use crate::config::Config;
 use crate::database::Map;
+use crate::ingame::{NetStats, ServerInfo};
 
 /// Chat commands that can only be executed by super admins.
 #[derive(Debug)]
@@ -73,12 +74,17 @@ pub enum AdminCommand<'a> {
     /// Usage: `/help`
     Help,
 
-    /// List the server's maps (including UID).
+    /// List the server's maps and their UIDs.
     /// For each map, it should say whether it is in the playlist
     /// or not.
     ///
     /// Usage: `/maps`
     ListMaps,
+
+    /// List the connected players with login and nickname.
+    ///
+    /// Usage: `/players`
+    ListPlayers,
 
     /// Add the map with the given UID to the playlist.
     ///
@@ -153,6 +159,7 @@ impl AdminCommand<'_> {
             ["/help"] => Some(Help),
             ["/map_import", id] => Some(ImportMap { id: *id }),
             ["/maps"] => Some(ListMaps),
+            ["/players"] => Some(ListPlayers),
             ["/playlist", "add", uid] => Some(PlaylistAdd { uid: *uid }),
             ["/playlist", "remove", uid] => Some(PlaylistRemove { uid: *uid }),
             ["/queue", uid] => Some(ForceQueue { uid: *uid }),
@@ -214,6 +221,9 @@ pub const SUPER_ADMIN_COMMAND_REFERENCE: &str = "
 
 /// Admin command reference that can be printed in-game.
 pub const ADMIN_COMMAND_REFERENCE: &str = "
+/maps        List the server's maps and their UIDs.
+/players     List the connected players with login and nickname.
+
 /map_import <id/uid>       Import the trackmania.exchange map with the given id.
 /playlist add <uid>        Add the specified map to the playlist.
 /playlist remove <uid>     Remove the specified map from the playlist.
@@ -267,7 +277,9 @@ pub enum CommandOutputResponse<'a> {
     /// of the playlist.
     ///
     /// Output for `/maps`
-    MapList(Vec<Map>),
+    MapList(Vec<&'a Map>),
+
+    PlayerList(Vec<&'a PlayerInfo>),
 
     /// Information about server & controller.
     ///
@@ -445,6 +457,18 @@ impl Display for CommandResponse<'_> {
                         fill(&map.file_name, 30),
                         &map.uid,
                         map.exchange_id.map(|id| id.to_string()).unwrap_or_default()
+                    )?;
+                }
+                Ok(())
+            }
+
+            Output(PlayerList(players)) => {
+                for player in players {
+                    writeln!(
+                        f,
+                        "{} | {}",
+                        fill(&player.nick_name.plain(), 30),
+                        &player.login
                     )?;
                 }
                 Ok(())

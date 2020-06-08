@@ -1,4 +1,8 @@
-use serde::{Deserialize, Serialize};
+use regex::Regex;
+use serde::export::Formatter;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+use lazy_static::lazy_static;
 
 /// Server version information.
 ///
@@ -36,12 +40,12 @@ pub struct ServerOptions {
     /// The server name, as displayed in the server browser.
     ///
     /// Config: `<name>` in `<server_options>`
-    pub name: String,
+    pub name: GameString,
 
     /// The server comment, as displayed in the server browser.
     ///
     /// Config: `<comment>` in `<server_options>`
-    pub comment: String,
+    pub comment: GameString,
 
     /// The password needed to connect as a player.
     ///
@@ -251,7 +255,7 @@ pub struct PlayerInfo {
     pub login: String,
 
     /// Formatted nick name.
-    pub nick_name: String,
+    pub nick_name: GameString,
 
     /// (see functions)
     #[serde(rename = "Flags")]
@@ -355,7 +359,7 @@ pub struct MapInfo {
     pub uid: String,
 
     /// The formatted map name.
-    pub name: String,
+    pub name: GameString,
 
     /// The map's file name in `.../UserData/Maps`.
     pub file_name: String,
@@ -434,7 +438,7 @@ pub struct Score {
 
     /// The player's formatted nick name.
     #[serde(rename = "name")]
-    pub nick_name: String,
+    pub nick_name: GameString,
 
     /// Rank of the player in the current race.
     #[serde(rename = "rank")]
@@ -451,4 +455,59 @@ pub struct Score {
     /// Checkpoints times during the best run in milliseconds (or empty if no completed run).
     #[serde(rename = "bestracecheckpoints")]
     pub best_time_cp_millis: Vec<i32>,
+}
+
+/// A string with in-game formatting.
+#[derive(PartialEq, Clone)]
+pub struct GameString {
+    /// The formatted string.
+    pub formatted: String,
+}
+
+impl GameString {
+    pub fn from(str: String) -> Self {
+        GameString { formatted: str }
+    }
+
+    /// Removes all text formatting.
+    ///
+    /// References:
+    /// - https://doc.maniaplanet.com/client/text-formatting
+    /// - https://wiki.xaseco.org/wiki/Text_formatting
+    pub fn plain(&self) -> String {
+        lazy_static! {
+            static ref RE_DOLLAR: Regex = Regex::new(r"\${2}").unwrap();
+            static ref RE_FORMATTING: Regex =
+                Regex::new(r"\$[A-Fa-f0-9]{3}|\$[wWnNoOiItTsSgGzZpP]|\$[lLhHpP]\[.+]").unwrap();
+        }
+
+        let output = RE_DOLLAR.replace_all(&self.formatted, r"\$");
+        let output = RE_FORMATTING.replace_all(&output, "");
+        output.into_owned()
+    }
+}
+
+impl std::fmt::Debug for GameString {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.serialize_str(&self.plain())
+    }
+}
+
+impl<'de> Deserialize<'de> for GameString {
+    fn deserialize<D>(deserializer: D) -> Result<Self, <D as Deserializer<'de>>::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let formatted: String = serde::de::Deserialize::deserialize(deserializer)?;
+        Ok(GameString { formatted })
+    }
+}
+
+impl Serialize for GameString {
+    fn serialize<S>(&self, serializer: S) -> Result<<S as Serializer>::Ok, <S as Serializer>::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&self.formatted)
+    }
 }

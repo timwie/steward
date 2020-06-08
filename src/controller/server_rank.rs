@@ -12,6 +12,7 @@ use crate::config::MAX_DISPLAYED_SERVER_RANKS;
 use crate::controller::LivePlayers;
 use crate::database::Database;
 use crate::event::{ServerRankDiff, ServerRankingDiff};
+use crate::ingame::GameString;
 
 /// Use to lookup the current server rankings.
 /// They are updated after every race.
@@ -57,7 +58,7 @@ impl ServerRankingState {
 pub struct ServerRank {
     pub pos: usize,
     pub player_login: String,
-    pub player_nick_name: String,
+    pub player_nick_name: GameString,
 
     /// The number of beaten records summed for every map.
     pub nb_wins: usize,
@@ -115,7 +116,7 @@ async fn calc_server_ranking(db: &Arc<dyn Database>) -> IndexMap<Cow<'static, st
         .expect("failed to load map rankings");
 
     let mut nb_wins = IndexMap::<&str, usize>::new(); // player login -> nb of wins
-    let mut nick_names = HashMap::<&str, String>::new(); // player login -> nick name
+    let mut nick_names = HashMap::<&str, GameString>::new(); // player login -> nick name
 
     for map_rank in map_ranks.iter() {
         if !map_rank.in_playlist {
