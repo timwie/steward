@@ -7,15 +7,15 @@ use crate::network::HTTP_CLIENT;
 #[derive(Error, Debug)]
 pub enum ExchangeError {
     /// Cannot find a map with the requested ID or UID.
-    #[error("cannot find a map with the requested ID or UID")]
+    #[error("cannot find a trackmania.exchange map with the requested ID or UID")]
     UnknownId,
 
     /// Wrong endpoint, or maybe not available right now.
-    #[error("API request failed")]
+    #[error("trackmania.exchange API request failed")]
     RequestError(#[from] reqwest::Error),
 
     /// Likely a bug on our end.
-    #[error("failed to parse API response")]
+    #[error("failed to parse trackmania.exchange API response")]
     ParseError(#[from] serde_json::Error),
 }
 
@@ -32,6 +32,10 @@ pub struct ExchangeMetadata {
     /// The map's ID on the website (`https://tm.mania-exchange.com/tracks/<id>`)
     #[serde(rename = "TrackID")]
     pub exchange_id: i32,
+
+    /// The map name without its formatting.
+    #[serde(rename = "Name")]
+    pub name_plain: String,
 
     /// The formatted map name.
     #[serde(rename = "GbxMapName")]

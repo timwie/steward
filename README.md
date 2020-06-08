@@ -121,10 +121,8 @@ $ ./steward
 ```
 
 #### Admin Commands
-- `/map_import <mx id/uid>` imports maps from ManiaExchange.
-- `/maps` lists map names and UIDs.
-- `/playlist_add <uid>` adds a map to the playlist.
-- `/playlist_remove <uid>` removes a map from the playlist.
+- Make sure you add your own login to the `super_admin_whitelist` in the controller config.
+- List available commands by typing `/help` into the chat in-game.
 
 #### Supervision
 - The controller will not try to recover when encountering errors.
@@ -134,6 +132,7 @@ $ ./steward
   the Postgres database, you only need to backup the latter. 
 
 #### Upgrading
+- You can check for new releases using the `/info` command.
 - If the [changelog](CHANGELOG.md) does not state otherwise,
   you can simply exchange the `steward` executable to upgrade to a newer version.
 - New versions may alter the database schema on launch.

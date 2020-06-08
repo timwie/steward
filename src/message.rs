@@ -10,7 +10,7 @@ use crate::config::{
 use crate::event::{ControllerEvent, PbDiff, PlayerDiff, PlaylistDiff, ServerRankingDiff};
 
 /// Chat announcements from the controller to all players.
-/// All variants are derived from `ControllerEvent`s.
+/// Many variants can be derived from `ControllerEvent`s.
 ///
 /// Note: messages should typically convey information that is
 /// not already conveyed by widgets.
@@ -53,6 +53,36 @@ pub enum ServerMessage<'a> {
 
     /// Tell players to vote if they want a restart.
     VoteNow { duration: Duration, threshold: f32 },
+
+    /// Tell players that an admin skipped the current map.
+    CurrentMapSkipped { admin_name: &'a str },
+
+    /// Tell players that an admin deleted a map and its records.
+    MapDeleted {
+        admin_name: &'a str,
+        map_name: &'a str,
+    },
+
+    /// Tell players that an admin has blacklisted a player.
+    PlayerBlacklisted {
+        admin_name: &'a str,
+        player_name: &'a str,
+    },
+
+    /// Tell players that an admin has removed a player from the blacklist.
+    PlayerUnblacklisted {
+        admin_name: &'a str,
+        player_name: &'a str,
+    },
+
+    /// Tell players that an admin has forced a restart of the current map.
+    ForceRestart { admin_name: &'a str },
+
+    /// Tell players that an admin has pushed a map to the top of the queue.
+    ForceQueued {
+        admin_name: &'a str,
+        map_name: &'a str,
+    },
 }
 
 pub struct TopRankMessage<'a> {
@@ -69,17 +99,20 @@ impl ServerMessage<'_> {
             NewPlayerList(PlayerDiff::AddPlayer(info))
             | NewPlayerList(PlayerDiff::AddSpectator(info))
             | NewPlayerList(PlayerDiff::AddPureSpectator(info)) => Some(Joining {
-                nick_name: &info.nick_name,
+                nick_name: &info.nick_name.formatted,
             }),
 
             NewPlayerList(PlayerDiff::RemovePlayer(info))
             | NewPlayerList(PlayerDiff::RemoveSpectator(info))
             | NewPlayerList(PlayerDiff::RemovePureSpectator(info)) => Some(Leaving {
-                nick_name: &info.nick_name,
+                nick_name: &info.nick_name.formatted,
             }),
 
-            BeginIntro { loaded_map } => Some(CurrentMap {
-                name: &loaded_map.name,
+            BeginIntro {
+                loaded_map,
+                is_restart: false,
+            } => Some(CurrentMap {
+                name: &loaded_map.name.formatted,
                 author: &loaded_map.author_login,
             }),
 
@@ -97,7 +130,7 @@ impl ServerMessage<'_> {
                         ..
                     },
             } if *pos_gained > 0 && *new_pos <= MAX_ANNOUNCED_RECORD => Some(TopRecord {
-                player_nick_name: &new_record.player_nick_name,
+                player_nick_name: &new_record.player_nick_name.formatted,
                 new_map_rank: *new_pos,
                 millis: new_record.millis as usize,
             }),
@@ -113,20 +146,24 @@ impl ServerMessage<'_> {
                     },
             } if *pos_gained == 0 && *diff < 0 && *new_pos <= MAX_ANNOUNCED_RECORD_IMPROVEMENT => {
                 Some(TopRecordImproved {
-                    player_nick_name: &new_record.player_nick_name,
+                    player_nick_name: &new_record.player_nick_name.formatted,
                     map_rank: *new_pos,
                     millis: new_record.millis as usize,
                 })
             }
 
             NewPlaylist(PlaylistDiff::AppendNew(map)) => Some(NewMap {
-                name: &map.name,
+                name: &map.name.formatted,
                 author: &map.author_login,
             }),
 
-            NewPlaylist(PlaylistDiff::Append(map)) => Some(AddedMap { name: &map.name }),
+            NewPlaylist(PlaylistDiff::Append(map)) => Some(AddedMap {
+                name: &map.name.formatted,
+            }),
 
-            NewPlaylist(PlaylistDiff::Remove { map, .. }) => Some(RemovedMap { name: &map.name }),
+            NewPlaylist(PlaylistDiff::Remove { map, .. }) => Some(RemovedMap {
+                name: &map.name.formatted,
+            }),
 
             NewServerRanking(ServerRankingDiff { diffs, .. }) => {
                 let mut top_ranks: Vec<TopRankMessage> = diffs
@@ -134,7 +171,7 @@ impl ServerMessage<'_> {
                     .filter_map(|diff| {
                         if diff.gained_pos > 0 && diff.new_pos <= MAX_ANNOUNCED_RANK {
                             Some(TopRankMessage {
-                                nick_name: &diff.player_nick_name,
+                                nick_name: &diff.player_nick_name.formatted,
                                 rank: diff.new_pos,
                             })
                         } else {
@@ -244,6 +281,54 @@ impl Display for ServerMessage<'_> {
                 f,
                 "Vote for a restart in the next {} seconds.",
                 duration.as_secs()
+            ),
+
+            CurrentMapSkipped { admin_name } => write!(
+                f,
+                "Admin {}{}{} skipped the current map!",
+                admin_name, RESET, NOTICE
+            ),
+
+            MapDeleted {
+                admin_name,
+                map_name,
+            } => write!(
+                f,
+                "Admin {}{}{} deleted {}{}{} and all of its records!",
+                admin_name, RESET, NOTICE, map_name, RESET, NOTICE
+            ),
+
+            PlayerBlacklisted {
+                admin_name,
+                player_name,
+            } => write!(
+                f,
+                "Admin {}{}{} blacklisted player {}{}{}!",
+                admin_name, RESET, NOTICE, player_name, RESET, NOTICE
+            ),
+
+            PlayerUnblacklisted {
+                admin_name,
+                player_name,
+            } => write!(
+                f,
+                "Admin {}{}{} un-blacklisted player {}{}{}!",
+                admin_name, RESET, NOTICE, player_name, RESET, NOTICE
+            ),
+
+            ForceRestart { admin_name } => write!(
+                f,
+                "Admin {}{}{} forced a map restart!",
+                admin_name, RESET, NOTICE
+            ),
+
+            ForceQueued {
+                admin_name,
+                map_name,
+            } => write!(
+                f,
+                "Admin {}{}{} queued map {}{}{}!",
+                admin_name, RESET, NOTICE, map_name, RESET, NOTICE
             ),
         }
     }

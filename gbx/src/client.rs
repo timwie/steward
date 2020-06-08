@@ -288,13 +288,13 @@ impl RpcClient {
             .send(Msg::AwaitResponse(data))
             .expect("msg receiver was dropped");
 
-        log::debug!("call {}: {:?}", &handle, &call);
+        log::debug!("call {}: {:#?}", &handle, &call);
 
         tcp_send(&self.tcp_stream, &call, handle).await;
 
         let response = resp_in.await.expect("response sender was dropped");
 
-        log::debug!("call {} response: {:?}", &handle, &response);
+        log::debug!("call {} response: {:#?}", &handle, &response);
 
         response
     }

@@ -1,4 +1,8 @@
-use serde::{Deserialize, Serialize};
+use regex::Regex;
+use serde::export::Formatter;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+use lazy_static::lazy_static;
 
 /// Server version information.
 ///
@@ -36,12 +40,12 @@ pub struct ServerOptions {
     /// The server name, as displayed in the server browser.
     ///
     /// Config: `<name>` in `<server_options>`
-    pub name: String,
+    pub name: GameString,
 
     /// The server comment, as displayed in the server browser.
     ///
     /// Config: `<comment>` in `<server_options>`
-    pub comment: String,
+    pub comment: GameString,
 
     /// The password needed to connect as a player.
     ///
@@ -190,6 +194,17 @@ pub struct ServerOptions {
     pub client_inputs_max_latency: i32,
 }
 
+/// Reference: GetNetworkStats https://doc.maniaplanet.com/dedicated-server/references/xml-rpc-methods
+#[derive(Deserialize, Debug, PartialEq)]
+#[serde(rename_all = "PascalCase")]
+pub struct NetStats {
+    /// This value might be useful to check that a server has not been online
+    /// for more than 30 days. Apparently this can prevent players from joining the server.
+    /// (see https://doc.maniaplanet.com/dedicated-server/frequent-errors)
+    #[serde(rename = "Uptime")]
+    pub uptime_secs: i32,
+}
+
 /// Game mode information.
 ///
 /// Reference: GetModeScriptInfo https://doc.maniaplanet.com/dedicated-server/references/xml-rpc-methods
@@ -217,7 +232,7 @@ pub struct ModeInfo {
 pub struct ModeOptions {
     /// S_TimeLimit
     #[serde(rename = "S_TimeLimit")]
-    pub race_duration_secs: i32,
+    pub time_limit_secs: i32,
 
     /// S_ChatTime
     #[serde(rename = "S_ChatTime")]
@@ -240,7 +255,7 @@ pub struct PlayerInfo {
     pub login: String,
 
     /// Formatted nick name.
-    pub nick_name: String,
+    pub nick_name: GameString,
 
     /// (see functions)
     #[serde(rename = "Flags")]
@@ -344,7 +359,7 @@ pub struct MapInfo {
     pub uid: String,
 
     /// The formatted map name.
-    pub name: String,
+    pub name: GameString,
 
     /// The map's file name in `.../UserData/Maps`.
     pub file_name: String,
@@ -360,14 +375,6 @@ impl MapInfo {
     pub fn is_campaign_map(&self) -> bool {
         &self.author_login == "Nadeo" && self.file_name.starts_with("Campaigns\\")
     }
-}
-
-/// A struct to be used for various script callbacks, f.e. `Trackmania.Event.GiveUp`.
-///
-/// Reference: https://github.com/maniaplanet/script-xmlrpc/blob/master/XmlRpcListing.md#trackmaniaeventgiveup
-#[derive(Deserialize, Debug, PartialEq, Clone)]
-pub(in crate) struct ScriptEventData {
-    pub login: String,
 }
 
 /// Run data at the time of crossing any checkpoint or the finish line.
@@ -431,7 +438,7 @@ pub struct Score {
 
     /// The player's formatted nick name.
     #[serde(rename = "name")]
-    pub nick_name: String,
+    pub nick_name: GameString,
 
     /// Rank of the player in the current race.
     #[serde(rename = "rank")]
@@ -448,4 +455,59 @@ pub struct Score {
     /// Checkpoints times during the best run in milliseconds (or empty if no completed run).
     #[serde(rename = "bestracecheckpoints")]
     pub best_time_cp_millis: Vec<i32>,
+}
+
+/// A string with in-game formatting.
+#[derive(PartialEq, Clone)]
+pub struct GameString {
+    /// The formatted string.
+    pub formatted: String,
+}
+
+impl GameString {
+    pub fn from(str: String) -> Self {
+        GameString { formatted: str }
+    }
+
+    /// Removes all text formatting.
+    ///
+    /// References:
+    /// - https://doc.maniaplanet.com/client/text-formatting
+    /// - https://wiki.xaseco.org/wiki/Text_formatting
+    pub fn plain(&self) -> String {
+        lazy_static! {
+            static ref RE_DOLLAR: Regex = Regex::new(r"\${2}").unwrap();
+            static ref RE_FORMATTING: Regex =
+                Regex::new(r"\$[A-Fa-f0-9]{3}|\$[wWnNoOiItTsSgGzZpP]|\$[lLhHpP]\[.+]").unwrap();
+        }
+
+        let output = RE_DOLLAR.replace_all(&self.formatted, r"\$");
+        let output = RE_FORMATTING.replace_all(&output, "");
+        output.into_owned()
+    }
+}
+
+impl std::fmt::Debug for GameString {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.serialize_str(&self.plain())
+    }
+}
+
+impl<'de> Deserialize<'de> for GameString {
+    fn deserialize<D>(deserializer: D) -> Result<Self, <D as Deserializer<'de>>::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let formatted: String = serde::de::Deserialize::deserialize(deserializer)?;
+        Ok(GameString { formatted })
+    }
+}
+
+impl Serialize for GameString {
+    fn serialize<S>(&self, serializer: S) -> Result<<S as Serializer>::Ok, <S as Serializer>::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&self.formatted)
+    }
 }

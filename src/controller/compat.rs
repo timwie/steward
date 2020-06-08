@@ -5,42 +5,45 @@ use std::io::Read;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use gbx::{SCRIPT_API_VERSION, SERVER_API_VERSION};
-
-use crate::config::{Config, VERSION};
+use crate::config::{Config, BLACKLIST_FILE, MAX_GHOST_REPLAY_RANK, VERSION};
 use crate::database::{Database, Map, MapEvidence};
-use crate::ingame::{MapInfo, ModeInfo, ModeOptions, Server, ServerInfo, ServerOptions};
+use crate::ingame::{
+    MapInfo, ModeInfo, ModeOptions, Server, ServerInfo, ServerOptions, SCRIPT_API_VERSION,
+    SERVER_API_VERSION,
+};
 use crate::network::exchange_id;
 
 /// Runs everything that needs to run at startup.
 pub async fn prepare(server: &Arc<dyn Server>, db: &Arc<dyn Database>, config: &Config) {
     log::debug!("using Steward version '{}'", VERSION.to_string());
-
     log::debug!("using server API version '{}'", SERVER_API_VERSION);
     log::debug!("using script API version '{}'", SCRIPT_API_VERSION);
 
     prepare_rpc(server, config).await;
     prepare_server(server).await;
     prepare_mode(server, config).await;
-
-    db.migrate().await.expect("failed to migrate database");
+    prepare_db(db).await;
     prepare_playlist(server, db).await;
+
+    // Whenever the controller is shut down, it won't remove widgets for players,
+    // so it's best to clear them here. Especially helpful during development.
+    server.clear_manialinks().await;
+
+    // "Clearing" the chat is also helpful during development.
+    for _ in 0..10 {
+        server.chat_send("").await;
+    }
 }
 
 /// Make sure that we can make server calls, and receive server callbacks.
 async fn prepare_rpc(server: &Arc<dyn Server>, config: &Config) {
     log::debug!("prepare XML-RPC...");
     server
-        .authenticate(&config.super_admin_name, &config.super_admin_pw)
+        .authenticate(&config.rpc_login, &config.rpc_password)
         .await;
     server.enable_callbacks().await;
     server.set_api_version().await;
     server.enable_manual_chat_routing().await;
-
-    // Whenever the controller is shut down, it won't remove widgets for players,
-    // so it is possible that we need to clear them first. Especially helpful
-    // during development.
-    server.clear_manialinks().await;
 }
 
 /// Check server compatibility and override some server options in the
@@ -54,6 +57,26 @@ async fn prepare_server(server: &Arc<dyn Server>) {
     log::info!("using server options:");
     log::info!("{:?}", &server_options);
     server.set_server_options(&server_options).await;
+
+    // Load the player blacklist from disk, or create the file so that it can be written to.
+    let blacklist_file = server
+        .user_data_dir()
+        .await
+        .join("Config")
+        .join(BLACKLIST_FILE);
+    if !blacklist_file.is_file() {
+        // Saving the empty list allows to load it without a fault.
+        std::fs::File::create(blacklist_file).expect("failed to create blacklist file");
+        server
+            .save_blacklist(BLACKLIST_FILE)
+            .await
+            .expect("failed to write empty blacklist file");
+    } else {
+        server
+            .load_blacklist(BLACKLIST_FILE)
+            .await
+            .expect("failed to load blacklist file");
+    }
 }
 
 /// There are a few server options that will be overridden
@@ -84,9 +107,9 @@ fn add_server_option_constraints(options: &mut ServerOptions) {
 /// For newer builds, this should not cause incompatibilities, but it might still
 /// be good to be aware of them.
 fn check_server_compat(info: ServerInfo) {
-    static SERVER_KNOWN_NAME: &str = "ManiaPlanet";
-    static SERVER_KNOWN_VERSION: &str = "3.3.0";
-    static SERVER_KNOWN_BUILD: &str = "2019-10-23_20_00";
+    const SERVER_KNOWN_NAME: &str = "ManiaPlanet";
+    const SERVER_KNOWN_VERSION: &str = "3.3.0";
+    const SERVER_KNOWN_BUILD: &str = "2019-10-23_20_00";
 
     if info.name != SERVER_KNOWN_NAME {
         log::warn!("server is not a ManiaPlanet server:");
@@ -109,7 +132,7 @@ fn check_server_compat(info: ServerInfo) {
 /// Set & configure the game mode.
 /// Overwrite the default `<ui_properties>`.
 async fn prepare_mode(server: &Arc<dyn Server>, config: &Config) {
-    static TA_SCRIPT_TEXT: &str = include_str!("../res/TimeAttack.Script.txt");
+    const TA_SCRIPT_TEXT: &str = include_str!("../res/TimeAttack.Script.txt");
 
     log::debug!("prepare game mode...");
 
@@ -164,7 +187,22 @@ fn check_mode_compat(info: ModeInfo) -> bool {
 /// Set mode options according to this controller's config file.
 fn add_mode_option_constraints(config: &Config, options: &mut ModeOptions) {
     options.chat_time_secs = config.outro_duration_secs as i32;
-    options.race_duration_secs = config.race_duration_secs as i32;
+    options.time_limit_secs = config.race_duration_secs as i32;
+}
+
+/// If needed, migrate the database to a newer version.
+/// Clears outdated ghost replays to reduce size.
+async fn prepare_db(db: &Arc<dyn Database>) {
+    db.migrate().await.expect("failed to migrate database");
+
+    // Maintenance: remove outdated ghost replays.
+    let nb_removed_ghosts = db
+        .delete_old_ghosts(MAX_GHOST_REPLAY_RANK as i64)
+        .await
+        .expect("failed to clean up ghost replays");
+    if nb_removed_ghosts > 0 {
+        log::info!("removed {} old ghost replays", nb_removed_ghosts);
+    }
 }
 
 /// When starting a server, there are three sources for a map list:
@@ -366,8 +404,8 @@ fn read_to_bytes(file_path: &PathBuf) -> std::io::Result<Vec<u8>> {
     Ok(buffer)
 }
 
-static CUSTOM_SCRIPT: &str = "<in-development>"; // the name if we set the script ourselves
+const CUSTOM_SCRIPT: &str = "<in-development>"; // the name if we set the script ourselves
 
-static TA_SCRIPT: &str = "TimeAttack.Script.txt";
-static TA_MAP_TYPE: &str = "Race";
-static TA_KNOWN_VERSION: &str = "2018-05-14";
+const TA_SCRIPT: &str = "TimeAttack.Script.txt";
+const TA_MAP_TYPE: &str = "Race";
+const TA_KNOWN_VERSION: &str = "2018-05-14";

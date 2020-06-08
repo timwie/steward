@@ -4,9 +4,7 @@ use std::time::Duration;
 use futures::future::join_all;
 use tokio::sync::RwLock;
 
-use gbx::{Fault, PlayerInfo};
-
-use crate::command::CommandOutput;
+use crate::command::CommandResponse;
 use crate::config::{
     MAX_DISPLAYED_MAP_RANKS, MAX_DISPLAYED_RACE_RANKS, MAX_DISPLAYED_SERVER_RANKS,
     START_HIDE_WIDGET_DELAY_MILLIS,
@@ -14,7 +12,7 @@ use crate::config::{
 use crate::controller::*;
 use crate::database::{Database, PreferenceValue, RecordDetailed};
 use crate::event::*;
-use crate::ingame::Server;
+use crate::ingame::{Fault, PlayerInfo, Server};
 use crate::widget::*;
 
 /// This controller collects cached & event data,
@@ -209,10 +207,11 @@ impl WidgetController {
     }
 
     /// Display a popup message to the specified player.
-    pub async fn show_popup(&self, msg: CommandOutput, for_login: &str) {
+    pub async fn show_popup(&self, resp: CommandResponse<'_>, for_login: &str) {
+        let mode = PopupMode::from(&resp);
         if let Some(uid) = self.live_players.uid(for_login).await {
-            let output = &msg.to_string();
-            self.show_for(&PopupWidget { output }, uid).await;
+            let output = &resp.to_string();
+            self.show_for(&PopupWidget { output, mode }, uid).await;
         }
     }
 
@@ -350,9 +349,12 @@ impl WidgetController {
 
         for id in id_playing {
             let widget = IntroWidget {
-                map_name: &map.name,
+                map_name: &map.name.formatted,
                 map_author_login: &map.author_login,
-                map_author_nick_name: author_nick_name.as_deref(),
+                map_author_nick_name: match &author_nick_name {
+                    Some(str) => Some(&str.formatted),
+                    None => None,
+                },
                 player_map_rank: records.pb(id).map(|rec| rec.map_rank as usize),
                 max_map_rank: nb_records,
                 player_preference: preferences.pref(id, &map.uid),
@@ -455,7 +457,7 @@ impl WidgetController {
         let next_maps = queued_next
             .iter()
             .map(|entry| OutroQueueEntry {
-                map_name: &entry.map.name,
+                map_name: &entry.map.name.formatted,
                 priority: entry.priority,
             })
             .collect();
@@ -530,7 +532,7 @@ impl WidgetController {
         let to_entry = |r: &'a ServerRank| -> ServerRankingEntry {
             ServerRankingEntry {
                 pos: r.pos,
-                nick_name: &r.player_nick_name,
+                nick_name: &r.player_nick_name.formatted,
                 nb_wins: r.nb_wins,
                 nb_losses: r.nb_losses,
                 is_own: r.player_login == player.login,
@@ -560,7 +562,7 @@ impl WidgetController {
             .enumerate()
             .map(|(idx, rec)| MapRankingEntry {
                 pos: idx + 1,
-                nick_name: &rec.player_nick_name,
+                nick_name: &rec.player_nick_name.formatted,
                 millis: rec.millis as usize,
                 timestamp: rec.timestamp,
                 is_own: rec.player_login == player.login,
@@ -569,7 +571,7 @@ impl WidgetController {
 
         let personal_entry = records.pb(player.uid).map(|rec| MapRankingEntry {
             pos: rec.map_rank as usize,
-            nick_name: &rec.player_nick_name,
+            nick_name: &rec.player_nick_name.formatted,
             millis: rec.millis as usize,
             timestamp: rec.timestamp,
             is_own: rec.player_login == player.login,
@@ -603,7 +605,7 @@ impl WidgetController {
                 .map(|rec| rec.map_rank as usize);
             MapListEntry {
                 map_uid: &map.uid,
-                map_name: &map.name,
+                map_name: &map.name.formatted,
                 map_author_login: &map.author_login,
                 preference,
                 nb_records,

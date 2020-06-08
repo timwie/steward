@@ -1,31 +1,104 @@
 {% extends "base_dynamic.j2" %}
 
+{# ============================= VARIABLES ============================= #}
+{% block vars %}
+    {{ super() }}
+
+    {% set col_btn_neutral = "111" %}
+    {% set col_btn_neutral_hover = "222" %}
+    {% set col_btn_danger = "db3c30" %}
+    {% set col_btn_danger_hover = col_remove %}
+
+    {% set MODE_DEFAULT = 0 %}
+    {% set MODE_CONFIRM = 1 %}
+
+    {% if mode == MODE_DEFAULT %}
+        {% set cancel_txt = "Close" %}
+    {% else %}
+        {% set cancel_txt = "Cancel" %}
+    {% endif %}
+
+    {% if mode == MODE_DEFAULT %}
+        {% set header_txt = "Command Output" %}
+    {% else %}
+        {% set header_txt = "Are you sure you want to execute this command?" %}
+    {% endif %}
+
+    {% set width  = 200 %}
+    {% set height = 100 %}
+
+    {% set button_w  = 40 %}
+    {% set button_h  = 12 %}
+    {% set button_pad  = 2 %}
+
+{% endblock vars %}
 {# ============================= MANIALINK ============================= #}
 {% block manialink %}
 {{ super() }}
 
-<quad id="popup-bg" pos="-160 90" size="320 180" z-index="200" scriptevents="1"
-      style="Bgs1" substyle="BgEmpty"/>
+<frame id="popup" z-index="200">
+    <quad pos="-160 90" size="320 180" style="Bgs1" substyle="BgEmpty" z-index="-1"/>
+    <quad pos="-160 90" size="320 180" bgcolor="{{col_bg}}" opacity="0.8" z-index="-1"/>
 
-<textedit id="popup-text"
-          style="StyleTextScriptEditor" textcolor="{{col_white}}"
-          autonewline="1" showlinenumbers="1"
-          size="160 80" pos="-80 40" z-index="201"/>
+    <label text="{{header_txt}}" textemboss="1" textfont="RajdhaniMono" textsize="4"
+           size="{{width}} {{height}}" pos="{{width / -2}} {{height / 2 + button_pad}}" valign="bottom"/>
+
+    <textedit id="textedit"
+              style="StyleTextScriptEditor" textcolor="{{col_white}}"
+              autonewline="1" showlinenumbers="1"
+              size="{{width}} {{height}}" pos="{{width / -2}} {{height / 2}}"/>
+
+    <frame pos="0 {{height / -2}}">
+        {% set y = button_pad * -1 %}
+        {% set x = width / 2 %}
+        <label id="btn-cancel"
+               scriptevents="1" focusareacolor1="{{col_btn_neutral}}" focusareacolor2="{{col_btn_neutral_hover}}"
+               pos="{{x}} {{y}}" size="{{button_w}} {{button_h}}" halign="right"/>
+
+        {% set x = x - button_w %}
+        <label z-index="1" text="{{cancel_txt}}" textemboss="1" textfont="RajdhaniMono"
+               pos="{{x + button_pad*2}} {{y - button_h / 2}}" valign="center"
+               size="{{button_w - button_pad*4}}"/>
+
+        {% if mode == MODE_CONFIRM %}
+            {% set x = x - button_pad %}
+            <label id="btn-confirm"
+                   scriptevents="1" focusareacolor1="{{col_btn_danger}}" focusareacolor2="{{col_btn_danger_hover}}"
+                   pos="{{x}} {{y}}" size="{{button_w}} {{button_h}}" halign="right"/>
+
+            {% set x = x - button_w %}
+            <label z-index="1" text="Confirm" textemboss="1" textfont="RajdhaniMono"
+                   pos="{{x + button_pad*2}} {{y - button_h / 2}}" valign="center"
+                   size="{{button_w - button_pad*4}}"/>
+        {% endif %}
+    </frame>
+</frame>
 
 {% endblock manialink %}
 {# ============================= SCRIPT MAIN ============================= #}
 {% block main %}
 
- declare UI_PopupText = (Page.GetFirstChild("popup-text") as CMlTextEdit);
+ declare UI_PopupText = (Page.GetFirstChild("textedit") as CMlTextEdit);
  UI_PopupText.Value = """{{ output }}""";
 
 {% endblock main %}
 {# ============================= SCRIPT EVENTS ============================= #}
 {% block ml_events %}
 
-if (Event.Type == CMlScriptEvent::Type::MouseClick && Event.ControlId == "popup-bg") {
-    Page.GetFirstChild("popup-bg").Visible = False;
-    Page.GetFirstChild("popup-text").Visible = False;
+if (Event.Type == CMlScriptEvent::Type::MouseClick) {
+    switch (Event.ControlId) {
+        case "btn-confirm": {
+            TriggerPageAction("""{ "action": "CommandConfirm" }""");
+            Page.GetFirstChild("popup").Visible = False;
+        }
+        case "btn-cancel": {
+            {% if mode == MODE_CONFIRM %}
+                TriggerPageAction("""{ "action": "CommandCancel" }""");
+            {% endif %}
+            Page.GetFirstChild("popup").Visible = False;
+        }
+        default: {}
+    }
 }
 
 {% endblock ml_events %}

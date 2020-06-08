@@ -8,13 +8,12 @@ use std::time::SystemTime;
 use tokio::sync::{RwLock, RwLockReadGuard};
 
 use async_trait::async_trait;
-use gbx::MapInfo;
 
 use crate::command::PlaylistCommandError;
 use crate::controller::LiveSettings;
 use crate::database::{Database, Map, MapEvidence};
 use crate::event::PlaylistDiff;
-use crate::ingame::Server;
+use crate::ingame::{GameString, Server};
 use crate::network::{exchange_map, ExchangeError};
 
 /// Use to lookup the current playlist, and the map that is currently being played.
@@ -147,18 +146,16 @@ impl PlaylistController {
         }
     }
 
-    /// Update the current map when the server loads a new one.
-    pub async fn set_current_index(&self, info: &MapInfo) -> Map {
+    /// Set the current playlist index to the one of the next map.
+    ///
+    /// # Note
+    /// Until the server loads the next map, the current indices at
+    /// controller & server will differ, so this should only be called
+    /// right before the next map has finished loading.
+    pub async fn update_index(&self) {
         let mut state = self.state.write().await;
-        let new_index = state
-            .index_of(&info.uid)
-            .expect("server loaded map that is not in playlist");
-        state.curr_index = Some(new_index);
-        state
-            .playlist
-            .get(new_index)
-            .expect("no map at this playlist index")
-            .clone()
+        let next_index = self.server.playlist_next_index().await;
+        state.curr_index = Some(next_index);
     }
 
     /// Add the specified map to the server playlist.
@@ -190,7 +187,11 @@ impl PlaylistController {
         // 3. add to controller playlist
         state.playlist.push(map.clone());
 
-        log::info!("added '{}' ({}) to the playlist", &map.name, &map.uid);
+        log::info!(
+            "added '{}' ({}) to the playlist",
+            map.name.plain(),
+            &map.uid
+        );
         Ok(PlaylistDiff::Append(map))
     }
 
@@ -231,9 +232,13 @@ impl PlaylistController {
         if state.curr_index == Some(map_index) {
             state.curr_index = None;
         }
-        state.playlist.retain(|map| map.uid != map_uid);
+        state.playlist.remove(map_index);
 
-        log::info!("remove '{}' ({}) from the playlist", &map.name, &map.uid);
+        log::info!(
+            "remove '{}' ({}) from the playlist",
+            map.name.plain(),
+            &map.uid
+        );
         Ok(PlaylistDiff::Remove {
             was_index: map_index,
             map,
@@ -265,7 +270,7 @@ impl PlaylistController {
         let maps_dir = self.live_settings.maps_dir().await;
         let file_name = format!(
             "{}.{}.Map.gbx",
-            &import_map.metadata.name, &import_map.metadata.uid
+            &import_map.metadata.name_plain, &import_map.metadata.uid
         );
 
         let write_file_res = File::create(Path::new(&maps_dir).join(&file_name))
@@ -290,7 +295,7 @@ impl PlaylistController {
         let db_map = Map {
             uid: import_map.metadata.uid,
             file_name,
-            name: import_map.metadata.name,
+            name: GameString::from(import_map.metadata.name),
             author_login: map_info.author_login,
             added_since: SystemTime::now(),
             in_playlist: true,
@@ -313,7 +318,7 @@ impl PlaylistController {
 
         log::info!(
             "imported map '{}' ({}) into the playlist",
-            &db_map.name,
+            db_map.name.plain(),
             &db_map.uid
         );
         Ok(PlaylistDiff::AppendNew(db_map))

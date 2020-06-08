@@ -3,9 +3,9 @@ use std::collections::HashMap;
 use std::time::Duration;
 
 use crate::action::Action;
-use crate::command::{AdminCommand, PlayerCommand};
+use crate::command::{AdminCommand, PlayerCommand, SuperAdminCommand};
 use crate::database::{Map, RecordDetailed};
-use crate::ingame::PlayerInfo;
+use crate::ingame::{GameString, PlayerInfo};
 
 /// This data type is introduced to complement `ServerEvent`s,
 /// and to make it easier to understand the controller flow.
@@ -14,7 +14,7 @@ use crate::ingame::PlayerInfo;
 pub enum ControllerEvent<'a> {
     /// Signals that a new map was loaded by the server, and the race
     /// is about to begin.
-    BeginIntro { loaded_map: Map },
+    BeginIntro { loaded_map: Map, is_restart: bool },
 
     /// Signals that a player has loaded the map, and is entering
     /// the race by starting their first run. This event is triggered at
@@ -176,7 +176,7 @@ pub struct ServerRankingDiff {
 #[derive(Debug, Clone)]
 pub struct ServerRankDiff {
     /// The player's formatted nick name.
-    pub player_nick_name: String,
+    pub player_nick_name: GameString,
 
     /// The server rank.
     pub new_pos: usize,
@@ -214,8 +214,7 @@ pub struct PbDiff {
     pub new_record: Option<RecordDetailed>,
 }
 
-/// A command with its sender, who - in the case of admin commands -
-/// was confirmed to have the necessary permission.
+/// A command with its sender, who was confirmed to have the necessary permission.
 #[derive(Debug)]
 pub enum Command<'a> {
     Player {
@@ -225,5 +224,9 @@ pub enum Command<'a> {
     Admin {
         from: &'a str,
         cmd: AdminCommand<'a>,
+    },
+    SuperAdmin {
+        from: &'a str,
+        cmd: SuperAdminCommand,
     },
 }

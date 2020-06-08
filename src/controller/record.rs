@@ -6,7 +6,7 @@ use tokio::sync::{RwLock, RwLockReadGuard};
 
 use async_trait::async_trait;
 
-use crate::config::MAX_DISPLAYED_MAP_RANKS;
+use crate::config::{MAX_DISPLAYED_MAP_RANKS, MAX_GHOST_REPLAY_RANK};
 use crate::controller::{LivePlayers, LivePlaylist};
 use crate::database::{Database, Map, Record, RecordDetailed, RecordEvidence, RecordSector};
 use crate::event::{PbDiff, PlayerDiff};
@@ -94,6 +94,20 @@ impl RecordState {
     /// current map.
     pub fn nb_records(&self) -> usize {
         self.nb_records
+    }
+
+    /// Without inserting the given record, return the map rank it would achieve,
+    /// if it were inserted. Returns `None` if the record would not enter the
+    /// top records that are cached in this state.
+    pub fn pos_preview(&self, rec: &RecordEvidence) -> Option<usize> {
+        if self.top_records.is_empty() {
+            Some(1)
+        } else {
+            self.top_records
+                .iter()
+                .position(|other| rec.millis < other.millis)
+                .map(|idx| idx + 1)
+        }
     }
 
     fn upsert_record(&mut self, player_uid: i32, record: &RecordDetailed) {
@@ -330,12 +344,20 @@ impl RecordController {
             sectors,
         };
 
-        let is_new_top1 = state
-            .top_record
-            .as_ref()
-            .map(|top1| top1.millis > evidence.millis)
-            .unwrap_or(true);
-        if is_new_top1 {
+        // We already know the rank of the new record if it is better
+        // than at least one of the cached records. Otherwise,
+        // we have to look it up in the database.
+        let new_pos: usize = match state.pos_preview(&evidence) {
+            Some(pos) => pos,
+            None => self
+                .db
+                .record_preview(&evidence)
+                .await
+                .expect("failed to check record rank") as usize,
+        };
+
+        // Store ghost replays for the very best records.
+        if new_pos <= MAX_GHOST_REPLAY_RANK {
             match self.server.ghost_replay(&finish_ev.player_login).await {
                 Ok(Ok(ghost)) => {
                     evidence.ghost = Some(ghost);
@@ -345,15 +367,7 @@ impl RecordController {
             }
         }
 
-        let new_pos: usize = if is_new_top1 {
-            1
-        } else {
-            self.db
-                .record_preview(&evidence)
-                .await
-                .expect("failed to check record rank") as usize
-        };
-
+        // Remember record in the database.
         self.db
             .upsert_record(&evidence)
             .await
@@ -368,6 +382,7 @@ impl RecordController {
             cp_millis,
         };
 
+        // Remember record in the cache.
         state.upsert_record(player.uid, &record);
 
         let pos_gained = match prev_pb_pos {

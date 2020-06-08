@@ -10,7 +10,7 @@ use async_trait::async_trait;
 use crate::config::Config;
 use crate::database::queries::Queries;
 use crate::database::structs::*;
-use crate::ingame::PlayerInfo;
+use crate::ingame::{GameString, PlayerInfo};
 
 /// Connect to the Postgres database and open a connection pool.
 pub async fn pg_connect(config: &Config) -> Arc<dyn Queries> {
@@ -115,7 +115,7 @@ impl Queries for PostgresClient {
                 nick_name = excluded.nick_name
         "#;
         let _ = conn
-            .execute(stmt, &[&player.login, &player.nick_name])
+            .execute(stmt, &[&player.login, &player.nick_name.formatted])
             .await?;
         Ok(())
     }
@@ -188,7 +188,7 @@ impl Queries for PostgresClient {
                     &map.metadata.uid,
                     &map.metadata.file_name,
                     &map.data,
-                    &map.metadata.name,
+                    &map.metadata.name.formatted,
                     &map.metadata.author_login,
                     &map.metadata.added_since,
                     &map.metadata.in_playlist,
@@ -238,7 +238,7 @@ impl Queries for PostgresClient {
         Ok(rows.first().map(|row| RecordDetailed {
             map_rank: 1,
             player_login: row.get("login"),
-            player_nick_name: row.get("nick_name"),
+            player_nick_name: GameString::from(row.get("nick_name")),
             timestamp: row.get("timestamp"),
             millis: row.get("millis"),
             cp_millis: rows.iter().map(|row| row.get("cp_millis")).collect(),
@@ -262,7 +262,7 @@ impl Queries for PostgresClient {
             .iter()
             .map(|row| Record {
                 player_login: row.get("login"),
-                player_nick_name: row.get("nick_name"),
+                player_nick_name: GameString::from(row.get("nick_name")),
                 timestamp: row.get("timestamp"),
                 millis: row.get("millis"),
             })
@@ -283,7 +283,7 @@ impl Queries for PostgresClient {
                    millis,
                    timestamp,
                    RANK () OVER (
-                      ORDER BY millis
+                      ORDER BY millis ASC
                    ) pos
                 FROM steward.record
                 WHERE map_uid = $1
@@ -297,7 +297,7 @@ impl Queries for PostgresClient {
         Ok(rows.first().map(|row| RecordDetailed {
             map_rank: row.get("pos"),
             player_login: row.get("login"),
-            player_nick_name: row.get("nick_name"),
+            player_nick_name: GameString::from(row.get("nick_name")),
             timestamp: row.get("timestamp"),
             millis: row.get("millis"),
             cp_millis: rows.iter().map(|row| row.get("cp_millis")).collect(),
@@ -509,12 +509,77 @@ impl Queries for PostgresClient {
             .map(|row| MapRank {
                 map_uid: row.get("map_uid"),
                 player_login: row.get("login"),
-                player_nick_name: row.get("nick_name"),
+                player_nick_name: GameString::from(row.get("nick_name")),
                 pos: row.get("pos"),
                 max_pos: row.get("max_pos"),
                 in_playlist: row.get("in_playlist"),
             })
             .collect())
+    }
+
+    async fn delete_player(&self, player_login: &str) -> Result<Option<Player>> {
+        let mut conn = self.0.get().await?;
+        let transaction = conn.transaction().await?;
+
+        let stmt = "DELETE FROM steward.preference WHERE player_login = $1";
+        let _ = transaction.execute(stmt, &[&player_login]).await?;
+
+        let stmt = "DELETE FROM steward.sector WHERE player_login = $1";
+        let _ = transaction.execute(stmt, &[&player_login]).await?;
+
+        let stmt = "DELETE FROM steward.record WHERE player_login = $1";
+        let _ = transaction.execute(stmt, &[&player_login]).await?;
+
+        let stmt = "DELETE FROM steward.player WHERE login = $1 RETURNING *";
+        let maybe_row = transaction.query_opt(stmt, &[&player_login]).await?;
+        let maybe_player = maybe_row.map(Player::from);
+
+        transaction.commit().await?;
+        Ok(maybe_player)
+    }
+
+    async fn delete_map(&self, map_uid: &str) -> Result<Option<Map>> {
+        let mut conn = self.0.get().await?;
+        let transaction = conn.transaction().await?;
+
+        let stmt = "DELETE FROM steward.preference WHERE map_uid = $1";
+        let _ = transaction.execute(stmt, &[&map_uid]).await?;
+
+        let stmt = "DELETE FROM steward.sector WHERE map_uid = $1";
+        let _ = transaction.execute(stmt, &[&map_uid]).await?;
+
+        let stmt = "DELETE FROM steward.record WHERE map_uid = $1";
+        let _ = transaction.execute(stmt, &[&map_uid]).await?;
+
+        let stmt = "DELETE FROM steward.map WHERE uid = $1 RETURNING *";
+        let maybe_row = transaction.query_opt(stmt, &[&map_uid]).await?;
+        let maybe_map = maybe_row.map(Map::from);
+
+        transaction.commit().await?;
+        Ok(maybe_map)
+    }
+
+    async fn delete_old_ghosts(&self, max_rank: i64) -> Result<u64> {
+        assert!(max_rank > 0, "tried to delete every ghost replay");
+
+        let conn = self.0.get().await?;
+        let stmt = r#"
+            DELETE FROM steward.record a
+            USING (
+                SELECT
+                   player_login,
+                   map_uid,
+                   RANK () OVER (
+                      PARTITION BY player_login, map_uid
+                      ORDER BY millis ASC
+                   ) pos
+                FROM steward.record
+            ) b
+            WHERE a.player_login = b.player_login AND a.map_uid = b.map_uid AND b.pos > $1
+        "#;
+        let nb_deleted = conn.execute(stmt, &[&max_rank]).await?;
+
+        Ok(nb_deleted)
     }
 }
 
@@ -523,7 +588,7 @@ impl From<Row> for Map {
         Map {
             uid: row.get("uid"),
             file_name: row.get("file_name"),
-            name: row.get("name"),
+            name: GameString::from(row.get("name")),
             author_login: row.get("author_login"),
             added_since: row.get("added_since"),
             in_playlist: row.get("in_playlist"),
@@ -545,7 +610,7 @@ impl From<Row> for Player {
     fn from(row: Row) -> Self {
         Player {
             login: row.get("login"),
-            nick_name: row.get("nick_name"),
+            nick_name: GameString::from(row.get("nick_name")),
         }
     }
 }

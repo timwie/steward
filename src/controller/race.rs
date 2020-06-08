@@ -4,10 +4,9 @@ use std::sync::Arc;
 use tokio::sync::{RwLock, RwLockReadGuard};
 
 use async_trait::async_trait;
-use gbx::Scores;
 
 use crate::controller::LivePlayers;
-use crate::ingame::{CheckpointEvent, Server};
+use crate::ingame::{CheckpointEvent, GameString, Scores, Server};
 
 /// Use to lookup the ranking of the current race.
 #[async_trait]
@@ -54,7 +53,7 @@ pub struct RaceController {
 #[derive(Clone)]
 pub struct RaceRank {
     pub uid: i32,
-    pub nick_name: String,
+    pub nick_name: GameString,
     pub millis: Option<usize>,
 }
 
@@ -112,10 +111,10 @@ impl RaceController {
         self.live_players
             .info_all()
             .await
-            .iter()
+            .into_iter()
             .map(|info| RaceRank {
                 uid: info.uid,
-                nick_name: info.nick_name.clone(),
+                nick_name: info.nick_name,
                 millis: None,
             })
             .for_each(|score| state.ranking.push(score));
