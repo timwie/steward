@@ -7,7 +7,7 @@ use async_trait::async_trait;
 
 use crate::database::Database;
 use crate::event::PlayerDiff;
-use crate::ingame::{PlayerInfo, PlayerSlot};
+use crate::ingame::{GameString, PlayerInfo, PlayerSlot};
 
 /// Use to lookup information of connected players.
 #[async_trait]
@@ -50,11 +50,22 @@ pub trait LivePlayers: Send + Sync {
         self.lock().await.playing.iter().copied().collect()
     }
 
+    /// Return the login of the player with the specified UID, or `None` if no
+    /// player with that UID is connected.
     async fn login(&self, player_uid: i32) -> Option<String> {
         self.lock()
             .await
             .login(player_uid)
             .map(|login| login.to_string())
+    }
+
+    /// Return the nick name of the player with the specified login, or `None` if no
+    /// player with that login is connected.
+    async fn nick_name(&self, login: &str) -> Option<GameString> {
+        self.lock()
+            .await
+            .info(login)
+            .map(|info| info.nick_name.clone())
     }
 }
 

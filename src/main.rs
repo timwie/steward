@@ -33,7 +33,7 @@ async fn main() {
 
     env_logger::init(); // Use log::* to write to stderr
 
-    let config = Config::read_from_env().await;
+    let config = Config::load();
 
     let db = db_connect(&config).await;
 

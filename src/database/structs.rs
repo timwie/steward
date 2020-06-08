@@ -3,7 +3,7 @@ use std::time::SystemTime;
 use postgres_types::{FromSql, ToSql};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 
-use gbx::MapInfo;
+use crate::ingame::{GameString, MapInfo};
 
 /// Database player that has joined the server at least once.
 #[derive(Debug)]
@@ -12,7 +12,7 @@ pub struct Player {
     pub login: String,
 
     /// Formatted nick name.
-    pub nick_name: String,
+    pub nick_name: GameString,
 }
 
 /// Database map.
@@ -25,7 +25,7 @@ pub struct Map {
     pub file_name: String,
 
     /// The formatted map name.
-    pub name: String,
+    pub name: GameString,
 
     /// The map author's login.
     pub author_login: String,
@@ -140,7 +140,7 @@ pub struct RecordDetailed {
     pub player_login: String,
 
     /// The formatted nick name of the player that has set this record.
-    pub player_nick_name: String,
+    pub player_nick_name: GameString,
 
     /// The duration of this record run in milliseconds.
     pub millis: i32,
@@ -169,7 +169,7 @@ impl RecordDetailed {
 #[derive(Debug)]
 pub struct Record {
     pub player_login: String,
-    pub player_nick_name: String,
+    pub player_nick_name: GameString,
     pub millis: i32,
     pub timestamp: SystemTime,
 }
@@ -190,7 +190,7 @@ impl From<RecordDetailed> for Record {
 pub struct MapRank {
     pub map_uid: String,
     pub player_login: String,
-    pub player_nick_name: String,
+    pub player_nick_name: GameString,
 
     /// The player's map rank; if a player has set the best record on a map,
     /// their `pos` is `1`, and so on.

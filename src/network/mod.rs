@@ -1,10 +1,12 @@
 use lazy_static::*;
 
 pub use exchange::*;
+pub use github::*;
 
 use crate::config::USER_AGENT;
 
 mod exchange;
+mod github;
 
 lazy_static! {
     /// The client used for all HTTP requests.

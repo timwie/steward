@@ -174,6 +174,8 @@ pub trait Calls: Send + Sync {
     ///     GetCurrentMapIndex
     async fn playlist_current_index(&self) -> Option<usize>;
 
+    async fn playlist_next_index(&self) -> usize;
+
     /// Append the map at the specified file name to the end of the playlist.
     ///
     /// Faults if the map was already added.
@@ -219,7 +221,8 @@ pub trait Calls: Send + Sync {
     /// A successful restart vote will still replay the current map though.
     ///
     /// Faults if the specified index is the same as the current one,
-    /// or doesn't exist.
+    /// or doesn't exist, which means this function cannot be used
+    /// to restart a map.
     ///
     /// Calls method:
     ///     SetNextMapIndex
@@ -232,6 +235,25 @@ pub trait Calls: Send + Sync {
     /// Calls method:
     ///     JumpToMapIndex
     async fn playlist_change_current(&self, map_index: i32) -> Result<()>;
+
+    /// Restart the current map.
+    ///
+    /// This call will make sure that the current map is not unloaded, which means
+    /// the `MapEnd` callback will be skipped.
+    ///
+    /// Calls method:
+    ///     RestartMap
+    async fn restart_map(&self);
+
+    /// Switch to the next map.
+    ///
+    /// This call is equivalent to setting the remaining time limit to zero.
+    /// All end-of-race callbacks will be invoked, and the chat time will
+    /// last the usual amount of time.
+    ///
+    /// Calls method:
+    ///     NextMap
+    async fn end_map(&self);
 
     /// Send chat message to all players. This message will have no sender.
     ///
@@ -309,4 +331,66 @@ pub trait Calls: Send + Sync {
     /// Triggers script callback:
     ///     Trackmania.Scores
     async fn request_scores(&self);
+
+    /// Blacklist the player with the specified login.
+    ///
+    /// Faults if that player is already blacklisted.
+    ///
+    /// Calls method:
+    ///     BlackList
+    async fn blacklist_add(&self, player_login: &str) -> Result<()>;
+
+    /// Remove the specified player from the blacklist.
+    ///
+    /// Faults if that player is not blacklisted.
+    ///
+    /// Calls method:
+    ///     UnBlackList
+    async fn blacklist_remove(&self, player_login: &str) -> Result<()>;
+
+    /// Fetch the list of blacklisted players.
+    ///
+    /// Calls method:
+    ///     GetBlackList
+    async fn blacklist(&self) -> Vec<String>;
+
+    /// Load the blacklist file with the specified file name in
+    /// the `/UserData/Config/` directory.
+    ///
+    /// Faults if the specified file is not valid or does not exist.
+    ///
+    /// Calls method:
+    ///     LoadBlackList
+    async fn load_blacklist(&self, file_name: &str) -> Result<()>;
+
+    /// Save the blacklist in the file with specified file name in
+    /// the `/UserData/Config/` directory.
+    ///
+    /// Faults if the specified path is not valid or the file
+    /// could not be written.
+    ///
+    /// Calls method:
+    ///     SaveBlackList
+    async fn save_blacklist(&self, file_name: &str) -> Result<()>;
+
+    /// Kick the player with the specified login, with an optional message.
+    ///
+    /// Faults if no such player is connected.
+    ///
+    /// Calls method:
+    ///     Kick
+    async fn kick_player(&self, login: &str, reason: Option<&str>) -> Result<()>;
+
+    /// Fetch the server's network stats.
+    ///
+    /// Calls method:
+    ///     GetNetworkStats
+    async fn net_stats(&self) -> NetStats;
+
+    /// Quit the server application.
+    ///
+    /// Calls methods:
+    ///     - StopServer
+    ///     - QuitGame
+    async fn stop_server(&self);
 }

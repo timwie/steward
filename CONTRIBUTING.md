@@ -5,9 +5,9 @@
 - Keep in mind that requested features might be beyond [the scope] of this project.
 - If you have found a bug,
   - try to find a way to replicate it consistenly ("if you do X and Y, this happens")
-  - provide the controller version if possible
-  - provide the controller log if possible (using `RUST_LOG=steward=debug,gbx=debug`)
-  - include the error message in case the controller crashed
+  - provide the controller version (type `/info` in chat)
+  - provide the controller log if possible (use `RUST_LOG=steward=debug,gbx=debug`
+    if you can replicate the issue)
 
 ### Developers
 If you are looking to contribute code, check out the sections below:
