@@ -82,12 +82,12 @@ pub enum AdminCommand<'a> {
 
     /// Add the map with the given UID to the playlist.
     ///
-    /// Usage: `/playlist_add <uid>`
+    /// Usage: `/playlistadd <uid>`
     PlaylistAdd { uid: &'a str },
 
     /// Remove the map with the given UID from the playlist.
     ///
-    /// Usage: `/playlist_remove <uid>`
+    /// Usage: `/playlist remove <uid>`
     PlaylistRemove { uid: &'a str },
 
     /// Import a map from `trackmania.exchange`.
@@ -153,8 +153,8 @@ impl AdminCommand<'_> {
             ["/help"] => Some(Help),
             ["/map_import", id] => Some(ImportMap { id: *id }),
             ["/maps"] => Some(ListMaps),
-            ["/playlist_add", uid] => Some(PlaylistAdd { uid: *uid }),
-            ["/playlist_remove", uid] => Some(PlaylistRemove { uid: *uid }),
+            ["/playlist", "add", uid] => Some(PlaylistAdd { uid: *uid }),
+            ["/playlist", "remove", uid] => Some(PlaylistRemove { uid: *uid }),
             ["/queue", uid] => Some(ForceQueue { uid: *uid }),
             ["/restart"] => Some(RestartCurrentMap),
             ["/set", "timelimit", secs] if secs.chars().all(|c| c.is_digit(10)) => {
@@ -215,8 +215,8 @@ pub const SUPER_ADMIN_COMMAND_REFERENCE: &str = "
 /// Admin command reference that can be printed in-game.
 pub const ADMIN_COMMAND_REFERENCE: &str = "
 /map_import <id/uid>       Import the trackmania.exchange map with the given id.
-/playlist_add <uid>        Add the specified map to the playlist.
-/playlist_remove <uid>     Remove the specified map from the playlist.
+/playlist add <uid>        Add the specified map to the playlist.
+/playlist remove <uid>     Remove the specified map from the playlist.
 
 /skip            Start the next map immediately.
 /restart         Restart the current map after this race.
@@ -235,8 +235,19 @@ pub const PLAYER_COMMAND_REFERENCE: &str = "
 /info     Display information about server & controller.
 ";
 
-/// Possible outputs of chat commands.
-pub enum CommandOutput<'a> {
+/// Possible responses for chat commands.
+pub enum CommandResponse<'a> {
+    /// Responses for successful commands that give some output.
+    Output(CommandOutputResponse<'a>),
+
+    /// Responses for dangerous commands that need confirmation.
+    Confirm(CommandConfirmResponse<'a>),
+
+    /// Responses for failed commands.
+    Error(CommandErrorResponse),
+}
+
+pub enum CommandOutputResponse<'a> {
     /// Tell a super admin the command reference.
     ///
     /// Output for: `/help`
@@ -258,11 +269,6 @@ pub enum CommandOutput<'a> {
     /// Output for `/maps`
     MapList(Vec<Map>),
 
-    /// Feedback for commands that affect the playlist.
-    ///
-    /// Output for `/playlist_add`, `/playlist_remove`, `/map_import`
-    InvalidPlaylistCommand(PlaylistCommandError),
-
     /// Information about server & controller.
     ///
     /// Output for `/info`
@@ -274,6 +280,13 @@ pub enum CommandOutput<'a> {
         net_stats: &'a NetStats,
         blacklist: &'a Vec<String>,
     },
+}
+
+pub enum CommandErrorResponse {
+    /// Feedback for commands that affect the playlist.
+    ///
+    /// Output for `/playlist add`, `/playlist remove`, `/map_import`
+    InvalidPlaylistCommand(PlaylistCommandError),
 
     /// The specified login does not match any player.
     ///
@@ -301,16 +314,18 @@ pub enum CommandOutput<'a> {
     ///
     /// Output for `/delete map`
     CannotDeletePlaylistMap,
+}
 
+pub enum CommandConfirmResponse<'a> {
     /// Tell a super admin that all records for that map will be deleted.
     ///
     /// Output for `/delete map`
-    ConfirmMapDeletion, // TODO map name
+    ConfirmMapDeletion { file_name: &'a str },
 
     /// Tell a super admin that all records for that player will be deleted.
     ///
     /// Output for `/delete player`
-    ConfirmPlayerDeletion, // TODO player name
+    ConfirmPlayerDeletion { login: &'a str },
 
     /// Tell a super admin that the server will shutdown.
     ///
@@ -346,13 +361,16 @@ pub enum PlaylistCommandError {
     MapImportFailed(Box<dyn std::error::Error + Send>),
 }
 
-impl Display for CommandOutput<'_> {
+impl Display for CommandResponse<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        use CommandOutput::*;
+        use CommandConfirmResponse::*;
+        use CommandErrorResponse::*;
+        use CommandOutputResponse::*;
+        use CommandResponse::*;
         use PlaylistCommandError::*;
 
         match self {
-            SuperAdminCommandReference => {
+            Output(SuperAdminCommandReference) => {
                 writeln!(f, "Super admin commands:")?;
                 write!(f, "====================")?;
                 write!(f, "{}", SUPER_ADMIN_COMMAND_REFERENCE)?;
@@ -366,7 +384,7 @@ impl Display for CommandOutput<'_> {
                 write!(f, "{}", PLAYER_COMMAND_REFERENCE)
             }
 
-            AdminCommandReference => {
+            Output(AdminCommandReference) => {
                 writeln!(f, "Admin commands:")?;
                 write!(f, "===============")?;
                 write!(f, "{}", ADMIN_COMMAND_REFERENCE)?;
@@ -376,36 +394,36 @@ impl Display for CommandOutput<'_> {
                 write!(f, "{}", PLAYER_COMMAND_REFERENCE)
             }
 
-            PlayerCommandReference => write!(f, "{}", PLAYER_COMMAND_REFERENCE),
+            Output(PlayerCommandReference) => write!(f, "{}", PLAYER_COMMAND_REFERENCE),
 
-            InvalidPlaylistCommand(UnknownUid) => write!(f, "No server map with this UID!"),
+            Error(InvalidPlaylistCommand(UnknownUid)) => write!(f, "No server map with this UID!"),
 
-            InvalidPlaylistCommand(UnknownImportId) => {
+            Error(InvalidPlaylistCommand(UnknownImportId)) => {
                 write!(f, "No map with this ID or UID on Trackmania.Exchange!")
             }
 
-            InvalidPlaylistCommand(MapAlreadyImported) => {
+            Error(InvalidPlaylistCommand(MapAlreadyImported)) => {
                 write!(f, "This map was already imported.")
             }
 
-            InvalidPlaylistCommand(MapAlreadyAdded) => {
+            Error(InvalidPlaylistCommand(MapAlreadyAdded)) => {
                 write!(f, "This map is already in the playlist.")
             }
 
-            InvalidPlaylistCommand(MapAlreadyRemoved) => {
+            Error(InvalidPlaylistCommand(MapAlreadyRemoved)) => {
                 write!(f, "This map was already removed from the playlist.")
             }
 
-            InvalidPlaylistCommand(MapImportFailed(err)) => {
+            Error(InvalidPlaylistCommand(MapImportFailed(err))) => {
                 write!(f, "Failed to import map: {:?}", err)
             }
 
-            InvalidPlaylistCommand(CannotDisableAllMaps) => write!(
+            Error(InvalidPlaylistCommand(CannotDisableAllMaps)) => write!(
                 f,
                 "You cannot disable every map! Enable at least one other map."
             ),
 
-            MapList(maps) => {
+            Output(MapList(maps)) => {
                 writeln!(f, "In playlist:")?;
                 writeln!(f, "============")?;
                 for map in maps.iter().filter(|map| map.in_playlist) {
@@ -431,14 +449,15 @@ impl Display for CommandOutput<'_> {
                 }
                 Ok(())
             }
-            Info {
+
+            Output(Info {
                 controller_version,
                 most_recent_controller_version,
                 config,
                 server_info,
                 net_stats,
                 blacklist,
-            } => {
+            }) => {
                 writeln!(
                     f,
                     "This server uses the 'Steward' controller (https://github.com/timwie/steward)"
@@ -470,35 +489,37 @@ impl Display for CommandOutput<'_> {
                 writeln!(f, "Blacklisted: {}", blacklist.join(", "))
             }
 
-            UnknownPlayer => writeln!(f, "There is no player with that login!"),
+            Error(UnknownPlayer) => writeln!(f, "There is no player with that login!"),
 
-            UnknownBlacklistPlayer => {
+            Error(UnknownBlacklistPlayer) => {
                 writeln!(f, "There is no blacklisted player with that login!")
             }
 
-            CannotDeleteWhitelistedPlayer => writeln!(
+            Error(CannotDeleteWhitelistedPlayer) => writeln!(
                 f,
                 "Only blacklisted players can be removed from the database!"
             ),
 
-            UnknownMap => writeln!(f, "There is no map with that UID!"),
+            Error(UnknownMap) => writeln!(f, "There is no map with that UID!"),
 
-            CannotDeletePlaylistMap => writeln!(
+            Error(CannotDeletePlaylistMap) => writeln!(
                 f,
                 "Only maps outside of the playlist can be removed from the database!"
             ),
 
-            ConfirmMapDeletion => writeln!(
+            Confirm(ConfirmMapDeletion { file_name }) => writeln!(
                 f,
-                "Warning: this action will delete this map, and all of its records."
+                "Warning: this action will delete map '{}', and all of its records.",
+                file_name
             ),
 
-            ConfirmPlayerDeletion => writeln!(
+            Confirm(ConfirmPlayerDeletion { login }) => writeln!(
                 f,
-                "Warning: this action will delete this player, and all of their records."
+                "Warning: this action will delete player '{}', and all of their records.",
+                login
             ),
 
-            ConfirmShutdown => writeln!(f, "Warning: this will stop the server."),
+            Confirm(ConfirmShutdown) => writeln!(f, "Warning: this will stop the server."),
         }
     }
 }

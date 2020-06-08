@@ -137,8 +137,8 @@ All `0.1.0-alpha` releases are unstable, and have missing widgets.
   - `/help` puts a command reference into the chat.
   - `/map_import <mx id/uid>` imports maps from ManiaExchange.
   - `/maps` lists map names and UIDs.
-  - `/playlist_add <uid>` adds a map to the playlist.
-  - `/playlist_remove <uid>` removes a map from the playlist.
+  - `/playlist add <uid>` adds a map to the playlist.
+  - `/playlist remove <uid>` removes a map from the playlist.
 
 - **Widget**: Command Output
   - Output from chat commands will be displayed in a text field,

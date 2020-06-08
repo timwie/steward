@@ -6,7 +6,7 @@ use tokio::sync::RwLock;
 
 use gbx::{Fault, PlayerInfo};
 
-use crate::command::CommandOutput;
+use crate::command::CommandResponse;
 use crate::config::{
     MAX_DISPLAYED_MAP_RANKS, MAX_DISPLAYED_RACE_RANKS, MAX_DISPLAYED_SERVER_RANKS,
     START_HIDE_WIDGET_DELAY_MILLIS,
@@ -209,9 +209,10 @@ impl WidgetController {
     }
 
     /// Display a popup message to the specified player.
-    pub async fn show_popup(&self, msg: CommandOutput<'_>, for_login: &str, mode: PopupMode) {
+    pub async fn show_popup(&self, resp: CommandResponse<'_>, for_login: &str) {
+        let mode = PopupMode::from(&resp);
         if let Some(uid) = self.live_players.uid(for_login).await {
-            let output = &msg.to_string();
+            let output = &resp.to_string();
             self.show_for(&PopupWidget { output, mode }, uid).await;
         }
     }

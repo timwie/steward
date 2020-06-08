@@ -130,6 +130,11 @@ impl Calls for RpcClient {
         }
     }
 
+    async fn playlist_next_index(&self) -> usize {
+        let idx: i32 = self.call_method_unwrap("GetNextMapIndex", args!()).await;
+        idx as usize
+    }
+
     async fn playlist_add(&self, map_file_name: &str) -> Result<()> {
         self.call_method_unit("AddMap", args!(map_file_name)).await
     }

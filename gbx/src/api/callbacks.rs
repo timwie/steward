@@ -18,10 +18,10 @@ pub enum Callback {
     /// Triggered by `ManiaPlanet.PlayerDisconnect`
     PlayerDisconnect { login: String },
 
-    /// Sent when a map has been loaded, or restarted.
+    /// Sent when a map is being loaded, or restarted.
     ///
     /// Triggered by `Maniaplanet.LoadingMap_Start`
-    MapBegin { is_restart: bool },
+    MapLoad { is_restart: bool },
 
     /// Sent when the race ends - `S_TimeLimit` seconds after `RaceBegin`.
     ///

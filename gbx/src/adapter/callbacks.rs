@@ -92,7 +92,8 @@ fn forward_regular_callback(cb_out: &Sender<Callback>, call: Call) -> CallbackTy
                 });
             }
         }
-        "ManiaPlanet.BeginMatch"
+        "ManiaPlanet.BeginMap"
+        | "ManiaPlanet.BeginMatch"
         | "ManiaPlanet.MapListModified"
         | "ManiaPlanet.StatusChanged"
         | "TrackMania.PlayerCheckpoint"
@@ -153,7 +154,7 @@ fn forward_script_callback(cb_out: &Sender<Callback>, call: Call) -> CallbackTyp
         let (cb, cb_type) = match cb_name.as_ref() {
             "Maniaplanet.LoadingMap_Start" => {
                 let data: LoadingMapEvent = de!(&str_args[0]);
-                let cb = MapBegin {
+                let cb = MapLoad {
                     is_restart: data.restarted,
                 };
                 (cb, CallbackType::Unprompted)

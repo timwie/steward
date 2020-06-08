@@ -146,17 +146,16 @@ impl PlaylistController {
         }
     }
 
-    /// Update the current map when the server loads a new one.
-    pub async fn set_current_index(&self) -> Option<Map> {
+    /// Set the current playlist index to the one of the next map.
+    ///
+    /// # Note
+    /// Until the server loads the next map, the current indices at
+    /// controller & server will differ, so this should only be called
+    /// right before the next map has finished loading.
+    pub async fn update_index(&self) {
         let mut state = self.state.write().await;
-        state.curr_index = self.server.playlist_current_index().await;
-        state.curr_index.map(|idx| {
-            state
-                .playlist
-                .get(idx)
-                .expect("no map at this playlist index")
-                .clone()
-        })
+        let next_index = self.server.playlist_next_index().await;
+        state.curr_index = Some(next_index);
     }
 
     /// Add the specified map to the server playlist.
@@ -229,7 +228,7 @@ impl PlaylistController {
         if state.curr_index == Some(map_index) {
             state.curr_index = None;
         }
-        state.playlist.retain(|map| map.uid != map_uid);
+        state.playlist.remove(map_index);
 
         log::info!("remove '{}' ({}) from the playlist", &map.name, &map.uid);
         Ok(PlaylistDiff::Remove {

@@ -240,7 +240,7 @@ impl QueueController {
         // Tell server the next map.
         if is_restart {
             self.server.restart_map().await;
-        } else {
+        } else if Some(*next_idx) != self.server.playlist_current_index().await {
             self.server
                 .playlist_change_next(*next_idx as i32)
                 .await

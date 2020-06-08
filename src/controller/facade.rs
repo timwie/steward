@@ -7,8 +7,8 @@ use gbx::PlayerInfo;
 
 use crate::action::Action;
 use crate::command::{
-    AdminCommand, CommandOutput, DangerousCommand, PlayerCommand, PlaylistCommandError,
-    SuperAdminCommand,
+    AdminCommand, CommandConfirmResponse, CommandErrorResponse, CommandOutputResponse,
+    CommandResponse, DangerousCommand, PlayerCommand, PlaylistCommandError, SuperAdminCommand,
 };
 use crate::config::{Config, BLACKLIST_FILE, VERSION};
 use crate::controller::*;
@@ -17,7 +17,6 @@ use crate::event::{Command, ControllerEvent, PlaylistDiff, VoteInfo};
 use crate::ingame::{Server, ServerEvent};
 use crate::message::ServerMessage;
 use crate::network::most_recent_controller_version;
-use crate::widget::PopupMode;
 
 /// This facade hides all specific controllers behind one interface
 /// that can react to server events.
@@ -142,21 +141,24 @@ impl Controller {
                 }
             }
 
-            ServerEvent::MapBegin { is_restart } => {
-                if let Some(loaded_map) = self.playlist.set_current_index().await {
-                    let ev = ControllerEvent::BeginIntro {
-                        loaded_map,
-                        is_restart,
-                    };
-                    self.on_controller_event(ev).await;
-                }
+            ServerEvent::MapLoad { is_restart } => {
+                let loaded_map = self
+                    .playlist
+                    .current_map()
+                    .await
+                    .expect("server loaded map that was not in playlist");
+                let ev = ControllerEvent::BeginIntro {
+                    loaded_map,
+                    is_restart,
+                };
+                self.on_controller_event(ev).await;
             }
 
             ServerEvent::MapEnd => {
-                if self.playlist.current_index().await.is_some() {
-                    let ev = ControllerEvent::EndOutro;
-                    self.on_controller_event(ev).await;
-                }
+                let ev = ControllerEvent::EndOutro;
+                self.on_controller_event(ev).await;
+
+                self.playlist.update_index().await;
             }
 
             ServerEvent::RaceEnd => {
@@ -305,8 +307,6 @@ impl Controller {
             }
 
             ControllerEvent::EndVote { queue_preview } => {
-                log::debug!(">>>>>>>>>>>>>>>>>>>>>");
-                log::debug!("{:#?}", &queue_preview);
                 self.widget.end_vote(queue_preview).await;
             }
 
@@ -385,30 +385,30 @@ impl Controller {
 
         match cmd {
             Help => {
-                let msg = CommandOutput::PlayerCommandReference;
-                self.widget
-                    .show_popup(msg, from_login, PopupMode::Default)
-                    .await;
+                let msg = CommandResponse::Output(CommandOutputResponse::PlayerCommandReference);
+                self.widget.show_popup(msg, from_login).await;
             }
 
             Info => {
                 let controller = self.clone(); // 'self' with 'static lifetime
                 let from_login = from_login.to_string(); // allow data to outlive the current scope
                 let _ = tokio::spawn(async move {
-                    let msg = CommandOutput::Info {
+                    let most_recent_controller_version = &most_recent_controller_version()
+                        .await
+                        .unwrap_or_else(|_| Version::new(0, 0, 0));
+                    let config = &*controller.settings.lock_config().await;
+                    let server_info = &controller.server.server_info().await;
+                    let net_stats = &controller.server.net_stats().await;
+                    let blacklist = &controller.server.blacklist().await;
+                    let msg = CommandResponse::Output(CommandOutputResponse::Info {
                         controller_version: &VERSION,
-                        most_recent_controller_version: &most_recent_controller_version()
-                            .await
-                            .unwrap_or_else(|_| Version::new(0, 0, 0)),
-                        config: &*controller.settings.lock_config().await,
-                        server_info: &controller.server.server_info().await,
-                        net_stats: &controller.server.net_stats().await,
-                        blacklist: &controller.server.blacklist().await,
-                    };
-                    controller
-                        .widget
-                        .show_popup(msg, &from_login, PopupMode::Default)
-                        .await;
+                        most_recent_controller_version,
+                        config,
+                        server_info,
+                        net_stats,
+                        blacklist,
+                    });
+                    controller.widget.show_popup(msg, &from_login).await;
                 });
             }
         }
@@ -416,7 +416,6 @@ impl Controller {
 
     async fn on_admin_cmd(&self, from_login: &str, cmd: AdminCommand<'_>) {
         use AdminCommand::*;
-        use CommandOutput::*;
 
         let from_nick_name = match self.players.nick_name(from_login).await {
             Some(name) => name,
@@ -434,18 +433,14 @@ impl Controller {
 
         match cmd {
             Help => {
-                let msg = AdminCommandReference;
-                self.widget
-                    .show_popup(msg, from_login, PopupMode::Default)
-                    .await;
+                let msg = CommandResponse::Output(CommandOutputResponse::AdminCommandReference);
+                self.widget.show_popup(msg, from_login).await;
             }
 
             ListMaps => {
                 let maps = self.db.maps().await.expect("failed to load maps");
-                let msg = MapList(maps);
-                self.widget
-                    .show_popup(msg, from_login, PopupMode::Default)
-                    .await;
+                let msg = CommandResponse::Output(CommandOutputResponse::MapList(maps));
+                self.widget.show_popup(msg, from_login).await;
             }
 
             PlaylistAdd { uid } => {
@@ -494,9 +489,8 @@ impl Controller {
                 let playlist_index = match playlist.index_of(uid) {
                     Some(idx) => idx,
                     None => {
-                        self.widget
-                            .show_popup(UnknownMap, from_login, PopupMode::Default)
-                            .await;
+                        let msg = CommandResponse::Error(CommandErrorResponse::UnknownMap);
+                        self.widget.show_popup(msg, from_login).await;
                         return;
                     }
                 };
@@ -524,6 +518,11 @@ impl Controller {
             }
 
             BlacklistAdd { login } => {
+                if login == from_login {
+                    // Do not allow admins to blacklist themselves.
+                    return;
+                }
+
                 let _ = self.players.remove_player(&login).await;
                 let _ = self.server.kick_player(&login, Some("Blacklisted")).await;
                 let _ = self.server.blacklist_add(&login).await;
@@ -543,9 +542,8 @@ impl Controller {
             BlacklistRemove { login } => {
                 let blacklist = self.server.blacklist().await;
                 if !blacklist.contains(&login.to_string()) {
-                    self.widget
-                        .show_popup(UnknownBlacklistPlayer, from_login, PopupMode::Default)
-                        .await;
+                    let msg = CommandResponse::Error(CommandErrorResponse::UnknownBlacklistPlayer);
+                    self.widget.show_popup(msg, from_login).await;
                     return;
                 }
 
@@ -566,31 +564,60 @@ impl Controller {
     }
 
     async fn on_super_admin_cmd(&self, from_login: &str, cmd: SuperAdminCommand) {
-        use CommandOutput::*;
         use DangerousCommand::*;
         use SuperAdminCommand::*;
 
-        // TODO move validation here, out of on_dangerous_cmd
-        //  => for DeleteMap, DeletePlayer
-        //  => if failed, immediately call chat.pop_unconfirmed_command
-        let confirm_msg = match cmd {
+        match cmd {
             Help => {
-                self.widget
-                    .show_popup(SuperAdminCommandReference, from_login, PopupMode::Default)
-                    .await;
-                return;
+                let msg =
+                    CommandResponse::Output(CommandOutputResponse::SuperAdminCommandReference);
+                self.widget.show_popup(msg, from_login).await;
             }
-            Unconfirmed(DeleteMap { .. }) => ConfirmMapDeletion,
-            Unconfirmed(DeletePlayer { .. }) => ConfirmPlayerDeletion,
-            Unconfirmed(Shutdown) => ConfirmShutdown,
-        };
-        self.widget
-            .show_popup(confirm_msg, from_login, PopupMode::Confirm)
-            .await;
+
+            Unconfirmed(DeleteMap { uid }) => {
+                match self.db.map(&uid).await.expect("failed to load map") {
+                    Some(map) if !map.in_playlist => {
+                        let msg =
+                            CommandResponse::Confirm(CommandConfirmResponse::ConfirmMapDeletion {
+                                file_name: &map.file_name,
+                            });
+                        self.widget.show_popup(msg, from_login).await;
+                    }
+                    Some(_) => {
+                        let msg =
+                            CommandResponse::Error(CommandErrorResponse::CannotDeletePlaylistMap);
+                        self.widget.show_popup(msg, from_login).await;
+                    }
+                    None => {
+                        let msg = CommandResponse::Error(CommandErrorResponse::UnknownMap);
+                        self.widget.show_popup(msg, from_login).await;
+                    }
+                }
+            }
+
+            Unconfirmed(DeletePlayer { login }) => {
+                let blacklist = self.server.blacklist().await;
+                if blacklist.contains(&login) {
+                    let msg =
+                        CommandResponse::Confirm(CommandConfirmResponse::ConfirmPlayerDeletion {
+                            login: &login,
+                        });
+                    self.widget.show_popup(msg, from_login).await;
+                } else {
+                    let msg =
+                        CommandResponse::Error(CommandErrorResponse::CannotDeleteWhitelistedPlayer);
+                    self.widget.show_popup(msg, from_login).await;
+                }
+            }
+
+            Unconfirmed(Shutdown) => {
+                let msg = CommandResponse::Confirm(CommandConfirmResponse::ConfirmShutdown);
+                self.widget.show_popup(msg, from_login).await;
+            }
+        }
     }
 
     async fn on_dangerous_cmd(&self, from_login: &str, cmd: DangerousCommand) {
-        use CommandOutput::*;
         use DangerousCommand::*;
 
         log::warn!("{}> {:#?}", from_login, &cmd);
@@ -601,63 +628,39 @@ impl Controller {
         };
 
         match cmd {
-            DeleteMap { uid } => match self.db.map(&uid).await.expect("failed to load map") {
-                Some(map) if !map.in_playlist => {
-                    let map = self
-                        .db
-                        .delete_map(&uid)
-                        .await
-                        .expect("failed to delete map")
-                        .expect("map already deleted");
+            DeleteMap { uid } => {
+                let map = self
+                    .db
+                    .delete_map(&uid)
+                    .await
+                    .expect("failed to delete map")
+                    .expect("map already deleted");
 
-                    // Delete file, otherwise the map will be scanned back into the
-                    // database at the next launch.
-                    let map_path = self.settings.maps_dir().await.join(map.file_name);
-                    if map_path.is_file() {
-                        std::fs::remove_file(map_path).expect("failed to delete map file");
-                    }
+                // Delete file, otherwise the map will be scanned back into the
+                // database at the next launch.
+                let map_path = self.settings.maps_dir().await.join(map.file_name);
+                if map_path.is_file() {
+                    std::fs::remove_file(map_path).expect("failed to delete map file");
+                }
 
-                    self.chat
-                        .announce(ServerMessage::MapDeleted {
-                            admin_name: &from_nick_name,
-                            map_name: &map.name,
-                        })
-                        .await;
-                }
-                Some(_) => {
-                    self.widget
-                        .show_popup(CannotDeletePlaylistMap, from_login, PopupMode::Default)
-                        .await;
-                }
-                None => {
-                    self.widget
-                        .show_popup(UnknownMap, from_login, PopupMode::Default)
-                        .await;
-                }
-            },
+                self.chat
+                    .announce(ServerMessage::MapDeleted {
+                        admin_name: &from_nick_name,
+                        map_name: &map.name,
+                    })
+                    .await;
+            }
 
             DeletePlayer { login } => {
-                let blacklist = self.server.blacklist().await;
-                if blacklist.contains(&login) {
-                    let maybe_player = self
-                        .db
-                        .delete_player(&login)
-                        .await
-                        .expect("failed to delete player");
+                let maybe_player = self
+                    .db
+                    .delete_player(&login)
+                    .await
+                    .expect("failed to delete player");
 
-                    if maybe_player.is_none() {
-                        self.widget
-                            .show_popup(UnknownPlayer, from_login, PopupMode::Default)
-                            .await;
-                    }
-                } else {
-                    self.widget
-                        .show_popup(
-                            CannotDeleteWhitelistedPlayer,
-                            from_login,
-                            PopupMode::Default,
-                        )
-                        .await;
+                if maybe_player.is_none() {
+                    let msg = CommandResponse::Error(CommandErrorResponse::UnknownPlayer);
+                    self.widget.show_popup(msg, from_login).await;
                 }
             }
 
@@ -678,13 +681,8 @@ impl Controller {
                 self.on_controller_event(ev).await;
             }
             Err(err) => {
-                self.widget
-                    .show_popup(
-                        CommandOutput::InvalidPlaylistCommand(err),
-                        from_login,
-                        PopupMode::Default,
-                    )
-                    .await;
+                let msg = CommandResponse::Error(CommandErrorResponse::InvalidPlaylistCommand(err));
+                self.widget.show_popup(msg, from_login).await;
             }
         }
     }

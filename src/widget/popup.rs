@@ -1,6 +1,7 @@
 use serde::Serialize;
 use serde_repr::Serialize_repr;
 
+use crate::command::CommandResponse;
 use crate::widget::Widget;
 
 /// A widget that can be used for the outputs of chat commands.
@@ -20,6 +21,15 @@ pub enum PopupMode {
 
     /// Actions are close, or confirm.
     Confirm = 1,
+}
+
+impl PopupMode {
+    pub fn from(response: &CommandResponse<'_>) -> PopupMode {
+        match response {
+            CommandResponse::Confirm(_) => PopupMode::Confirm,
+            _ => PopupMode::Default,
+        }
+    }
 }
 
 impl Widget for PopupWidget<'_> {
