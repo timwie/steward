@@ -147,14 +147,8 @@ impl PlaylistController {
     }
 
     /// Set the current playlist index to the one of the next map.
-    ///
-    /// # Note
-    /// Until the server loads the next map, the current indices at
-    /// controller & server will differ, so this should only be called
-    /// right before the next map has finished loading.
-    pub async fn update_index(&self) {
+    pub async fn set_index(&self, next_index: usize) {
         let mut state = self.state.write().await;
-        let next_index = self.server.playlist_next_index().await;
         state.curr_index = Some(next_index);
     }
 

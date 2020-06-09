@@ -154,11 +154,12 @@ impl Controller {
                 self.on_controller_event(ev).await;
             }
 
-            ServerEvent::MapEnd => {
+            ServerEvent::MapUnload => {
                 let ev = ControllerEvent::EndOutro;
                 self.on_controller_event(ev).await;
 
-                self.playlist.update_index().await;
+                let next_index = self.server.playlist_next_index().await;
+                self.playlist.set_index(next_index).await;
             }
 
             ServerEvent::RaceEnd => {

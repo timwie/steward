@@ -31,10 +31,10 @@ pub enum Callback {
     /// Sent when the map is unloaded - `S_ChatTime` seconds  after `RaceEnd`.
     /// A map is not unloaded when restarted.
     ///
-    /// Triggered by `ManiaPlanet.EndMap`
-    MapEnd,
+    /// Triggered by `Maniaplanet.UnloadingMap_Start`
+    MapUnload,
 
-    /// Sent alongside `RaceEnd` and `MapEnd`.
+    /// Sent alongside `RaceEnd` and `MapUnload`.
     ///
     /// Triggered by `Trackmania.Scores`
     ///
