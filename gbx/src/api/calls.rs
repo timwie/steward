@@ -239,7 +239,7 @@ pub trait Calls: Send + Sync {
     /// Restart the current map.
     ///
     /// This call will make sure that the current map is not unloaded, which means
-    /// the `MapEnd` callback will be skipped.
+    /// the `MapUnload` callback will be skipped.
     ///
     /// Calls method:
     ///     RestartMap

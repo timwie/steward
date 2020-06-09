@@ -51,9 +51,6 @@ fn forward_regular_callback(cb_out: &Sender<Callback>, call: Call) -> CallbackTy
     }
 
     match call.name.as_ref() {
-        "ManiaPlanet.EndMap" => {
-            return success(MapEnd);
-        }
         "ManiaPlanet.EndMatch" => {
             if let [Array(_rankings), Int(_winner_team)] = &call.args[..] {
                 return success(RaceEnd);
@@ -94,6 +91,7 @@ fn forward_regular_callback(cb_out: &Sender<Callback>, call: Call) -> CallbackTy
         }
         "ManiaPlanet.BeginMap"
         | "ManiaPlanet.BeginMatch"
+        | "ManiaPlanet.EndMap"
         | "ManiaPlanet.MapListModified"
         | "ManiaPlanet.StatusChanged"
         | "TrackMania.PlayerCheckpoint"
@@ -159,6 +157,7 @@ fn forward_script_callback(cb_out: &Sender<Callback>, call: Call) -> CallbackTyp
                 };
                 (cb, CallbackType::Unprompted)
             }
+            "Maniaplanet.UnloadingMap_Start" => (MapUnload, CallbackType::Unprompted),
             "Trackmania.Event.StartLine" => {
                 let data: ScriptEventData = de!(&str_args[0]);
                 let cb = RunStartline {
@@ -208,7 +207,6 @@ fn forward_script_callback(cb_out: &Sender<Callback>, call: Call) -> CallbackTyp
             | "Maniaplanet.StartTurn_End"
             | "Maniaplanet.StartTurn_Start"
             | "Maniaplanet.UnloadingMap_End"
-            | "Maniaplanet.UnloadingMap_Start"
             | "Trackmania.Event.GiveUp"
             | "Trackmania.Event.OnPlayerAdded"
             | "Trackmania.Event.OnPlayerRemoved"
