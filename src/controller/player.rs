@@ -7,7 +7,7 @@ use async_trait::async_trait;
 
 use crate::database::Database;
 use crate::event::PlayerDiff;
-use crate::ingame::{GameString, PlayerInfo, PlayerSlot};
+use crate::server::{GameString, PlayerInfo, PlayerSlot};
 
 /// Use to lookup information of connected players.
 #[async_trait]

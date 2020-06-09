@@ -6,7 +6,7 @@ use tokio::sync::{RwLock, RwLockReadGuard};
 use async_trait::async_trait;
 
 use crate::controller::LivePlayers;
-use crate::ingame::{CheckpointEvent, GameString, Scores, Server};
+use crate::server::{CheckpointEvent, GameString, Scores, Server};
 
 /// Use to lookup the ranking of the current race.
 #[async_trait]

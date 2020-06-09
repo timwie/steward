@@ -12,7 +12,6 @@ pub(self) use settings::*;
 pub(self) use widget::*;
 
 mod chat;
-mod compat;
 mod facade;
 mod player;
 mod playlist;

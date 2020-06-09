@@ -10,7 +10,7 @@ use async_trait::async_trait;
 use crate::config::Config;
 use crate::database::queries::Queries;
 use crate::database::structs::*;
-use crate::ingame::{GameString, PlayerInfo};
+use crate::server::{GameString, PlayerInfo};
 
 /// Connect to the Postgres database and open a connection pool.
 pub async fn pg_connect(config: &Config) -> Arc<dyn Queries> {

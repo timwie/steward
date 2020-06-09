@@ -3,7 +3,7 @@ use anyhow::Result;
 use async_trait::async_trait;
 
 use crate::database::structs::*;
-use crate::ingame::PlayerInfo;
+use crate::server::PlayerInfo;
 
 #[async_trait]
 pub trait Queries: Send + Sync {
@@ -129,7 +129,7 @@ pub mod test {
     use async_trait::async_trait;
 
     use crate::database::Database;
-    use crate::ingame::GameString;
+    use crate::server::GameString;
 
     use super::*;
 

@@ -4,7 +4,7 @@ use std::time::Duration;
 use futures::future::join_all;
 use tokio::sync::RwLock;
 
-use crate::command::CommandResponse;
+use crate::chat::CommandResponse;
 use crate::config::{
     MAX_DISPLAYED_MAP_RANKS, MAX_DISPLAYED_RACE_RANKS, MAX_DISPLAYED_SERVER_RANKS,
     START_HIDE_WIDGET_DELAY_MILLIS,
@@ -12,7 +12,7 @@ use crate::config::{
 use crate::controller::*;
 use crate::database::{Database, PreferenceValue, RecordDetailed};
 use crate::event::*;
-use crate::ingame::{Fault, PlayerInfo, Server};
+use crate::server::{Fault, PlayerInfo, Server};
 use crate::widget::*;
 
 /// This controller collects cached & event data,

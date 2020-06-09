@@ -7,7 +7,7 @@ use tokio::sync::{RwLock, RwLockReadGuard};
 use async_trait::async_trait;
 
 use crate::config::Config;
-use crate::ingame::Server;
+use crate::server::Server;
 
 /// Use to look up controller, server and mode settings.
 #[async_trait]

@@ -3,6 +3,7 @@ use std::time::Duration;
 
 use serde::export::Formatter;
 
+use crate::chat::message::{fmt_time, HIGHLIGHT, NOTICE, RESET};
 use crate::config::{
     MAX_ANNOUNCED_RANK, MAX_ANNOUNCED_RECORD, MAX_ANNOUNCED_RECORD_IMPROVEMENT,
     MAX_NB_ANNOUNCED_RANKS,
@@ -331,81 +332,5 @@ impl Display for ServerMessage<'_> {
                 admin_name, RESET, NOTICE, map_name, RESET, NOTICE
             ),
         }
-    }
-}
-
-/// Chat messages from the controller to a specific player.
-///
-/// Note: messages should typically convey information that is
-/// not already conveyed by widgets.
-pub enum PlayerMessage {
-    /// Remind a player to change their preferences to influence the queue.
-    PreferenceReminder { nb_active_preferences: usize },
-}
-
-impl Display for PlayerMessage {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        use PlayerMessage::*;
-
-        write!(f, "{}{}🔊 ", RESET, NOTICE)?;
-        match self {
-            PreferenceReminder {
-                nb_active_preferences: 0,
-            } => {
-                write!(f, "Don't like this map? ")?;
-                write!(f, "Make sure to set your preferences in the map list.")
-            }
-
-            PreferenceReminder {
-                nb_active_preferences: nb,
-            } => {
-                write!(
-                    f,
-                    "You are influencing the map queue with {}. ",
-                    pluralize("preference", *nb)
-                )?;
-                write!(
-                    f,
-                    "Make sure to change them to your liking by bringing up the map list."
-                )
-            }
-        }
-    }
-}
-
-/// Turn the number of milliseconds into a readable run time,
-/// f.e. '00:48:051' for '48051'.
-fn fmt_time(millis: usize) -> String {
-    let secs = millis / 1000;
-    let millis = millis % 1000;
-    let mins = secs / 60;
-    let secs = secs % 60;
-    format!("{:02}:{:02}:{:03}", mins, secs, millis)
-}
-
-/// Either `"no <word>"`, `"one <word>"` or `"<amount> <word>s"`.
-fn pluralize(word: &str, amount: usize) -> String {
-    let prefix = match amount {
-        0 => "no".to_string(),
-        1 => "one".to_string(),
-        n => n.to_string(),
-    };
-    let suffix = if amount == 1 { "" } else { "s" };
-    format!("{} {}{}", prefix, word, suffix)
-}
-
-const HIGHLIGHT: &str = "$fff";
-
-const NOTICE: &str = "$fc0";
-
-const RESET: &str = "$z$s";
-
-#[cfg(test)]
-mod test {
-    use super::*;
-
-    #[test]
-    fn test_fmt_time() {
-        assert_eq!("00:21:105", fmt_time(21105))
     }
 }

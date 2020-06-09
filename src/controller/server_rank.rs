@@ -12,7 +12,7 @@ use crate::config::MAX_DISPLAYED_SERVER_RANKS;
 use crate::controller::LivePlayers;
 use crate::database::Database;
 use crate::event::{ServerRankDiff, ServerRankingDiff};
-use crate::ingame::GameString;
+use crate::server::GameString;
 
 /// Use to lookup the current server rankings.
 /// They are updated after every race.

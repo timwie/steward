@@ -3,7 +3,7 @@ use std::time::SystemTime;
 use postgres_types::{FromSql, ToSql};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 
-use crate::ingame::{GameString, MapInfo};
+use crate::server::{GameString, MapInfo};
 
 /// Database player that has joined the server at least once.
 #[derive(Debug)]
