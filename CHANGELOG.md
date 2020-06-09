@@ -4,10 +4,19 @@ Version numbers consist of `MAJOR.MINOR.PATCH`:
 - `MINOR`: increased when features are added or removed
 - `PATCH`: increased for bug fix releases
 
-<!-- Added, Changed, Removed, Fixed --> 
+<!-- Updating, Added, Changed, Removed, Fixed --> 
 
-## 0.1.0-alpha3
+<br>
+
+## [0.1.0-alpha3] - 2020-06-09
 All `0.1.0-alpha` releases are unstable, and have missing widgets.
+
+### Updating
+- Make the following changes to your controller config:
+  - Use `super_admin_whitelist` to list super admins, that have extended admin rights (see new commands).
+  - Rename `super_admin_name` to `rpc_login`.
+  - Rename `super_admin_pw` to `rpc_password`.
+  - Remove `vote_duration_secs`. The vote duration is now a fixed ⅔ of `outro_duration_secs`.
 
 ### Added
 - **Widget**: Intro
@@ -42,17 +51,11 @@ All `0.1.0-alpha` releases are unstable, and have missing widgets.
   - `/info` prints information about the server & controller
 
 ### Changed
-- **Server Rank**: Only records on maps in the playlist count towards players' server rank,
+- **Server Ranks**: Only records on maps in the playlist count towards players' server rank,
   to prevent that new players are at an unfair disadvantage.
 
 - **Records**: The controller will now store ghost replays for three top records,
   instead of just one.
-
-- **Admin**: Changes to the controller config
-  - added `super_admin_whitelist` to list super admins, that have extended admin rights (see new commands)
-  - renamed `super_admin_name` as `rpc_login`
-  - renamed `super_admin_pw` as `rpc_password`
-  - removed `vote_duration_secs`; now uses a fixed ⅔ of `outro_duration_secs`
 
 - **Admin**: The controller will delete ghost replays of records that are not
   in the top three at startup.
@@ -60,12 +63,16 @@ All `0.1.0-alpha` releases are unstable, and have missing widgets.
 ### Fixed
 - Fixed not updating improved records in the database.
 
+<br>
+
 ## [0.1.0-alpha2] - 2020-05-23
 All `0.1.0-alpha` releases are unstable, and have missing widgets.
 
 ### Fixed
 - Fixed a critical bug that would crash the controller simply by dis- and reconnecting.
 - Fixed a bug that lead to comparing incorrect times in the sector times widget.
+
+<br>
 
 ## [0.1.0-alpha1] - 2020-05-20
 All `0.1.0-alpha` releases are unstable, and have missing widgets.
@@ -165,5 +172,6 @@ All `0.1.0-alpha` releases are unstable, and have missing widgets.
 - **Admin**: If the server is not running the Time Attack mode, it will
   be enforced at startup.
 
-[0.1.0-alpha2]: https://github.com/timwie/steward/releases/tag/v0.1.0-alpha2
 [0.1.0-alpha1]: https://github.com/timwie/steward/releases/tag/v0.1.0-alpha1
+[0.1.0-alpha2]: https://github.com/timwie/steward/releases/tag/v0.1.0-alpha2
+[0.1.0-alpha3]: https://github.com/timwie/steward/releases/tag/v0.1.0-alpha3
