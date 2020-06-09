@@ -5,7 +5,7 @@ use chrono::{NaiveDateTime, SubsecRound, Utc};
 use testcontainers::*;
 
 use steward::database::*;
-use steward::ingame::{PlayerInfo, GameString};
+use steward::server::{GameString, PlayerInfo};
 
 /// Spins up a Postgres database in a Docker container.
 async fn clean_db() -> Result<Arc<dyn Database>> {
@@ -169,6 +169,10 @@ async fn test_nb_records_one_per_player() -> Result<()> {
 // TODO test .map_preferences
 // TODO test .count_map_preferences
 // TODO test .upsert_preference
+
+// TODO test delete_player
+// TODO test delete_map
+// TODO test delete_old_ghosts
 
 #[tokio::test]
 async fn test_player_record_some() -> Result<()> {
