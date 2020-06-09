@@ -1,12 +1,13 @@
-# Steward
-Steward is a controller for [Trackmania]'s community servers.
+# Steward &emsp; ![version][badge-version] ![date][badge-date] ![new commits][badge-commits] ![build][badge-build]
 
+[badge-version]: https://img.shields.io/github/v/release/timwie/steward?include_prereleases&style=flat-square
+[badge-date]: https://img.shields.io/github/release-date-pre/timwie/steward?style=flat-square
+[badge-commits]: https://img.shields.io/github/commits-since/timwie/steward/latest?include_prereleases&label=commits%20since&style=flat-square
+[badge-build]: https://img.shields.io/github/workflow/status/timwie/steward/CI?style=flat-square
+
+Steward is a controller for [Trackmania]'s community servers.
 Server controllers can interface with the dedicated servers and game clients
 to add functionality on top of what the game offers by default.
-For instance, when a player finishes a race, a controller may be used
-to let them compare their time against others within a record database,
-over the course of many races. A vanilla server, by contrast,
-only provides a ranking for a single race.
 
 #### Test Server
 TBD
@@ -67,10 +68,12 @@ You can find a more detailed list of all features [here](CHANGELOG.md).
 - Support for TM² servers or other game modes - in any of the games -
   is not a goal of this project.
   
-- This controller aims to provide an ideal server environment for record hunting:
+- Within this single game mode, the controller is supposed to: 
   - Encourage players to set records on all maps on the server.
   - Help players see on which maps and in which sectors they can improve.
-  - Provide tools to keep the map rotation fresh.
+  - Let players influence the map queue, so that they it's more likely they get
+    to play the maps they want to play.
+  - Provide admins with tools to keep the map rotation fresh.
   
 - The design of new user interfaces should be optimized for couch gaming:
   - A gamepad must suffice to navigate. Do not require use of a mouse.

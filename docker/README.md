@@ -17,24 +17,29 @@ same network:
   - `$ docker volume create --name steward-dedicated`
   - `$ docker volume create --name steward-postgres`
 - Run `docker-compose up -d` to build & start the services in containers.
+- All services are configured to be restarted whenever they go down.
 
-From now on, all data will be accessible in the volumes, independent of the containers.
-You can use something like `docker run -it --rm --volume <volume>:/mnt <image> bash`
-to open a container in which you can edit configuration files, or make backups. In this case,
-the data would be in the `/mnt` directory.
+<br>
 
-Make sure that to allow remote XML-RPC access with `<xmlrpc_allowremote>True</xmlrpc_allowremote>`,
-otherwise the server will not allow the controller to connect.
+## Useful Commands
+- All data is accessible in the volumes, independent of the containers.
+  You can use something like `docker run -it --rm --volume <volume>:/mnt <image> bash`
+  to open a container in which you can edit configuration files, or make backups. In this case,
+  the data would be in the `/mnt` directory.
 
-All services are configured to be restarted whenever they go down.
+- You can directly inspect the database using `$ docker run -it --rm --network container_default postgres psql -h database -U steward`.
 
-The service logs can be viewed, f.e. using `$ docker logs -f <container id>`.
+- The service logs can be viewed with `$ docker logs -f <container id>`.
 
-You can directly inspect the database using `$ docker run -it --rm --network container_default postgres psql -h database -U steward`.
-
-You can update the server by using `$ docker-compose run dedicated bash`, and
+- You can update the server by using `$ docker-compose run dedicated bash`, and
 `$ ./updater.sh`. Run `$ docker-compose restart` afterwards.
 
-You can update the controller by using `$ docker-compose run -u 0 controller bash`, and
-`$ ./updater.sh`. Run `$ docker-compose restart` afterwards. Refer to the changelog
-to see if you need to update your config.
+- You can update the controller by using `$ docker-compose run -u 0 controller bash`, and
+  `$ ./updater.sh`. Run `$ docker-compose restart` afterwards. Refer to the changelog
+  to see if you need to update your config.
+
+<br>
+
+## Troubleshooting
+- When editing the server config in `dedicated_cfg.txt`, make sure that to allow remote XML-RPC access
+  with `<xmlrpc_allowremote>True</xmlrpc_allowremote>`, otherwise the server will not allow the controller to connect.

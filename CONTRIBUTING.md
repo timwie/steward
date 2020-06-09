@@ -196,12 +196,12 @@ To get your changes merged...
    from `upstream` to your local repo and delete your extra branch(es).
 
 Remember to...
-- run `cargo check`
-- run `cargo test`
-- run `cargo fmt`
-- run `cargo clippy`
+- look at the PR to see if all checks are passing
+  - `cargo fmt`
+  - `cargo clippy`
+  - `cargo test --workspace`
 - update other documents (README, CHANGELOG, this document, etc.) if required
-- test new or changed behavior on a local server (you don't have to write unit tests)
+- test new or changed behavior on a local server (unit tests might not be required)
 
 [the scope]: /README.md#project-ambitions
 [`gbx` crate]: /gbx/
