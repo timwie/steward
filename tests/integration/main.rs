@@ -4,8 +4,8 @@ use anyhow::Result;
 use chrono::{NaiveDateTime, SubsecRound, Utc};
 use testcontainers::*;
 
-use gbx::PlayerInfo;
 use steward::database::*;
+use steward::ingame::{PlayerInfo, GameString};
 
 /// Spins up a Postgres database in a Docker container.
 async fn clean_db() -> Result<Arc<dyn Database>> {
@@ -50,7 +50,7 @@ async fn test_player_insert() -> Result<()> {
     let expected_info = player_info("login", "nickname");
     let expected = Player {
         login: "login".to_string(),
-        nick_name: "nickname".to_string(),
+        nick_name: GameString::from("nickname".to_string()),
     };
 
     db.upsert_player(&expected_info).await?;
@@ -67,7 +67,7 @@ async fn test_player_update() -> Result<()> {
     let new_info = player_info("login", "new nickname");
     let expected = Player {
         login: "login".to_string(),
-        nick_name: "new nickname".to_string(),
+        nick_name: GameString::from("new nickname".to_string()),
     };
 
     db.upsert_player(&old_info).await?;
@@ -265,7 +265,7 @@ fn player_info(login: &str, nick_name: &str) -> PlayerInfo {
     PlayerInfo {
         uid: 0,
         login: login.to_string(),
-        nick_name: nick_name.to_string(),
+        nick_name: GameString::from(nick_name.to_string()),
         flag_digit_mask: 101_000_000,
         spectator_digit_mask: 2_551_010,
     }
@@ -276,7 +276,7 @@ fn map_evidence(uid: &str, file_name: &str) -> MapEvidence {
         metadata: Map {
             uid: uid.to_string(),
             file_name: file_name.to_string(),
-            name: "".to_string(),
+            name: GameString::from("".to_string()),
             author_login: "".to_string(),
             added_since: now(),
             in_playlist: true,
@@ -309,7 +309,7 @@ fn record_detailed(pos: i64, nick_name: &str, ev: RecordEvidence) -> RecordDetai
     RecordDetailed {
         map_rank: pos,
         player_login: ev.player_login,
-        player_nick_name: nick_name.to_string(),
+        player_nick_name: GameString::from(nick_name.to_string()),
         millis: ev.millis,
         timestamp: ev.timestamp,
         cp_millis: ev.sectors.iter().map(|sector| sector.cp_millis).collect(),
