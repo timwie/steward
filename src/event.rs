@@ -2,10 +2,10 @@ use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::time::Duration;
 
-use crate::action::Action;
-use crate::command::{AdminCommand, PlayerCommand, SuperAdminCommand};
+use crate::chat::{AdminCommand, PlayerCommand, SuperAdminCommand};
 use crate::database::{Map, RecordDetailed};
-use crate::ingame::{GameString, PlayerInfo};
+use crate::server::{GameString, PlayerInfo};
+use crate::widget::Action;
 
 /// This data type is introduced to complement `ServerEvent`s,
 /// and to make it easier to understand the controller flow.

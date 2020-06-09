@@ -1,7 +1,7 @@
 use serde::Serialize;
 use serde_repr::Serialize_repr;
 
-use crate::command::CommandResponse;
+use crate::chat::CommandResponse;
 use crate::widget::Widget;
 
 /// A widget that can be used for the outputs of chat commands.

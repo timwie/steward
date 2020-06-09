@@ -5,11 +5,12 @@ use tokio::sync::RwLock;
 
 use async_trait::async_trait;
 
-use crate::command::{AdminCommand, DangerousCommand, PlayerCommand, SuperAdminCommand};
+use crate::chat::{
+    AdminCommand, DangerousCommand, PlayerCommand, PlayerMessage, ServerMessage, SuperAdminCommand,
+};
 use crate::controller::LiveSettings;
 use crate::event::Command;
-use crate::ingame::Server;
-use crate::message::{PlayerMessage, ServerMessage};
+use crate::server::Server;
 
 /// Use to send messages to players.
 #[async_trait]

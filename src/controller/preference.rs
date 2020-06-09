@@ -7,11 +7,11 @@ use tokio::sync::{RwLock, RwLockReadGuard};
 
 use async_trait::async_trait;
 
+use crate::chat::PlayerMessage;
 use crate::controller::{LiveChat, LivePlayers, LivePlaylist, PlayersState};
 use crate::database::{Database, Map, Preference, PreferenceValue};
 use crate::event::{PlayerDiff, PlaylistDiff};
-use crate::ingame::PlayerInfo;
-use crate::message::PlayerMessage;
+use crate::server::PlayerInfo;
 
 /// Use to lookup preferences of connected players.
 #[async_trait]

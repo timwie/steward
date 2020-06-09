@@ -1,15 +1,14 @@
 #[macro_use]
 extern crate include_dir;
 
-mod action;
-mod command;
+mod chat;
+mod compat;
 mod config;
 mod controller;
 mod database;
 mod event;
-mod ingame;
-mod message;
 mod network;
+mod server;
 mod widget;
 
 /// The controller's entry-point.
@@ -27,7 +26,7 @@ async fn main() {
     use config::Config;
     use controller::Controller;
     use database::db_connect;
-    use ingame::{RpcConnection, Server};
+    use server::{RpcConnection, Server};
 
     dotenv().ok(); // Read '.env' file in working directory
 

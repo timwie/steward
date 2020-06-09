@@ -5,6 +5,7 @@ use lazy_static::*;
 use serde::Serialize;
 use tera::Tera;
 
+pub use action::*;
 pub use intro::*;
 pub use outro_map_rankings::*;
 pub use outro_queue::*;
@@ -17,6 +18,7 @@ pub use race_toggle_menu::*;
 
 use crate::config::{CDN_PREFIX, CDN_PREFIX_MASTER};
 
+mod action;
 mod intro;
 mod outro_map_rankings;
 mod outro_queue;

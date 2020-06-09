@@ -7,11 +7,11 @@ use std::sync::Arc;
 
 use crate::config::{Config, BLACKLIST_FILE, MAX_GHOST_REPLAY_RANK, VERSION};
 use crate::database::{Database, Map, MapEvidence};
-use crate::ingame::{
+use crate::network::exchange_id;
+use crate::server::{
     MapInfo, ModeInfo, ModeOptions, Server, ServerInfo, ServerOptions, SCRIPT_API_VERSION,
     SERVER_API_VERSION,
 };
-use crate::network::exchange_id;
 
 /// Runs everything that needs to run at startup.
 pub async fn prepare(server: &Arc<dyn Server>, db: &Arc<dyn Database>, config: &Config) {
@@ -132,7 +132,7 @@ fn check_server_compat(info: ServerInfo) {
 /// Set & configure the game mode.
 /// Overwrite the default `<ui_properties>`.
 async fn prepare_mode(server: &Arc<dyn Server>, config: &Config) {
-    const TA_SCRIPT_TEXT: &str = include_str!("../res/TimeAttack.Script.txt");
+    const TA_SCRIPT_TEXT: &str = include_str!("res/TimeAttack.Script.txt");
 
     log::debug!("prepare game mode...");
 
@@ -153,7 +153,7 @@ async fn prepare_mode(server: &Arc<dyn Server>, config: &Config) {
     log::info!("{:?}", &mode_options);
     server.set_mode_options(&mode_options).await;
 
-    let ui_properties_xml = include_str!("../res/UiProperties.xml");
+    let ui_properties_xml = include_str!("res/UiProperties.xml");
     server.set_ui_properties(&ui_properties_xml).await;
 }
 

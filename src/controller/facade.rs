@@ -4,18 +4,19 @@ use semver::Version;
 
 use async_recursion::async_recursion;
 
-use crate::action::Action;
-use crate::command::{
+use crate::chat::{
     AdminCommand, CommandConfirmResponse, CommandErrorResponse, CommandOutputResponse,
-    CommandResponse, DangerousCommand, PlayerCommand, PlaylistCommandError, SuperAdminCommand,
+    CommandResponse, DangerousCommand, PlayerCommand, PlaylistCommandError, ServerMessage,
+    SuperAdminCommand,
 };
+use crate::compat;
 use crate::config::{Config, BLACKLIST_FILE, VERSION};
 use crate::controller::*;
 use crate::database::{Database, Preference};
 use crate::event::{Command, ControllerEvent, PlaylistDiff, VoteInfo};
-use crate::ingame::{PlayerInfo, Server, ServerEvent};
-use crate::message::ServerMessage;
 use crate::network::most_recent_controller_version;
+use crate::server::{PlayerInfo, Server, ServerEvent};
+use crate::widget::Action;
 
 /// This facade hides all specific controllers behind one interface
 /// that can react to server events.

@@ -8,7 +8,7 @@ use crate::config::{
 };
 use crate::controller::{ActivePreferenceValue, LivePlayers, LivePlaylist, LivePreferences};
 use crate::event::{PlaylistDiff, QueueEntry, QueuePriority};
-use crate::ingame::Server;
+use crate::server::Server;
 
 pub struct QueueState {
     /// Counts the number of times a map in the playlist was skipped.
