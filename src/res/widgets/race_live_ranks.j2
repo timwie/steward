@@ -1,13 +1,96 @@
 {% extends "base_dynamic.j2" %}
 
-{#
-    TODO race_live_ranks
-        => update pb with script
-        => update current pos, using 'Scores'
-        => use 'Players' to get number of players
- #}
-
+{# ============================= MANIALINK ============================= #}
 {% block manialink %}
 {{ super() }}
 
+<frame pos="157 20">
+    {% set y = 0 %}
+    <label id="top1"     halign="right" textfont="RajdhaniMono" textcolor="{{col_white}}" textemboss="1" pos="0 {{y}}"/>
+    {% set y = y - 4.5 %}
+    <label               halign="right" textfont="RajdhaniMono" textcolor="{{col_white}}" textemboss="1" pos="0 {{y}}" text="Top Record" textsize="1"/>
+
+    {% set y = y - 5 %}
+    <label id="pb"       halign="right" textfont="RajdhaniMono" textcolor="{{col_white}}" textemboss="1" pos="0 {{y}}"/>
+    {% set y = y - 4.5 %}
+    <label               halign="right" textfont="RajdhaniMono" textcolor="{{col_white}}" textemboss="1" pos="0 {{y}}" text="Personal Best" textsize="1"/>
+
+    {% set y = y - 5 %}
+    <label id="map-rank" halign="right" textfont="RajdhaniMono" textcolor="{{col_white}}" textemboss="1" pos="0 {{y}}" text="{{map_rank | default(value='-')}} / {{max_map_rank}}"/>
+    {% set y = y - 4.5 %}
+    <label               halign="right" textfont="RajdhaniMono" textcolor="{{col_white}}" textemboss="1" pos="0 {{y}}" text="Map Record" textsize="1"/>
+
+    {% set y = y - 5 %}
+    <label               halign="right" textfont="RajdhaniMono" textcolor="{{col_white}}" textemboss="1"  pos="0 {{y}}" text="{{server_rank | default(value='-')}} / {{max_server_rank}}"/>
+    {% set y = y - 4.5 %}
+    <label               halign="right" textfont="RajdhaniMono" textcolor="{{col_white}}" textemboss="1" pos="0 {{y}}" text="Server Rank" textsize="1"/>
+
+</frame>
+
 {% endblock manialink %}
+{# ============================= SCRIPT DECLARATIONS ============================= #}
+{% block decl %}
+{{ super() }}
+
+declare Integer   G_PbMillis;   // this player's pb time
+declare Integer   G_Top1Millis; // top1 record time
+
+{% include "lib_time_to_text.j2" %}
+{% include "lib_time_diff.j2" %}
+
+Void UpdateTimes() {
+    declare UI_Pb   = (Page.GetFirstChild("pb") as CMlLabel);
+    declare UI_Top1 = (Page.GetFirstChild("top1") as CMlLabel);
+
+    if (G_PbMillis == 0) {
+        UI_Pb.Value = "-";
+    } else if (G_Top1Millis == G_PbMillis) {
+        UI_Pb.Value = TimeToText(G_PbMillis);
+        UI_Pb.TextColor = ColorLib::HexToRgb("{{col_success}}");
+    } else {
+        UI_Pb.Value = Diff(G_Top1Millis, G_PbMillis);
+        UI_Pb.TextColor = ColorLib::HexToRgb("{{col_fail}}");
+    }
+
+    if (G_Top1Millis == 0) {
+        UI_Top1.Value = "-";
+    } else {
+        UI_Top1.Value = "🏆" ^ TimeToText(G_Top1Millis);
+    }
+}
+
+Void OnFinish(CTmRaceClientEvent Event) {
+    if (Event.Player == InputPlayer && Event.RaceTime < G_PbMillis) {
+        G_PbMillis = Event.RaceTime;
+        UpdateTimes();
+    }
+
+    if (Event.RaceTime < G_Top1Millis) {
+        G_Top1Millis = Event.RaceTime;
+        UpdateTimes();
+    }
+}
+
+{% endblock decl %}
+{# ============================= SCRIPT MAIN ============================= #}
+{% block main %}
+
+G_PbMillis = {{pb_millis | default(value=0)}};
+G_Top1Millis = {{top1_millis | default(value=0)}};
+
+UpdateTimes();
+
+{% endblock main %}
+{# ============================= SCRIPT EVENTS ============================= #}
+{% block race_events %}
+
+switch (Event.Type) {
+    case CTmRaceClientEvent::EType::WayPoint: {
+        if (Event.IsEndRace) {
+            OnFinish(Event);
+        }
+    }
+}
+
+{% endblock race_events %}
+

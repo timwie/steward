@@ -515,6 +515,7 @@ impl WidgetController {
 
         let widget = LiveRanksWidget {
             pb_millis: maybe_pb.map(|rec| rec.millis as usize),
+            top1_millis: records.top_record().as_ref().map(|rec| rec.millis as usize),
             map_rank: maybe_pb.map(|rec| rec.map_rank as usize),
             max_map_rank: records.nb_records(),
             server_rank,

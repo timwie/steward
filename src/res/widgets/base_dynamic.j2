@@ -4,7 +4,11 @@
 <script><!--
 #RequireContext CTmMlScriptIngame
 
-{% block decl %}{% endblock decl %}
+{% block decl %}
+#Include "ColorLib" as ColorLib
+#Include "MathLib" as MathLib
+#Include "TextLib" as TextLib
+{% endblock decl %}
 
 main() {
     {% block main %}{% endblock main %}
