@@ -6,10 +6,6 @@ use crate::widget::Widget;
 /// - current server rank
 /// - personal best on this map
 /// - current map rank
-/// - current position in the live race
-///
-/// The data for the race ranking does not need to be included here,
-/// as it's available via ManiaScript.
 ///
 /// # Sending
 /// - Send this widget to a player after the intro.
@@ -26,6 +22,10 @@ pub struct LiveRanksWidget {
     /// The player's personal best on this map, or `None`
     /// if they never completed a run on this map.
     pub pb_millis: Option<usize>,
+
+    /// The map's top record set by any player, or `None`
+    /// if no player completed a run on this map.
+    pub top1_millis: Option<usize>,
 
     /// The rank of the player's personal best among all
     /// records on this map, or `None` if they have not

@@ -8,6 +8,17 @@ Version numbers consist of `MAJOR.MINOR.PATCH`:
 
 <br>
 
+## 0.1.0-alpha4
+All `0.1.0-alpha` releases are unstable, and have missing widgets.
+
+### Added
+- **Widget**: Live Ranks
+  - This widget is constantly displayed during a race.
+  - Displays the top record time.
+  - Displays the difference of the player's personal best to the top record time.
+  - Displays the player's current map rank.
+  - Displays the player's current server rank.
+
 ## [0.1.0-alpha3] - 2020-06-09
 All `0.1.0-alpha` releases are unstable, and have missing widgets.
 
