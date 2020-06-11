@@ -19,6 +19,14 @@ All `0.1.0-alpha` releases are unstable, and have missing widgets.
   - Displays the player's current map rank.
   - Displays the player's current server rank.
 
+### Changed
+- **Widget**: Sector Times
+  - Sectors may now be longer (f.e. spreading across two checkpoints),
+    to prevent having too many sectors on longer tracks.
+  - Entering a new sector is indicated below the CP diff in the center of the screen.
+  - Removed map & author name next to sector diffs.
+  - Removed background behind sector labels.
+
 ### Fixed
 - Fixed a crash that occurred when setting a record while crossing at least one
   checkpoint backwards.
@@ -68,6 +76,9 @@ All `0.1.0-alpha` releases are unstable, and have missing widgets.
   - `/info` prints information about the server & controller
 
 ### Changed
+- **Widget**: Sector Times
+  - Display checkpoint diff of current run vs personal best in the center of the screen.
+
 - **Server Ranks**: Only records on maps in the playlist count towards players' server rank,
   to prevent that new players are at an unfair disadvantage.
 
@@ -95,7 +106,7 @@ All `0.1.0-alpha` releases are unstable, and have missing widgets.
 All `0.1.0-alpha` releases are unstable, and have missing widgets.
 
 ### Added
-- **Widget: Sector Times**
+- **Widget**: Sector Times
   - This widget replaces the vanilla UI that compares "Prev" and "Best" runs,
     since it cannot track the player's personal best across multiple races.
   - This widget also replaces the time diff displayed when crossing a checkpoint,
