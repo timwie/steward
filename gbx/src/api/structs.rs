@@ -405,6 +405,7 @@ pub struct CheckpointEvent {
     pub is_finish: bool,
 
     /// Speed of the player in km/h at the time of passing this checkpoint.
+    /// This is negative if they are driving backwards!
     pub speed: f32,
 
     /// Total distance traveled by the player up to this checkpoint.
