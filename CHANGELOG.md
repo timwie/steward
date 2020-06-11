@@ -19,6 +19,12 @@ All `0.1.0-alpha` releases are unstable, and have missing widgets.
   - Displays the player's current map rank.
   - Displays the player's current server rank.
 
+### Fixed
+- Fixed a crash that occurred when setting a record while crossing at least one
+  checkpoint backwards.
+
+<br>
+
 ## [0.1.0-alpha3] - 2020-06-09
 All `0.1.0-alpha` releases are unstable, and have missing widgets.
 
