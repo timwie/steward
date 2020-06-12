@@ -215,6 +215,12 @@ impl Controller {
                 self.on_controller_event(ev).await;
             }
 
+            ServerEvent::RunCheckpoint { event } if event.race_time_millis <= 0 => {
+                // Invalid times (due to incoherence?) are apparently set to zero.
+                // Ignore the run if it happens.
+                self.records.reset_run(&event.player_login).await;
+            }
+
             ServerEvent::RunCheckpoint { event } => {
                 self.records.update_run(&event).await;
 
