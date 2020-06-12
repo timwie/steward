@@ -259,7 +259,8 @@ impl PlaylistController {
         let maps_dir = self.live_settings.maps_dir().await;
         let file_name = format!(
             "{}.{}.Map.gbx",
-            &import_map.metadata.name_plain, &import_map.metadata.uid
+            &import_map.metadata.name_plain.trim(),
+            &import_map.metadata.uid
         );
 
         let write_file_res = File::create(Path::new(&maps_dir).join(&file_name))
@@ -284,7 +285,7 @@ impl PlaylistController {
         let db_map = Map {
             uid: import_map.metadata.uid,
             file_name,
-            name: GameString::from(import_map.metadata.name),
+            name: GameString::from(import_map.metadata.name.trim().to_string()),
             author_login: map_info.author_login,
             added_since: SystemTime::now(),
             in_playlist: true,
