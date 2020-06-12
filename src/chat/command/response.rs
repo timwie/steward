@@ -206,7 +206,7 @@ impl Display for CommandResponse<'_> {
                     writeln!(
                         f,
                         "{} | {} | {}",
-                        fill(&map.file_name, 30),
+                        fill(&map.name.plain(), 30),
                         &map.uid,
                         map.exchange_id.map(|id| id.to_string()).unwrap_or_default()
                     )?;
@@ -218,7 +218,7 @@ impl Display for CommandResponse<'_> {
                     writeln!(
                         f,
                         "{} | {} | {}",
-                        fill(&map.file_name, 30),
+                        fill(&map.name.plain(), 30),
                         &map.uid,
                         map.exchange_id.map(|id| id.to_string()).unwrap_or_default()
                     )?;
