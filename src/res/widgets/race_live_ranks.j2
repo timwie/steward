@@ -60,6 +60,10 @@ Void UpdateTimes() {
 }
 
 Void OnFinish(CTmRaceClientEvent Event) {
+    if (Event.RaceTime <= 0) {
+        return; // invalid times are set to zero
+    }
+
     if (Event.Player == InputPlayer && Event.RaceTime < G_PbMillis) {
         G_PbMillis = Event.RaceTime;
         UpdateTimes();

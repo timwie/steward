@@ -489,6 +489,11 @@ Void OnFinish(CTmRaceClientEvent Event) {
  * and update PB & Top1 record whenever a better time was set.
  */
 Void OnCheckpointOrFinish(CTmRaceClientEvent Event) {
+    if (Event.RaceTime <= 0) {
+        Reset();
+        return; // invalid times are set to zero
+    }
+
     OnCheckpoint(Event);
 
     if (Event.IsEndRace) {
