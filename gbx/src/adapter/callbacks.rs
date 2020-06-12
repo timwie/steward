@@ -56,6 +56,14 @@ fn forward_regular_callback(cb_out: &Sender<Callback>, call: Call) -> CallbackTy
                 return success(RaceEnd);
             }
         }
+        "ManiaPlanet.MapListModified" => {
+            if let [Int(curr_idx), Int(next_idx), Bool(_is_list_modified)] = &call.args[..] {
+                return success(PlaylistChanged {
+                    curr_idx: Some(*curr_idx).filter(|i| *i >= 0),
+                    next_idx: *next_idx,
+                });
+            }
+        }
         "ManiaPlanet.PlayerChat" => {
             if let [Int(uid), String(login), String(msg), Bool(_is_registered_cmd)] = &call.args[..]
             {
@@ -92,7 +100,6 @@ fn forward_regular_callback(cb_out: &Sender<Callback>, call: Call) -> CallbackTy
         "ManiaPlanet.BeginMap"
         | "ManiaPlanet.BeginMatch"
         | "ManiaPlanet.EndMap"
-        | "ManiaPlanet.MapListModified"
         | "ManiaPlanet.StatusChanged"
         | "TrackMania.PlayerCheckpoint"
         | "TrackMania.PlayerFinish"

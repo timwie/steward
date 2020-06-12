@@ -260,6 +260,12 @@ impl Controller {
                 // a player finishes a run.
                 self.race.set(&scores).await;
             }
+
+            ServerEvent::PlaylistChanged { curr_idx, .. } => {
+                if let Some(curr_idx) = curr_idx {
+                    self.playlist.set_index(curr_idx as usize).await;
+                }
+            }
         }
     }
 
