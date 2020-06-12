@@ -228,14 +228,6 @@ pub trait Calls: Send + Sync {
     ///     SetNextMapIndex
     async fn playlist_change_next(&self, map_index: i32) -> Result<()>;
 
-    /// Immediately jump to the map at the specified playlist index.
-    ///
-    /// Faults if the index doesn't exist.
-    ///
-    /// Calls method:
-    ///     JumpToMapIndex
-    async fn playlist_change_current(&self, map_index: i32) -> Result<()>;
-
     /// Restart the current map.
     ///
     /// This call will make sure that the current map is not unloaded, which means
