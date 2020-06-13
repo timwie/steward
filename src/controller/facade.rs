@@ -74,6 +74,7 @@ impl Controller {
 
         let queue =
             QueueController::init(&server, &live_players, &live_playlist, &live_prefs).await;
+        let live_queue = Arc::new(queue.clone()) as Arc<dyn LiveQueue>;
 
         let ranking = ServerRankController::init(&db, &live_players).await;
         let live_server_ranking = Arc::new(ranking.clone()) as Arc<dyn LiveServerRanking>;
@@ -93,6 +94,7 @@ impl Controller {
             &live_records,
             &live_server_ranking,
             &live_prefs,
+            &live_queue,
         )
         .await;
 
@@ -180,9 +182,11 @@ impl Controller {
                         log::debug!("start vote");
                         tokio::time::delay_for(vote_duration).await;
                         log::debug!("end vote");
-                        let queue_preview = controller.queue.next_maps().await;
+                        controller.queue.update_queue().await;
 
-                        let end_vote_ev = ControllerEvent::EndVote { queue_preview };
+                        let end_vote_ev = ControllerEvent::EndVote {
+                            queue_preview: controller.queue.peek().await,
+                        };
                         controller.on_controller_event(end_vote_ev).await;
                     });
                 };
@@ -213,6 +217,12 @@ impl Controller {
                     player_login: &player_login,
                 };
                 self.on_controller_event(ev).await;
+            }
+
+            ServerEvent::RunCheckpoint { event } if event.race_time_millis <= 0 => {
+                // Invalid times (due to incoherence?) are apparently set to zero.
+                // Ignore the run if it happens.
+                self.records.reset_run(&event.player_login).await;
             }
 
             ServerEvent::RunCheckpoint { event } => {
@@ -259,6 +269,12 @@ impl Controller {
                 // at controller start. Otherwise, we can update it whenever
                 // a player finishes a run.
                 self.race.set(&scores).await;
+            }
+
+            ServerEvent::PlaylistChanged { curr_idx, .. } => {
+                if let Some(curr_idx) = curr_idx {
+                    self.playlist.set_index(curr_idx as usize).await;
+                }
             }
         }
     }

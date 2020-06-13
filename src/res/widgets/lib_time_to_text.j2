@@ -1,0 +1,28 @@
+
+Text TimeToText(Integer MillisIn) {
+    declare Integer Millis = MillisIn;
+    declare Integer Secs = Millis / 1000;
+    declare Integer Mins = Secs / 60;
+    Millis = Millis % 1000;
+    Secs = Secs % 60;
+
+    declare Text MillisTxt = "" ^ Millis;
+    if (Millis < 10) {
+        MillisTxt = "0" ^ MillisTxt;
+    }
+    if (Millis < 100) {
+        MillisTxt = "0" ^ MillisTxt;
+    }
+
+    declare Text SecsTxt = Secs ^ ".";
+    if (Secs < 10) {
+        SecsTxt = "0" ^ SecsTxt;
+    }
+
+    declare Text MinsTxt = "";
+    if (Mins > 0) {
+        MinsTxt = Mins ^ ":";
+    }
+
+    return MinsTxt ^ SecsTxt ^ MillisTxt;
+}

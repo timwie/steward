@@ -73,4 +73,10 @@ pub enum Callback {
         from_login: String,
         answer: String,
     },
+
+    /// Sent when either the playlist or playlist indexes changed.
+    PlaylistChanged {
+        curr_idx: Option<i32>,
+        next_idx: i32,
+    },
 }

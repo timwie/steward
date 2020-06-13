@@ -189,11 +189,6 @@ impl Calls for RpcClient {
             .await
     }
 
-    async fn playlist_change_current(&self, map_index: i32) -> Result<()> {
-        self.call_method_unit("JumpToMapIndex", args!(map_index))
-            .await
-    }
-
     async fn restart_map(&self) {
         self.call_method_unwrap_unit("RestartMap", args!()).await;
     }

@@ -1,0 +1,37 @@
+/**
+ * Build a textual difference between two times in milliseconds.
+ * Will be "-x.xxx" if a < b, "+x.xxx" otherwise.
+ */
+Text Diff(Integer a, Integer b) {
+    declare Integer DiffMillis = MathLib::Abs(a - b);
+    declare Integer DiffSecs = DiffMillis / 1000;
+    declare Integer DiffMins = DiffSecs / 60;
+    DiffMillis = DiffMillis % 1000;
+    DiffSecs = DiffSecs % 60;
+
+    // use game convention: +0.000, not -0.000
+    declare Text sign = "-";
+    if (a <= b)  {
+        sign = "+";
+    }
+
+    declare Text DiffMillisTxt = "" ^ DiffMillis;
+    if (DiffMillis < 10) {
+        DiffMillisTxt = "0" ^ DiffMillisTxt;
+    }
+    if (DiffMillis < 100) {
+        DiffMillisTxt = "0" ^ DiffMillisTxt;
+    }
+
+    declare Text DiffSecsTxt = DiffSecs ^ ".";
+    if (DiffMins > 0 && DiffSecs < 10) {
+        DiffSecsTxt = "0" ^ DiffSecsTxt;
+    }
+
+    declare Text DiffMinsTxt = "";
+    if (DiffMins > 0) {
+        DiffMinsTxt = DiffMins ^ ":";
+    }
+
+    return sign ^ DiffMinsTxt ^ DiffSecsTxt ^ DiffMillisTxt;
+}

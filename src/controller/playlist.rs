@@ -121,21 +121,16 @@ impl PlaylistController {
         let playlist_files = playlist.iter().map(|m| m.file_name.deref()).collect();
         server.playlist_replace(playlist_files).await;
 
-        let curr_index = match server.playlist_current_index().await {
-            Some(idx) => idx,
-            None => {
-                // immediately change map if the current one is not part of the playlist
-                server
-                    .playlist_change_current(0)
-                    .await
-                    .expect("failed jumping to playlist index");
-                0
-            }
-        };
+        let curr_index = server.playlist_current_index().await;
+
+        // Change map if the current one is not part of the playlist.
+        if curr_index.is_none() {
+            server.end_map().await;
+        }
 
         let state = PlaylistState {
             playlist,
-            curr_index: Some(curr_index),
+            curr_index,
         };
 
         PlaylistController {
@@ -264,7 +259,8 @@ impl PlaylistController {
         let maps_dir = self.live_settings.maps_dir().await;
         let file_name = format!(
             "{}.{}.Map.gbx",
-            &import_map.metadata.name_plain, &import_map.metadata.uid
+            &import_map.metadata.name_plain.trim(),
+            &import_map.metadata.uid
         );
 
         let write_file_res = File::create(Path::new(&maps_dir).join(&file_name))
@@ -289,7 +285,7 @@ impl PlaylistController {
         let db_map = Map {
             uid: import_map.metadata.uid,
             file_name,
-            name: GameString::from(import_map.metadata.name),
+            name: GameString::from(import_map.metadata.name.trim().to_string()),
             author_login: map_info.author_login,
             added_since: Utc::now().naive_utc(),
             in_playlist: true,

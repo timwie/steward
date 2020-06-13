@@ -19,11 +19,11 @@ use crate::widget::Widget;
 /// as it's available via ManiaScript.
 ///
 /// # Sending
-/// - This widget has to be re-sent for each map, to load
-///   new map & server rankings. The map list also has to be
-///   re-send, since we cannot update the map ranks it displays.
-/// - Within the same map, ManiaScript events can be used
-///   to update the race & map ranking accordingly.
+/// - This widget has to be re-sent for each map, to load new map & server rankings.
+///   The map list also has to be re-send, since we cannot update the map ranks and
+///   queue priorities it displays.
+/// - Within the same map, ManiaScript events can be used to update the race & map
+///   ranking accordingly.
 #[derive(Serialize, Debug)]
 pub struct ToggleMenuWidget<'a> {
     pub map_list: MapList<'a>,
@@ -78,6 +78,16 @@ pub struct MapListEntry<'a> {
     /// be out of date when new records are set. Consequently,
     /// the record stats should not be display when this is `True`.
     pub is_current_map: bool,
+
+    /// The queue position of this map *at the start of the current race*.
+    /// Since the priority changes whenever players change their preference,
+    /// or admin force-queue maps, it cannot be up-to-date. Therefore, it is
+    /// more of a suggestion. Large differences should be uncommon though.
+    ///
+    /// This is `0` if `is_current_map`.
+    ///
+    /// It can be read as "will be played in `<queue_pos>` maps".
+    pub queue_pos: usize,
 }
 
 impl Ord for MapListEntry<'_> {

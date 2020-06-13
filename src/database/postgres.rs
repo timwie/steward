@@ -119,7 +119,7 @@ impl Queries for PostgresClient {
                 nick_name = excluded.nick_name
         "#;
         let _ = conn
-            .execute(stmt, &[&player.login, &player.nick_name.formatted])
+            .execute(stmt, &[&player.login, &player.nick_name.formatted.trim()])
             .await?;
         Ok(())
     }
@@ -192,7 +192,7 @@ impl Queries for PostgresClient {
                     &map.metadata.uid,
                     &map.metadata.file_name,
                     &map.data,
-                    &map.metadata.name.formatted,
+                    &map.metadata.name.formatted.trim(),
                     &map.metadata.author_login,
                     &map.metadata.added_since,
                     &map.metadata.in_playlist,
