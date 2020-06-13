@@ -490,7 +490,7 @@ Void OnFinish(CTmRaceClientEvent Event) {
  */
 Void OnCheckpointOrFinish(CTmRaceClientEvent Event) {
     if (Event.RaceTime <= 0) {
-        Reset();
+        Reset(Event);
         return; // invalid times are set to zero
     }
 

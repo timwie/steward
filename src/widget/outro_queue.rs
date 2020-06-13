@@ -1,7 +1,6 @@
 use serde::{Serialize, Serializer};
 
-use crate::controller::ActivePreferenceValue;
-use crate::event::QueuePriority;
+use crate::controller::{ActivePreferenceValue, QueuePriority};
 use crate::widget::Widget;
 
 /// A widget displayed at the start of the outro, that lets
@@ -52,12 +51,14 @@ fn format_priority<S>(p: &QueuePriority, s: S) -> Result<S::Ok, S::Error>
 where
     S: Serializer,
 {
+    use QueuePriority::*;
     let str = match p {
-        QueuePriority::NoRestart => "Playing Now".to_string(),
-        QueuePriority::VoteRestart => "Restart".to_string(),
-        QueuePriority::Force(_) => "Force".to_string(),
-        QueuePriority::Score(score) if *score >= 0 => format!("+{}", *score),
-        QueuePriority::Score(score) => score.to_string(),
+        ServerStart => "".to_string(),
+        NoRestart => "Playing Now".to_string(),
+        VoteRestart => "Restart".to_string(),
+        Force(_) => "Force".to_string(),
+        Score(score) if *score >= 0 => format!("+{}", *score),
+        Score(score) => score.to_string(),
     };
     s.serialize_str(&str)
 }
