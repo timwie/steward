@@ -1,8 +1,8 @@
-use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::time::Duration;
 
 use crate::chat::{AdminCommand, PlayerCommand, SuperAdminCommand};
+use crate::controller::QueuePriority;
 use crate::database::{Map, RecordDetailed};
 use crate::server::{GameString, PlayerInfo};
 use crate::widget::Action;
@@ -37,7 +37,7 @@ pub enum ControllerEvent<'a> {
     EndOutro,
 
     /// Signals the end of the vote, and that the next map was decided.
-    EndVote { queue_preview: Vec<QueueEntry> },
+    EndVote { queue_preview: Vec<QueueMap> },
 
     /// Signals a player joining, leaving, or transitioning between playing
     /// and spectating.
@@ -101,52 +101,17 @@ pub struct VoteInfo {
 /// An entry in the map queue, which assigns a priority to a
 /// map in the playlist.
 #[derive(Debug)]
-pub struct QueueEntry {
+pub struct QueueMap {
     pub map: Map,
+
+    /// Position in the queue, starting at 0.
+    /// The map at position 0 is the current map.
+    /// The map at position 1 will be queued as the next map.
+    pub pos: usize,
+
+    /// The queue priority of this map.
+    /// The map with the highest priority will be queued as the next map.
     pub priority: QueuePriority,
-}
-
-/// When deciding the next map, each map is assigned a priority.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum QueuePriority {
-    /// Map was just played, and voted to restart.
-    VoteRestart,
-
-    /// Map was force-queued by an admin. The inner number is the
-    /// amount of maps that were force-queued ahead of this map.
-    /// This priority is used f.e. when importing new maps.
-    Force(usize),
-
-    /// Map has a calculated priority.
-    Score(i32),
-
-    /// Map was just played, and *not* voted to restart.
-    /// Every other map has a higher priority.
-    NoRestart,
-}
-
-impl Ord for QueuePriority {
-    /// `VoteRestart < Force(x) < Force(x+1) < Score(y) < Score(y-1) < NoRestart`
-    fn cmp(&self, other: &Self) -> Ordering {
-        use QueuePriority::*;
-        match (self, other) {
-            (VoteRestart, VoteRestart) => Ordering::Equal,
-            (NoRestart, NoRestart) => Ordering::Equal,
-            (Score(a), Score(b)) => b.cmp(a), // higher score queued first
-            (Force(a), Force(b)) => a.cmp(b), // lower pos queued first
-
-            (VoteRestart, _) => Ordering::Less,
-            (Force(_), Score(_)) => Ordering::Less,
-            (_, NoRestart) => Ordering::Less,
-            _ => Ordering::Greater,
-        }
-    }
-}
-
-impl PartialOrd for QueuePriority {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
 }
 
 /// A change of the server playlist. Only maps in the playlist can be queued.

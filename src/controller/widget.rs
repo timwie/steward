@@ -28,6 +28,7 @@ pub struct WidgetController {
     live_records: Arc<dyn LiveRecords>,
     live_prefs: Arc<dyn LivePreferences>,
     live_server_ranking: Arc<dyn LiveServerRanking>,
+    live_queue: Arc<dyn LiveQueue>,
 }
 
 /// May be used to select the widgets that will be sent to a player
@@ -49,6 +50,7 @@ impl WidgetController {
         live_records: &Arc<dyn LiveRecords>,
         live_server_ranking: &Arc<dyn LiveServerRanking>,
         live_prefs: &Arc<dyn LivePreferences>,
+        live_queue: &Arc<dyn LiveQueue>,
     ) -> Self {
         WidgetController {
             phase: Arc::new(RwLock::new(MapPhase::Race)),
@@ -60,6 +62,7 @@ impl WidgetController {
             live_records: live_records.clone(),
             live_server_ranking: live_server_ranking.clone(),
             live_prefs: live_prefs.clone(),
+            live_queue: live_queue.clone(),
         }
     }
 
@@ -106,7 +109,7 @@ impl WidgetController {
 
     /// Remove widgets that are displayed during the vote,
     /// and add ones that display the vote's results.
-    pub async fn end_vote(&self, queued_next: Vec<QueueEntry>) {
+    pub async fn end_vote(&self, queued_next: Vec<QueueMap>) {
         let mut phase = self.phase.write().await;
         *phase = MapPhase::Outro {
             voting: false,
@@ -449,7 +452,7 @@ impl WidgetController {
         }
     }
 
-    async fn show_outro_poll_result(&self, queued_next: Vec<QueueEntry>) {
+    async fn show_outro_poll_result(&self, queued_next: Vec<QueueMap>) {
         let is_restart = match queued_next.first().map(|e| e.priority) {
             Some(QueuePriority::VoteRestart) => true,
             _ => false,
@@ -613,6 +616,11 @@ impl WidgetController {
                 map_rank,
                 added_since: map.added_since,
                 is_current_map: Some(&map.uid) == curr_map_uid,
+                queue_pos: self
+                    .live_queue
+                    .pos(&map.uid)
+                    .await
+                    .expect("failed to get queue priority"),
             }
         }))
         .await;
