@@ -288,6 +288,9 @@ impl QueueController {
                 .sum()
         };
 
+        // True if the controller was just started.
+        let is_initial_queue = state.entries.is_empty();
+
         let mut priorities: Vec<(usize, QueuePriority)> = state
             .times_skipped
             .iter()
@@ -298,7 +301,7 @@ impl QueueController {
                 } else if let Some(pos) = state.force_queue_pos(idx) {
                     QueuePriority::Force(pos)
                 } else if Some(idx) == maybe_curr_index {
-                    if state.entries.is_empty() {
+                    if is_initial_queue {
                         QueuePriority::ServerStart
                     } else {
                         QueuePriority::NoRestart
@@ -336,8 +339,10 @@ impl QueueController {
 
         // Tell server the next map.
         if is_restart {
-            self.server.restart_map().await;
-        } else if Some(*next_idx) != self.server.playlist_current_index().await {
+            if !is_initial_queue {
+                self.server.restart_map().await;
+            }
+        } else {
             self.server
                 .playlist_change_next(*next_idx as i32)
                 .await
