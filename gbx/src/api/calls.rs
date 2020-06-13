@@ -174,6 +174,11 @@ pub trait Calls: Send + Sync {
     ///     GetCurrentMapIndex
     async fn playlist_current_index(&self) -> Option<usize>;
 
+    /// Fetch the playlist index of the map that will be played once
+    /// the current map ends.
+    ///
+    /// Calls method:
+    ///     GetNextMapIndex
     async fn playlist_next_index(&self) -> usize;
 
     /// Append the map at the specified file name to the end of the playlist.
