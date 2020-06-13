@@ -105,7 +105,9 @@
 
 #Const TOTAL_DIFF_VISIBLE_DURATION 2000  // how long is the cp diff visible? (ms)
 
-#Const MIN_SECTOR_MILLIS 4000  // sectors shorter than this duration (ms) are dissolved
+#Const MIN_DISSOLVED_SECTOR_MILLIS 4000  // sectors shorter than this duration (ms) are dissolved
+#Const MAX_AGG_SECTOR_MILLIS      10000  // aggregated sectors are no longer than this duration (ms)
+
 
 declare Integer   G_PbMillis;           // this player's pb time
 declare Integer[] G_PbSectorMillis;     // this player's pb sector times
@@ -232,28 +234,34 @@ Void AggregateSectors() {
             CurrAggMillis = MathLib::Max(0, CurrAggMillis - 2000);
         }
 
-        if (CurrAggMillis >= MIN_SECTOR_MILLIS) {
+        if (CurrAggMillis >= MIN_DISSOLVED_SECTOR_MILLIS) {
             continue; // don't aggregate other sectors into this one
         }
 
         declare AheadMillis  = 0;
         declare BehindMillis = 0;
-        if (CurrIndex > 0) {
-            BehindMillis = Agg_Top1SectorMillis(CurrIndex - 1);
+        if (BehindIndex >= 0) {
+            BehindMillis = Agg_Top1SectorMillis(BehindIndex);
         }
-        if (CurrIndex < G_NbSectors - 1) {
-            AheadMillis = Agg_Top1SectorMillis(CurrIndex + 1);
+        if (AheadIndex < G_NbSectors) {
+            AheadMillis = Agg_Top1SectorMillis(AheadIndex);
         }
 
         declare DissolvedAggLabel = -1;
+        declare DissolvedMillis = -1;
         if (AheadMillis > 0) {
             DissolvedAggLabel = G_SectorAggregates[AheadIndex];
+            DissolvedMillis = AheadMillis;
         }
-        if (BehindMillis > 0 && BehindMillis < AheadMillis) {
+        if (BehindMillis > 0 && BehindMillis < AheadMillis || AheadMillis == 0) {
             DissolvedAggLabel = G_SectorAggregates[BehindIndex];
+            DissolvedMillis = BehindMillis;
         }
         if (DissolvedAggLabel == -1) {
             continue; // cannot aggregate any sector into this one
+        }
+        if (CurrAggMillis + DissolvedMillis > MAX_AGG_SECTOR_MILLIS) {
+            continue; // do not produce too long sectors
         }
 
         for (i, 0, G_NbSectors - 1) {
@@ -280,6 +288,9 @@ Void AggregateSectors() {
             Top1CurrMillis = 0;
         }
     }
+
+    log("Sectors before:     " ^ G_PbSectorMillis);
+    log("Sectors aggregated: " ^ G_PbSectorMillisAgg);
 }
 
 Void SetSectorColor(Integer SectorIdx, Text HexColor) {
@@ -548,6 +559,8 @@ switch (Event.Type) {
 {# ============================= LOOP ============================= #}
 {% block loop %}
 
-UI_TotalDiff.Visible = GameTime < G_RunLastCpGameTime + TOTAL_DIFF_VISIBLE_DURATION;
+if (GameTime >= G_RunLastCpGameTime + TOTAL_DIFF_VISIBLE_DURATION) {
+    UI_TotalDiff.Visible = False;
+}
 
 {% endblock loop %}
