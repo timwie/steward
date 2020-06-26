@@ -6,8 +6,8 @@ use tokio::sync::RwLock;
 
 use crate::chat::CommandResponse;
 use crate::config::{
-    MAX_DISPLAYED_MAP_RANKS, MAX_DISPLAYED_RACE_RANKS, MAX_DISPLAYED_SERVER_RANKS,
-    START_HIDE_WIDGET_DELAY_MILLIS,
+    MAX_DISPLAYED_IN_QUEUE, MAX_DISPLAYED_MAP_RANKS, MAX_DISPLAYED_RACE_RANKS,
+    MAX_DISPLAYED_SERVER_RANKS, START_HIDE_WIDGET_DELAY_MILLIS,
 };
 use crate::controller::*;
 use crate::database::{Database, PreferenceValue, RecordDetailed};
@@ -29,6 +29,7 @@ pub struct WidgetController {
     live_prefs: Arc<dyn LivePreferences>,
     live_server_ranking: Arc<dyn LiveServerRanking>,
     live_queue: Arc<dyn LiveQueue>,
+    live_schedule: Arc<dyn LiveSchedule>,
 }
 
 /// May be used to select the widgets that will be sent to a player
@@ -51,6 +52,7 @@ impl WidgetController {
         live_server_ranking: &Arc<dyn LiveServerRanking>,
         live_prefs: &Arc<dyn LivePreferences>,
         live_queue: &Arc<dyn LiveQueue>,
+        live_schedule: &Arc<dyn LiveSchedule>,
     ) -> Self {
         WidgetController {
             phase: Arc::new(RwLock::new(MapPhase::Race)),
@@ -63,6 +65,7 @@ impl WidgetController {
             live_server_ranking: live_server_ranking.clone(),
             live_prefs: live_prefs.clone(),
             live_queue: live_queue.clone(),
+            live_schedule: live_schedule.clone(),
         }
     }
 
@@ -209,6 +212,15 @@ impl WidgetController {
         }
     }
 
+    /// Update any widget that displays the server's map queue.
+    pub async fn refresh_queue_and_schedule(&self, diff: &QueueDiff) {
+        if diff.first_changed_idx < MAX_DISPLAYED_IN_QUEUE {
+            return; // no visible changes to the schedule
+        }
+
+        // TODO schedule: update UI
+    }
+
     /// Display a popup message to the specified player.
     pub async fn show_popup(&self, resp: CommandResponse<'_>, for_login: &str) {
         let mode = PopupMode::from(&resp);
@@ -289,6 +301,7 @@ impl WidgetController {
         self.show_sector_diff_for(player).await;
         self.show_curr_rank_for(player).await;
         self.show_toggle_menu_for(player).await;
+        // TODO schedule: show widget here if it's a race widget
     }
 
     async fn hide_race_widgets_for(&self, for_uid: i32) {
@@ -303,6 +316,7 @@ impl WidgetController {
         self.hide::<SectorDiffWidget>().await;
         self.hide::<LiveRanksWidget>().await;
         self.hide::<ToggleMenuWidget>().await;
+        // TODO schedule: hide widget here if it's a race widget
     }
 
     async fn show_outro_widgets(&self, ev: &VoteInfo) {

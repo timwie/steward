@@ -53,7 +53,6 @@ where
 {
     use QueuePriority::*;
     let str = match p {
-        ServerStart => "".to_string(),
         NoRestart => "Playing Now".to_string(),
         VoteRestart => "Restart".to_string(),
         Force(_) => "Force".to_string(),

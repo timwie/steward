@@ -30,6 +30,7 @@ pub struct Controller {
     players: PlayerController,
     prefs: PreferenceController,
     queue: QueueController,
+    schedule: ScheduleController,
     ranking: ServerRankController,
     records: RecordController,
     race: RaceController,
@@ -82,6 +83,17 @@ impl Controller {
         let records = RecordController::init(&server, &db, &live_playlist, &live_players).await;
         let live_records = Arc::new(records.clone()) as Arc<dyn LiveRecords>;
 
+        let schedule = ScheduleController::init(
+            &server,
+            &db,
+            &live_playlist,
+            &live_queue,
+            &live_records,
+            &live_settings,
+        )
+        .await;
+        let live_schedule = Arc::new(schedule.clone()) as Arc<dyn LiveSchedule>;
+
         let race = RaceController::init(&server, &live_players).await;
         let live_race = Arc::new(race.clone()) as Arc<dyn LiveRace>;
 
@@ -95,6 +107,7 @@ impl Controller {
             &live_server_ranking,
             &live_prefs,
             &live_queue,
+            &live_schedule,
         )
         .await;
 
@@ -109,6 +122,7 @@ impl Controller {
             players,
             prefs,
             queue,
+            schedule,
             ranking,
             records,
             race,
@@ -149,10 +163,16 @@ impl Controller {
                     .current_map()
                     .await
                     .expect("server loaded map that was not in playlist");
-                let ev = ControllerEvent::BeginIntro {
-                    loaded_map,
-                    is_restart,
-                };
+
+                if is_restart {
+                    let ev = ControllerEvent::EndOutro;
+                    self.on_controller_event(ev).await;
+                } else {
+                    let ev = ControllerEvent::BeginMap { loaded_map };
+                    self.on_controller_event(ev).await;
+                }
+
+                let ev = ControllerEvent::BeginIntro;
                 self.on_controller_event(ev).await;
             }
 
@@ -160,13 +180,13 @@ impl Controller {
                 let ev = ControllerEvent::EndOutro;
                 self.on_controller_event(ev).await;
 
-                let next_index = self.server.playlist_next_index().await;
-                self.playlist.set_index(next_index).await;
+                let ev = ControllerEvent::EndMap;
+                self.on_controller_event(ev).await;
             }
 
             ServerEvent::RaceEnd => {
                 let vote_duration = self.settings.vote_duration().await;
-                let min_restart_vote_ratio = self.queue.current_min_restart_vote_ratio().await;
+                let min_restart_vote_ratio = self.queue.lock().await.min_restart_vote_ratio;
                 let vote_info = VoteInfo {
                     duration: vote_duration,
                     min_restart_vote_ratio,
@@ -174,32 +194,34 @@ impl Controller {
 
                 let outro_ev = ControllerEvent::BeginOutro { vote: vote_info };
                 self.on_controller_event(outro_ev).await;
-                {
-                    // Delay for the duration of the vote.
-                    // Spawn a task to not block the callback loop.
-                    let controller = self.clone(); // 'self' with 'static lifetime
-                    let _ = tokio::spawn(async move {
-                        log::debug!("start vote");
-                        tokio::time::delay_for(vote_duration).await;
-                        log::debug!("end vote");
-                        controller.queue.update_queue().await;
 
-                        let end_vote_ev = ControllerEvent::EndVote {
-                            queue_preview: controller.queue.peek().await,
-                        };
-                        controller.on_controller_event(end_vote_ev).await;
-                    });
-                };
-                {
-                    // Spawn a task to re-calculate the server ranking,
-                    // which could be expensive, depending on how we do it.
-                    let controller = self.clone(); // 'self' with 'static lifetime
-                    let _ = tokio::spawn(async move {
-                        let ranking_change = controller.ranking.update().await;
-                        let new_ranking_ev = ControllerEvent::NewServerRanking(ranking_change);
-                        controller.on_controller_event(new_ranking_ev).await;
-                    });
-                }
+                // Delay for the duration of the vote.
+                // Spawn a task to not block the callback loop.
+                let controller = self.clone(); // 'self' with 'static lifetime
+                let _ = tokio::spawn(async move {
+                    log::debug!("start vote");
+                    tokio::time::delay_for(vote_duration).await;
+                    log::debug!("end vote");
+
+                    // Sort the queue, now that all restart votes have been cast.
+                    // The next map is now at the top of the queue.
+                    if let Some(diff) = controller.queue.sort_queue().await {
+                        let ev = ControllerEvent::NewQueue(diff);
+                        controller.on_controller_event(ev).await;
+                    }
+
+                    let end_vote_ev = ControllerEvent::EndVote;
+                    controller.on_controller_event(end_vote_ev).await;
+                });
+
+                // Spawn a task to re-calculate the server ranking,
+                // which could be expensive, depending on how we do it.
+                let controller = self.clone(); // 'self' with 'static lifetime
+                let _ = tokio::spawn(async move {
+                    let ranking_change = controller.ranking.update().await;
+                    let new_ranking_ev = ControllerEvent::NewServerRanking(ranking_change);
+                    controller.on_controller_event(new_ranking_ev).await;
+                });
             }
 
             ServerEvent::RunStartline { player_login } => {
@@ -291,16 +313,14 @@ impl Controller {
                 self.widget.end_run_outro_for(&player_login).await;
             }
 
-            ControllerEvent::BeginIntro {
-                loaded_map,
-                is_restart,
-            } => {
-                self.race.reset().await;
-                self.prefs.reset_restart_votes().await;
+            ControllerEvent::BeginMap { loaded_map } => {
+                self.records.load_for_map(&loaded_map).await;
+            }
 
-                if !is_restart {
-                    self.records.load_for_map(&loaded_map).await;
-                }
+            ControllerEvent::BeginIntro => {
+                self.race.reset().await;
+
+                self.schedule.set_time_limit().await;
 
                 self.widget.begin_intro().await;
             }
@@ -323,8 +343,29 @@ impl Controller {
                 self.widget.end_outro().await;
             }
 
-            ControllerEvent::EndVote { queue_preview } => {
+            ControllerEvent::EndMap => {
+                // Update the current map
+                let next_index = self.server.playlist_next_index().await;
+                self.playlist.set_index(next_index).await;
+
+                // Re-sort the queue: the current map will move to the back.
+                if let Some(diff) = self.queue.sort_queue().await {
+                    let ev = ControllerEvent::NewQueue(diff);
+                    self.on_controller_event(ev).await;
+                }
+            }
+
+            ControllerEvent::EndVote => {
+                self.prefs.reset_restart_votes().await;
+
+                let queue_preview = self.queue.peek().await;
                 self.widget.end_vote(queue_preview).await;
+
+                self.queue.pop_front().await;
+            }
+
+            ControllerEvent::NewQueue(diff) => {
+                self.widget.refresh_queue_and_schedule(&diff).await;
             }
 
             ControllerEvent::NewPlayerList(diff) => {
@@ -333,9 +374,19 @@ impl Controller {
                 self.widget.refresh_for_player(&diff).await;
             }
 
-            ControllerEvent::NewPlaylist(diff) => {
-                self.queue.insert_or_remove(&diff).await;
-                self.prefs.update_for_map(&diff).await;
+            ControllerEvent::NewPlaylist(playlist_diff) => {
+                // Update active preferences. This has to happen before re-sorting the queue.
+                self.prefs.update_for_map(&playlist_diff).await;
+
+                // Re-sort the map queue.
+                let queue_diff = self.queue.insert_or_remove(&playlist_diff).await;
+                let ev = ControllerEvent::NewQueue(queue_diff);
+                self.on_controller_event(ev).await;
+
+                // Add or remove the map from the schedule.
+                self.schedule.insert_or_remove(&playlist_diff).await;
+
+                // Update playlist UI.
                 self.widget.refresh_playlist().await;
 
                 // At this point, we could update the server ranking, since adding &
@@ -390,6 +441,12 @@ impl Controller {
                     value: preference,
                 };
                 self.prefs.set_preference(pref).await;
+
+                self.queue.sort_queue().await;
+                if let Some(diff) = self.queue.sort_queue().await {
+                    let ev = ControllerEvent::NewQueue(diff);
+                    self.on_controller_event(ev).await;
+                }
             }
             VoteRestart { vote } => {
                 self.prefs.set_restart_vote(player.uid, vote).await;
@@ -500,7 +557,10 @@ impl Controller {
             }
 
             RestartCurrentMap => {
-                if self.queue.force_restart().await {
+                if let Some(diff) = self.queue.force_restart().await {
+                    let ev = ControllerEvent::NewQueue(diff);
+                    self.on_controller_event(ev).await;
+
                     self.chat
                         .announce(ServerMessage::ForceRestart {
                             admin_name: &from_nick_name.formatted,
@@ -519,15 +579,21 @@ impl Controller {
                         return;
                     }
                 };
-                let map = playlist.at_index(playlist_index).unwrap();
+                let map = playlist
+                    .at_index(playlist_index)
+                    .expect("no map at this playlist index");
 
-                self.queue.force_queue(playlist_index).await;
-                self.chat
-                    .announce(ServerMessage::ForceQueued {
-                        admin_name: &from_nick_name.formatted,
-                        map_name: &map.name.formatted,
-                    })
-                    .await;
+                if let Some(diff) = self.queue.force_queue(playlist_index).await {
+                    let ev = ControllerEvent::NewQueue(diff);
+                    self.on_controller_event(ev).await;
+
+                    self.chat
+                        .announce(ServerMessage::ForceQueued {
+                            admin_name: &from_nick_name.formatted,
+                            map_name: &map.name.formatted,
+                        })
+                        .await;
+                }
             }
 
             SetRaceDuration(secs) => {

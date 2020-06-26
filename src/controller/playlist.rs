@@ -287,6 +287,7 @@ impl PlaylistController {
             file_name,
             name: GameString::from(import_map.metadata.name.trim().to_string()),
             author_login: map_info.author_login,
+            author_millis: map_info.author_millis,
             added_since: SystemTime::now(),
             in_playlist: true,
             exchange_id: Some(import_map.metadata.exchange_id),

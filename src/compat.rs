@@ -5,11 +5,13 @@ use std::io::Read;
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use gbx::MapInfo;
+
 use crate::config::{Config, BLACKLIST_FILE, MAX_GHOST_REPLAY_RANK, VERSION};
 use crate::database::{Database, Map, MapEvidence};
 use crate::network::exchange_id;
 use crate::server::{
-    MapInfo, ModeInfo, ModeOptions, Server, ServerInfo, ServerOptions, SCRIPT_API_VERSION,
+    ModeInfo, ModeOptions, PlaylistMap, Server, ServerInfo, ServerOptions, SCRIPT_API_VERSION,
     SERVER_API_VERSION,
 };
 
@@ -271,18 +273,17 @@ async fn fs_maps_to_db(server: &Arc<dyn Server>, db: &Arc<dyn Database>) {
     log::debug!("local map files: {:?}", &map_file_names);
     server.playlist_add_all(map_file_names).await;
 
-    // now we can query map infos
-    let map_infos: Vec<MapInfo> = server
+    let server_maps: Vec<PlaylistMap> = server
         .playlist()
         .await
         .into_iter()
         .filter(|info| !info.is_campaign_map())
         .collect();
-    log::debug!("local map infos: {:?}", &map_infos);
+    log::debug!("local maps: {:?}", &maps);
 
     // Insert new maps & update file paths of those already in the database.
-    for info in map_infos.into_iter() {
-        let map_file = maps_dir.join(&info.file_name);
+    for server_map in server_maps.into_iter() {
+        let map_file = maps_dir.join(&server_map.file_name);
 
         // At this point, the playlist can actually still contain maps
         // that had their file deleted. Ignore those.
@@ -290,8 +291,13 @@ async fn fs_maps_to_db(server: &Arc<dyn Server>, db: &Arc<dyn Database>) {
             continue;
         }
 
+        let map_info = server
+            .map(&server_map.file_name)
+            .await
+            .expect("failed to fetch map info");
+
         let map_data = read_to_bytes(&map_file).expect("failed to read map file");
-        fs_map_to_db(info, map_data, &db).await;
+        fs_map_to_db(map_info, map_data, &db).await;
     }
 }
 

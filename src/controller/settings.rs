@@ -28,10 +28,14 @@ pub trait LiveSettings: Send + Sync {
             || cfg.super_admin_whitelist.contains(&login.to_string())
     }
 
-    /// The time within the outro in which players can vote
-    /// for a restart.
+    /// The time within the outro in which players can vote for a restart.
     async fn vote_duration(&self) -> Duration {
         Duration::from_secs(self.lock_config().await.vote_duration_secs() as u64)
+    }
+
+    /// The duration of the outro at the end of a map.
+    async fn outro_duration(&self) -> Duration {
+        Duration::from_secs(self.lock_config().await.outro_duration_secs as u64)
     }
 
     /// The `.../UserData/Maps` server directory.
@@ -59,6 +63,7 @@ impl SettingsController {
         (*cfg).save(); // write to file
 
         // Sync with server
+        // TODO schedule: edit_config currently overwrites the time limit
         let mut mode_options = self.server.mode_options().await;
         mode_options.chat_time_secs = cfg.outro_duration_secs as i32;
         mode_options.time_limit_secs = cfg.race_duration_secs as i32;

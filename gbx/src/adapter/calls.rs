@@ -114,7 +114,7 @@ impl Calls for RpcClient {
         self.call_method("GetMapInfo", args!(file_name)).await
     }
 
-    async fn playlist(&self) -> Vec<MapInfo> {
+    async fn playlist(&self) -> Vec<PlaylistMap> {
         self.call_method_unwrap(
             "GetMapList",
             args!(-1, 0), // length, offset
@@ -155,7 +155,7 @@ impl Calls for RpcClient {
     }
 
     async fn playlist_replace(&self, map_file_names: Vec<&str>) {
-        let prev_maps: Vec<MapInfo> = self
+        let prev_maps: Vec<PlaylistMap> = self
             .call_method_unwrap(
                 "GetMapList",
                 args!(-1, 0), // length, offset
