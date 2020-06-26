@@ -23,6 +23,7 @@ CREATE TABLE steward.map (
     file            BYTEA     NOT NULL,
     name            TEXT      NOT NULL,
     author_login    TEXT      NOT NULL,
+    author_millis   INTEGER   NOT NULL,
     added_since     TIMESTAMP NOT NULL,
     in_playlist     BOOLEAN   NOT NULL DEFAULT true,
     exchange_id     INTEGER   DEFAULT NULL, -- for maps imported from trackmania.exchange

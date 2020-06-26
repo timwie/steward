@@ -3,7 +3,9 @@ use std::time::SystemTime;
 use postgres_types::{FromSql, ToSql};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 
-use crate::server::{GameString, MapInfo};
+use gbx::MapInfo;
+
+use crate::server::GameString;
 
 /// Database player that has joined the server at least once.
 #[derive(Debug)]
@@ -30,6 +32,10 @@ pub struct Map {
     /// The map author's login.
     pub author_login: String,
 
+    /// The "author time" in milliseconds. This is the time the map
+    /// was validated with in the map editor.
+    pub author_millis: i32,
+
     /// The moment this map was added to the database.
     pub added_since: SystemTime,
 
@@ -47,6 +53,7 @@ impl From<MapInfo> for Map {
             file_name: info.file_name,
             name: info.name,
             author_login: info.author_login,
+            author_millis: info.author_millis,
             added_since: SystemTime::now(),
             in_playlist: true,
             exchange_id: None,

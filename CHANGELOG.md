@@ -18,6 +18,13 @@ All `0.1.0-alpha` releases are unstable, and have missing widgets.
   - Displays the difference of the player's personal best to the top record time.
   - Displays the player's current map rank.
   - Displays the player's current server rank.
+  
+- Dynamic time limits
+  - Instead of having the same time limit for every map, it will now be
+    set to a duration that depends on the length of the track.
+  - Use author time or top record, multiply it by a factor (default 10).
+  - Round to a multiple of 30 seconds.
+  - Keep it to a minimum (default 5 minutes) and a maximum (default 15 minutes).
 
 ### Changed
 - **Widget**: Sector Times

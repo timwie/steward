@@ -134,7 +134,7 @@ impl Queries for PostgresClient {
     async fn maps(&self) -> Result<Vec<Map>> {
         let conn = self.0.get().await?;
         let stmt = r#"
-            SELECT uid, file_name, name, author_login, added_since, in_playlist, exchange_id
+            SELECT uid, file_name, name, author_login, author_millis, added_since, in_playlist, exchange_id
             FROM steward.map
         "#;
         let rows = conn.query(stmt, &[]).await?;
@@ -145,7 +145,7 @@ impl Queries for PostgresClient {
     async fn playlist(&self) -> Result<Vec<Map>> {
         let conn = self.0.get().await?;
         let stmt = r#"
-            SELECT uid, file_name, name, author_login, added_since, in_playlist, exchange_id
+            SELECT uid, file_name, name, author_login, author_millis, added_since, in_playlist, exchange_id
             FROM steward.map
             WHERE in_playlist = True
         "#;
@@ -157,7 +157,7 @@ impl Queries for PostgresClient {
     async fn map(&self, map_uid: &str) -> Result<Option<Map>> {
         let conn = self.0.get().await?;
         let stmt = r#"
-            SELECT uid, file_name, name, author_login, added_since, in_playlist, exchange_id
+            SELECT uid, file_name, name, author_login, author_millis, added_since, in_playlist, exchange_id
             FROM steward.map
             WHERE uid = $1
         "#;
@@ -170,12 +170,12 @@ impl Queries for PostgresClient {
         let stmt = r#"
             INSERT INTO steward.map
                 (uid, file_name, file,
-                 name, author_login, added_since,
-                 in_playlist, exchange_id)
+                 name, author_login, author_millis,
+                 added_since, in_playlist, exchange_id)
             VALUES
                 ($1, $2, $3,
                  $4, $5, $6,
-                 $7, $8)
+                 $7, $8, $9)
             ON CONFLICT (uid)
             DO UPDATE SET
                 file_name = excluded.file_name,
@@ -190,6 +190,7 @@ impl Queries for PostgresClient {
                     &map.data,
                     &map.metadata.name.formatted.trim(),
                     &map.metadata.author_login,
+                    &map.metadata.author_millis,
                     &map.metadata.added_since,
                     &map.metadata.in_playlist,
                     &map.metadata.exchange_id,
@@ -590,6 +591,7 @@ impl From<Row> for Map {
             file_name: row.get("file_name"),
             name: GameString::from(row.get("name")),
             author_login: row.get("author_login"),
+            author_millis: row.get("author_millis"),
             added_since: row.get("added_since"),
             in_playlist: row.get("in_playlist"),
             exchange_id: row.get("exchange_id"),

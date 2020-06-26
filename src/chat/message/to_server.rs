@@ -109,10 +109,7 @@ impl ServerMessage<'_> {
                 nick_name: &info.nick_name.formatted,
             }),
 
-            BeginIntro {
-                loaded_map,
-                is_restart: false,
-            } => Some(CurrentMap {
+            BeginMap { loaded_map } => Some(CurrentMap {
                 name: &loaded_map.name.formatted,
                 author: &loaded_map.author_login,
             }),
