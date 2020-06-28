@@ -34,15 +34,7 @@ pub trait LivePlayers: Send + Sync {
 
     /// Return the UIDs for all connected players.
     async fn uid_all(&self) -> HashSet<i32> {
-        let state = self.lock().await;
-        state
-            .playing
-            .union(&state.spectating)
-            .copied()
-            .collect::<HashSet<i32>>()
-            .union(&state.pure_spectating)
-            .copied()
-            .collect()
+        self.lock().await.uid_all()
     }
 
     /// Return the UIDs for all connected players that are not spectating.
@@ -101,6 +93,17 @@ impl PlayersState {
     /// or `None` if no such player is connected.
     pub fn uid(&self, login: &str) -> Option<&i32> {
         self.login_to_uid.get(login)
+    }
+
+    /// Return the UIDs for all connected players.
+    pub fn uid_all(&self) -> HashSet<i32> {
+        self.playing
+            .union(&self.spectating)
+            .copied()
+            .collect::<HashSet<i32>>()
+            .union(&self.pure_spectating)
+            .copied()
+            .collect()
     }
 
     /// Return detailed information for the given login.

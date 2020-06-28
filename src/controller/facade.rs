@@ -333,11 +333,15 @@ impl Controller {
             ControllerEvent::EndRun { pb_diff } => {
                 self.widget.begin_run_outro_for(&pb_diff).await;
                 self.widget.refresh_personal_best(&pb_diff).await;
-                self.prefs.remove_auto_pick(pb_diff.player_uid).await;
+
+                if let Some(map_uid) = &self.playlist.current_map_uid().await {
+                    self.prefs.update_history(pb_diff.player_uid, map_uid).await;
+                }
             }
 
             ControllerEvent::BeginOutro { vote } => {
                 self.widget.begin_outro_and_vote(&vote).await;
+                let _ = self.race.reset().await;
             }
 
             ControllerEvent::EndOutro => {

@@ -1,3 +1,4 @@
+use std::convert::TryFrom;
 use std::str::FromStr;
 use std::sync::Arc;
 
@@ -120,6 +121,48 @@ impl Queries for PostgresClient {
         Ok(())
     }
 
+    async fn add_history(&self, player_login: &str, map_uid: &str) -> Result<()> {
+        let conn = self.0.get().await?;
+        let stmt = r#"
+            INSERT INTO steward.history
+                (player_login, map_uid)
+            VALUES
+                ($1, $2)
+            ON CONFLICT (player_login, map_uid)
+            DO UPDATE SET
+                last_played = CURRENT_TIMESTAMP
+        "#;
+        let _ = conn.execute(stmt, &[&player_login, &map_uid]).await?;
+        Ok(())
+    }
+
+    async fn history(&self, player_login: &str) -> Result<Vec<History>> {
+        let conn = self.0.get().await?;
+        let stmt = r#"
+            SELECT
+                m.uid map_uid,
+                h.last_played,
+                RANK () OVER (
+                    ORDER BY h.last_played DESC NULLS LAST
+                ) - 1 nb_maps_since
+            FROM steward.map m
+            LEFT JOIN steward.history h ON m.uid = h.map_uid
+            WHERE h.player_login is NULL OR h.player_login = $1
+        "#;
+        let rows = conn.query(stmt, &[&player_login]).await?;
+        let result = rows
+            .into_iter()
+            .map(|row| History {
+                player_login: player_login.to_string(),
+                map_uid: row.get("map_uid"),
+                last_played: row.get("last_played"),
+                nb_maps_since: usize::try_from(row.get::<_, i64>("nb_maps_since"))
+                    .expect("failed to convert nb_maps_since"),
+            })
+            .collect();
+        Ok(result)
+    }
+
     async fn map_files(&self) -> Result<Vec<MapEvidence>> {
         let conn = self.0.get().await?;
         let stmt = r#"
@@ -147,7 +190,7 @@ impl Queries for PostgresClient {
         let stmt = r#"
             SELECT uid, file_name, name, author_login, author_millis, added_since, in_playlist, exchange_id
             FROM steward.map
-            WHERE in_playlist = True
+            WHERE in_playlist
         "#;
         let rows = conn.query(stmt, &[]).await?;
         let maps = rows.into_iter().map(Map::from).collect();

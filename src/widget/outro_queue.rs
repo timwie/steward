@@ -1,6 +1,7 @@
-use serde::{Serialize, Serializer};
+use serde::Serialize;
 
 use crate::controller::{ActivePreferenceValue, QueuePriority};
+use crate::widget::ser::format_queue_priority;
 use crate::widget::Widget;
 
 /// A widget displayed at the start of the outro, that lets
@@ -43,23 +44,8 @@ pub struct OutroQueueEntry<'a> {
     pub map_name: &'a str,
 
     /// The priority can convey why a map will be queued.
-    #[serde(serialize_with = "format_priority")]
+    #[serde(serialize_with = "format_queue_priority")]
     pub priority: QueuePriority,
-}
-
-fn format_priority<S>(p: &QueuePriority, s: S) -> Result<S::Ok, S::Error>
-where
-    S: Serializer,
-{
-    use QueuePriority::*;
-    let str = match p {
-        NoRestart => "Playing Now".to_string(),
-        VoteRestart => "Restart".to_string(),
-        Force(_) => "Force".to_string(),
-        Score(score) if *score >= 0 => format!("+{}", *score),
-        Score(score) => score.to_string(),
-    };
-    s.serialize_str(&str)
 }
 
 impl Widget for OutroQueueVoteWidget {

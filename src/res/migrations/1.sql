@@ -32,6 +32,16 @@ CREATE TABLE steward.map (
     UNIQUE (file_name)
 );
 
+CREATE TABLE steward.history (
+    player_login TEXT,
+    map_uid      TEXT,
+    last_played  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    PRIMARY KEY (player_login, map_uid),
+    FOREIGN KEY (player_login) REFERENCES steward.player (login),
+    FOREIGN KEY (map_uid)      REFERENCES steward.map (uid)
+);
+
 CREATE TYPE steward.Pref AS ENUM (
     'Pick',
     'Veto',

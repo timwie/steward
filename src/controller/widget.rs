@@ -382,6 +382,9 @@ impl WidgetController {
                 max_map_rank: nb_records,
                 player_preference: preferences.pref(id, &map.uid),
                 preference_counts: preference_counts.clone(),
+                last_played: preferences
+                    .history(id, &map.uid)
+                    .and_then(|h| h.last_played),
             };
             self.show_for(&widget, id).await;
         }
@@ -399,10 +402,11 @@ impl WidgetController {
         let records = self.live_records.lock().await;
         let playlist = self.live_playlist.lock().await;
         let server_ranking = self.live_server_ranking.lock().await;
+        let prefs = self.live_prefs.lock().await;
 
         let map_ranking = self.curr_map_ranking(&*records, &player).await;
         let server_ranking = self.curr_server_ranking(&*server_ranking, &player).await;
-        let map_list = self.curr_map_list(&*playlist, &player).await;
+        let map_list = self.curr_map_list(&*playlist, &*prefs, &player).await;
 
         let menu = ToggleMenuWidget {
             map_ranking,
@@ -611,11 +615,13 @@ impl WidgetController {
     async fn curr_map_list<'a>(
         &self,
         playlist: &'a PlaylistState,
+        prefs: &'a PreferenceState,
         player: &'a PlayerInfo,
     ) -> MapList<'a> {
         let curr_map_uid = playlist.current_map().map(|m| &m.uid);
         let mut maps = join_all(playlist.maps().iter().map(|map| async move {
-            let preference = self.live_prefs.lock().await.pref(player.uid, &map.uid);
+            let preference = prefs.pref(player.uid, &map.uid);
+            let history = prefs.history(player.uid, &map.uid);
             let nb_records = self
                 .db
                 .nb_records(&map.uid)
@@ -636,6 +642,7 @@ impl WidgetController {
                 map_rank,
                 added_since: map.added_since,
                 is_current_map: Some(&map.uid) == curr_map_uid,
+                last_played: history.and_then(|h| h.last_played),
                 queue_pos: self
                     .live_queue
                     .pos(&map.uid)
