@@ -17,6 +17,13 @@ pub trait Queries: Send + Sync {
     /// Update their nick name if the player already exists.
     async fn upsert_player(&self, player: &PlayerInfo) -> Result<()>;
 
+    /// Update a player's history, setting *now* as the time they most recently
+    /// played the specified map.
+    async fn add_history(&self, player_login: &str, map_uid: &str) -> Result<()>;
+
+    /// Returns the player's history for each map currently in the playlist.
+    async fn history(&self, player_login: &str) -> Result<Vec<History>>;
+
     /// List all maps, including their file data.
     async fn map_files(&self) -> Result<Vec<MapEvidence>>;
 
@@ -138,13 +145,14 @@ pub mod test {
     use std::collections::{HashMap, HashSet};
     use std::sync::Arc;
 
+    use chrono::Utc;
+
     use async_trait::async_trait;
 
     use crate::database::Database;
     use crate::server::GameString;
 
     use super::*;
-    use chrono::Utc;
 
     pub struct MockDatabase {
         pub maps: Vec<MapEvidence>,
@@ -180,6 +188,7 @@ pub mod test {
                     name: GameString::from("".to_string()),
                     author_login: "".to_string(),
                     added_since: Utc::now().naive_utc(),
+                    author_millis: 0,
                     in_playlist,
                     exchange_id: None,
                 },
@@ -227,6 +236,13 @@ pub mod test {
         }
 
         async fn upsert_player(&self, _player: &PlayerInfo) -> Result<()> {
+            unimplemented!()
+        }
+
+        async fn add_history(&self, _player_login: &str, _map_uid: &str) -> Result<()> {
+            unimplemented!()
+        }
+        async fn history(&self, _player_login: &str) -> Result<Vec<History>> {
             unimplemented!()
         }
 

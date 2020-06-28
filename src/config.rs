@@ -105,7 +105,7 @@ pub const MAX_NB_ANNOUNCED_RANKS: usize = 3;
 ///
 /// The idea is that we maximize the time you can display widgets in-between runs,
 /// but still keep it low enough so that it is not a distraction when starting the next.
-pub const START_HIDE_WIDGET_DELAY_MILLIS: u64 = 1500;
+pub const START_HIDE_WIDGET_DELAY_MILLIS: i64 = 1500;
 
 /// The file that will contain the list of blacklisted players.
 pub const BLACKLIST_FILE: &str = "blacklist.txt";
@@ -144,8 +144,15 @@ pub struct Config {
     /// List of player logins that can execute admin commands.
     pub admin_whitelist: Vec<String>,
 
-    /// The Time Attack time limit in seconds.
-    pub race_duration_secs: u32,
+    /// To calculate the time limit of a map, this factor is applied to either the
+    /// author time or the top record.
+    pub timelimit_factor: u32,
+
+    /// The maximum time limit in seconds.
+    pub timelimit_max_secs: u32,
+
+    /// The minimum time limit in seconds.
+    pub timelimit_min_secs: u32,
 
     /// The time spent on a map after the race ends in seconds.
     /// Overrides the `S_ChatTime` mode setting.
@@ -186,10 +193,17 @@ impl Config {
     /// - when `STEWARD_CONFIG` is not set
     /// - when the file cannot be overwritten
     pub fn save(&self) {
+        let mut config_str = toml::to_string(&self).expect("failed to compose config file");
+
+        // Since all comments are removed from a previous config file,
+        // we can at least add a link to the default config.
+        let reference_link =
+            "# Reference: https://github.com/timwie/steward/blob/master/config/steward.toml\n";
+        config_str.insert_str(0, reference_link);
+
         let f = Self::path().unwrap_or_else(|| {
             panic!("cannot locate config: use the '{}' env var", CONFIG_ENV_VAR)
         });
-        let config_str = toml::to_string(&self).expect("failed to compose config file");
         std::fs::write(f, config_str).expect("failed to overwrite config file");
     }
 

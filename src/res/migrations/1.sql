@@ -23,12 +23,23 @@ CREATE TABLE steward.map (
     file            BYTEA     NOT NULL,
     name            TEXT      NOT NULL,
     author_login    TEXT      NOT NULL,
+    author_millis   INTEGER   NOT NULL,
     added_since     TIMESTAMP NOT NULL,
     in_playlist     BOOLEAN   NOT NULL DEFAULT true,
     exchange_id     INTEGER   DEFAULT NULL, -- for maps imported from trackmania.exchange
 
     PRIMARY KEY (uid),
     UNIQUE (file_name)
+);
+
+CREATE TABLE steward.history (
+    player_login TEXT,
+    map_uid      TEXT,
+    last_played  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    PRIMARY KEY (player_login, map_uid),
+    FOREIGN KEY (player_login) REFERENCES steward.player (login),
+    FOREIGN KEY (map_uid)      REFERENCES steward.map (uid)
 );
 
 CREATE TYPE steward.Pref AS ENUM (

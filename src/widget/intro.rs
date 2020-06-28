@@ -1,7 +1,10 @@
-use serde::{Serialize, Serializer};
+use chrono::NaiveDateTime;
+use serde::Serialize;
 
 use crate::controller::ActivePreferenceValue;
 use crate::database::PreferenceValue;
+use crate::widget::ser::format_last_played;
+use crate::widget::ser::format_narrow;
 use crate::widget::Widget;
 
 /// An introductory widget that is displayed when a map
@@ -18,7 +21,7 @@ use crate::widget::Widget;
 #[derive(Serialize, Debug)]
 pub struct IntroWidget<'a> {
     /// The formatted map name.
-    #[serde(serialize_with = "to_narrow")]
+    #[serde(serialize_with = "format_narrow")]
     pub map_name: &'a str,
 
     /// The map author's login.
@@ -42,16 +45,13 @@ pub struct IntroWidget<'a> {
     /// Counts the preferences of any player for this map,
     /// connected or not.
     pub preference_counts: Vec<(PreferenceValue, usize)>,
+
+    /// The most recent time this player has played this map, or `None` if
+    /// they have never played it. "Playing" means "finishing" here.
+    #[serde(serialize_with = "format_last_played")]
+    pub last_played: Option<NaiveDateTime>,
 }
 
 impl Widget for IntroWidget<'_> {
     const FILE: &'static str = "intro.j2";
-}
-
-/// Remove formatting to make a text more narrow.
-fn to_narrow<S>(p: &str, s: S) -> Result<S::Ok, S::Error>
-where
-    S: Serializer,
-{
-    s.serialize_str(&p.replace("$o", "").replace("$w", ""))
 }

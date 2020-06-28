@@ -5,11 +5,13 @@ use std::io::Read;
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use gbx::MapInfo;
+
 use crate::config::{Config, BLACKLIST_FILE, MAX_GHOST_REPLAY_RANK, VERSION};
 use crate::database::{Database, Map, MapEvidence};
 use crate::network::exchange_id;
 use crate::server::{
-    MapInfo, ModeInfo, ModeOptions, Server, ServerInfo, ServerOptions, SCRIPT_API_VERSION,
+    ModeInfo, PlaylistMap, Server, ServerInfo, ServerOptions, SCRIPT_API_VERSION,
     SERVER_API_VERSION,
 };
 
@@ -21,7 +23,7 @@ pub async fn prepare(server: &Arc<dyn Server>, db: &Arc<dyn Database>, config: &
 
     prepare_rpc(server, config).await;
     prepare_server(server).await;
-    prepare_mode(server, config).await;
+    prepare_mode(server).await;
     prepare_db(db).await;
     prepare_playlist(server, db).await;
 
@@ -131,7 +133,7 @@ fn check_server_compat(info: ServerInfo) {
 
 /// Set & configure the game mode.
 /// Overwrite the default `<ui_properties>`.
-async fn prepare_mode(server: &Arc<dyn Server>, config: &Config) {
+async fn prepare_mode(server: &Arc<dyn Server>) {
     const TA_SCRIPT_TEXT: &str = include_str!("res/TimeAttack.Script.txt");
 
     log::debug!("prepare game mode...");
@@ -147,11 +149,9 @@ async fn prepare_mode(server: &Arc<dyn Server>, config: &Config) {
     log::info!("using mode:");
     log::info!("{:?}", server.mode().await);
 
-    let mut mode_options = server.mode_options().await;
-    add_mode_option_constraints(&config, &mut mode_options);
+    let mode_options = server.mode_options().await;
     log::info!("using mode options:");
     log::info!("{:?}", &mode_options);
-    server.set_mode_options(&mode_options).await;
 
     let ui_properties_xml = include_str!("res/UiProperties.xml");
     server.set_ui_properties(&ui_properties_xml).await;
@@ -182,12 +182,6 @@ fn check_mode_compat(info: ModeInfo) -> bool {
         log::warn!("mode has different version '{}'", info.version);
     }
     true
-}
-
-/// Set mode options according to this controller's config file.
-fn add_mode_option_constraints(config: &Config, options: &mut ModeOptions) {
-    options.chat_time_secs = config.outro_duration_secs as i32;
-    options.time_limit_secs = config.race_duration_secs as i32;
 }
 
 /// If needed, migrate the database to a newer version.
@@ -271,18 +265,17 @@ async fn fs_maps_to_db(server: &Arc<dyn Server>, db: &Arc<dyn Database>) {
     log::debug!("local map files: {:?}", &map_file_names);
     server.playlist_add_all(map_file_names).await;
 
-    // now we can query map infos
-    let map_infos: Vec<MapInfo> = server
+    let server_maps: Vec<PlaylistMap> = server
         .playlist()
         .await
         .into_iter()
         .filter(|info| !info.is_campaign_map())
         .collect();
-    log::debug!("local map infos: {:?}", &map_infos);
+    log::debug!("local maps: {:?}", &server_maps);
 
     // Insert new maps & update file paths of those already in the database.
-    for info in map_infos.into_iter() {
-        let map_file = maps_dir.join(&info.file_name);
+    for server_map in server_maps.into_iter() {
+        let map_file = maps_dir.join(&server_map.file_name);
 
         // At this point, the playlist can actually still contain maps
         // that had their file deleted. Ignore those.
@@ -290,8 +283,13 @@ async fn fs_maps_to_db(server: &Arc<dyn Server>, db: &Arc<dyn Database>) {
             continue;
         }
 
+        let map_info = server
+            .map(&server_map.file_name)
+            .await
+            .expect("failed to fetch map info");
+
         let map_data = read_to_bytes(&map_file).expect("failed to read map file");
-        fs_map_to_db(info, map_data, &db).await;
+        fs_map_to_db(map_info, map_data, &db).await;
     }
 }
 

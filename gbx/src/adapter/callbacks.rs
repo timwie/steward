@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use serde::Deserialize;
 use tokio::sync::mpsc::UnboundedSender as Sender;
 
@@ -50,6 +52,13 @@ fn forward_regular_callback(cb_out: &Sender<Callback>, call: Call) -> CallbackTy
         };
     }
 
+    #[derive(Deserialize)]
+    #[serde(rename_all = "PascalCase")]
+    struct Entry {
+        pub name: std::string::String,
+        pub value: std::string::String,
+    }
+
     match call.name.as_ref() {
         "ManiaPlanet.EndMatch" => {
             if let [Array(_rankings), Int(_winner_team)] = &call.args[..] {
@@ -89,11 +98,25 @@ fn forward_regular_callback(cb_out: &Sender<Callback>, call: Call) -> CallbackTy
             }
         }
         "ManiaPlanet.PlayerManialinkPageAnswer" => {
-            if let [Int(uid), String(login), String(answer), Array(_entries)] = &call.args[..] {
-                return success(PlayerAnswer {
+            if let [Int(uid), String(login), String(answer), Array(entries)] = &call.args[..] {
+                let entries: HashMap<std::string::String, std::string::String> = entries
+                    .iter()
+                    .map(|val| {
+                        let entry = from_value::<Entry>(val.clone())
+                            .unwrap_or_else(|_| panic!("unexpected signature for {:?}", call));
+                        (entry.name, entry.value)
+                    })
+                    .collect();
+
+                let answer = PlayerAnswer {
+                    answer: answer.clone(),
+                    entries,
+                };
+
+                return success(PlayerAnswered {
                     from_uid: *uid,
                     from_login: login.clone(),
-                    answer: answer.clone(),
+                    answer,
                 });
             }
         }

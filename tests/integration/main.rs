@@ -174,6 +174,9 @@ async fn test_nb_records_one_per_player() -> Result<()> {
 // TODO test delete_map
 // TODO test delete_old_ghosts
 
+// TODO test add_history
+// TODO test history
+
 #[tokio::test]
 async fn test_player_record_some() -> Result<()> {
     let db = clean_db().await?;
@@ -282,6 +285,7 @@ fn map_evidence(uid: &str, file_name: &str) -> MapEvidence {
             file_name: file_name.to_string(),
             name: GameString::from("".to_string()),
             author_login: "".to_string(),
+            author_millis: 0,
             added_since: now(),
             in_playlist: true,
             exchange_id: None,

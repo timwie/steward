@@ -11,6 +11,14 @@ Version numbers consist of `MAJOR.MINOR.PATCH`:
 ## 0.1.0-alpha4
 All `0.1.0-alpha` releases are unstable, and have missing widgets.
 
+### Updating
+- The controller config has changed:
+  - Refer to the new [default](https://github.com/timwie/steward/blob/v0.1.0-alpha4/config/steward.toml) config.
+  - Remove `race_duration_secs`.
+  - Add `timelimit_factor`, `timelimit_max_secs` and `timelimit_min_secs`. 
+- Clear your database with `DROP SCHEMA steward CASCADE`.
+  There are no migrations for `0.1.0-alpha` releases.
+  
 ### Added
 - **Widget**: Live Ranks
   - This widget is constantly displayed during a race.
@@ -18,6 +26,17 @@ All `0.1.0-alpha` releases are unstable, and have missing widgets.
   - Displays the difference of the player's personal best to the top record time.
   - Displays the player's current map rank.
   - Displays the player's current server rank.
+  
+- **Admin**: Dynamic time limits
+  - Instead of having the same time limit for every map, it will now be
+    set to a duration that depends on the length of the track.
+  - Use author time or top record, multiply it by a factor (default 10).
+  - Round to a multiple of 30 seconds.
+  - Keep it to a minimum (default 5 minutes) and a maximum (default 15 minutes).
+
+- **Chat**: Admin Commands
+  - `/config` brings up a text field that can be used to change settings.
+    Like the config file, it uses the TOML format.
 
 ### Changed
 - **Widget**: Sector Times
@@ -26,6 +45,9 @@ All `0.1.0-alpha` releases are unstable, and have missing widgets.
   - Entering a new sector is indicated below the CP diff in the center of the screen.
   - Removed map & author name next to sector diffs.
   - Removed background behind sector labels.
+
+### Removed
+- Commands `/set timelimit` and `/set chattime` are removed in favor of `/config`. 
 
 ### Fixed
 - Fixed a crash that occurred when setting a record while crossing at least one
@@ -37,8 +59,8 @@ All `0.1.0-alpha` releases are unstable, and have missing widgets.
 All `0.1.0-alpha` releases are unstable, and have missing widgets.
 
 ### Updating
-- Make the following changes to your controller config:
-  - Use `super_admin_whitelist` to list super admins, that have extended admin rights (see new commands).
+- The controller config has changed:
+  - Refer to the new [default](https://github.com/timwie/steward/blob/v0.1.0-alpha3/config/steward.toml) config. - Use `super_admin_whitelist` to list super admins, that have extended admin rights (see new commands).
   - Rename `super_admin_name` to `rpc_login`.
   - Rename `super_admin_pw` to `rpc_password`.
   - Remove `vote_duration_secs`. The vote duration is now a fixed ⅔ of `outro_duration_secs`.
@@ -203,3 +225,4 @@ All `0.1.0-alpha` releases are unstable, and have missing widgets.
 [0.1.0-alpha1]: https://github.com/timwie/steward/releases/tag/v0.1.0-alpha1
 [0.1.0-alpha2]: https://github.com/timwie/steward/releases/tag/v0.1.0-alpha2
 [0.1.0-alpha3]: https://github.com/timwie/steward/releases/tag/v0.1.0-alpha3
+[0.1.0-alpha4]: https://github.com/timwie/steward/releases/tag/v0.1.0-alpha4

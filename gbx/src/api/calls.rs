@@ -165,7 +165,7 @@ pub trait Calls: Send + Sync {
     ///
     /// Calls method:
     ///     GetMapList
-    async fn playlist(&self) -> Vec<MapInfo>;
+    async fn playlist(&self) -> Vec<PlaylistMap>;
 
     /// Fetch the current playlist index, or `None` if the current map is
     /// no longer in the playlist.

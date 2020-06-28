@@ -1,5 +1,6 @@
 use std::collections::HashMap;
-use std::time::Duration;
+
+use chrono::Duration;
 
 use crate::chat::{AdminCommand, PlayerCommand, SuperAdminCommand};
 use crate::controller::QueuePriority;
@@ -12,9 +13,11 @@ use crate::widget::Action;
 /// Many variants contain data that is used to update widgets.
 #[derive(Debug)]
 pub enum ControllerEvent<'a> {
-    /// Signals that a new map was loaded by the server, and the race
-    /// is about to begin.
-    BeginIntro { loaded_map: Map, is_restart: bool },
+    /// Signals that a new map was loaded by the server.
+    BeginMap { loaded_map: Map },
+
+    /// Signals that a new race is about to begin.
+    BeginIntro,
 
     /// Signals that a player has loaded the map, and is entering
     /// the race by starting their first run. This event is triggered at
@@ -33,11 +36,18 @@ pub enum ControllerEvent<'a> {
     /// concluded, and ends at some point before the map is unloaded.
     BeginOutro { vote: VoteInfo },
 
-    /// Signals that the current map will be unloaded.
+    /// Signals that the outro has ended, and that the current map will
+    /// either restart, or will be unloaded.
     EndOutro,
 
     /// Signals the end of the vote, and that the next map was decided.
-    EndVote { queue_preview: Vec<QueueMap> },
+    EndVote,
+
+    /// Signals that the current map will be unloaded.
+    EndMap,
+
+    /// Signals that the map queue has changed.
+    NewQueue(QueueDiff),
 
     /// Signals a player joining, leaving, or transitioning between playing
     /// and spectating.
@@ -53,9 +63,12 @@ pub enum ControllerEvent<'a> {
     IssuedCommand(Command<'a>),
 
     /// Signals that a player has issued an `Action`.
-    IssuedAction {
+    IssuedAction { from_login: &'a str, action: Action },
+
+    /// Signals that an admin edited the controller config.
+    ChangeConfig {
         from_login: &'a str,
-        action: Action<'a>,
+        change: ConfigDiff,
     },
 }
 
@@ -127,6 +140,14 @@ pub enum PlaylistDiff {
     Remove { was_index: usize, map: Map },
 }
 
+/// A change of the map queue.
+#[derive(Debug)]
+pub struct QueueDiff {
+    /// The first index in the map queue that has changed.
+    /// Front entries at lower indexes than this value remain unchanged.
+    pub first_changed_idx: usize,
+}
+
 /// Changes in server ranks for all connected players.
 #[derive(Debug)]
 pub struct ServerRankingDiff {
@@ -194,4 +215,19 @@ pub enum Command<'a> {
         from: &'a str,
         cmd: SuperAdminCommand,
     },
+}
+
+/// A change made to the controller config.
+#[derive(Debug)]
+pub enum ConfigDiff {
+    /// The settings that determine the time limit of each map
+    /// have changed.
+    NewTimeLimit {
+        timelimit_factor: u32,
+        timelimit_max_secs: u32,
+        timelimit_min_secs: u32,
+    },
+
+    /// The duration of the outro after a race has changed.
+    NewOutroDuration { secs: u32 },
 }

@@ -1,9 +1,10 @@
 use std::cmp::Ordering;
 
-use chrono::{NaiveDateTime, SubsecRound, Utc};
-use serde::{Serialize, Serializer};
+use chrono::NaiveDateTime;
+use serde::Serialize;
 
 use crate::controller::ActivePreferenceValue;
+use crate::widget::ser::{format_last_played, format_map_age, format_record_age};
 use crate::widget::Widget;
 
 /// A widget displayed during the race, that can be toggled
@@ -70,7 +71,7 @@ pub struct MapListEntry<'a> {
     pub map_rank: Option<usize>,
 
     /// The moment this map was added to the server.
-    #[serde(serialize_with = "format_duration_since")]
+    #[serde(serialize_with = "format_map_age")]
     pub added_since: NaiveDateTime,
 
     /// `True` if this map is currently being played.
@@ -88,6 +89,11 @@ pub struct MapListEntry<'a> {
     ///
     /// It can be read as "will be played in `<queue_pos>` maps".
     pub queue_pos: usize,
+
+    /// The most recent time this player has played this map, or `None` if
+    /// they have never played it. "Playing" means "finishing" here.
+    #[serde(serialize_with = "format_last_played")]
+    pub last_played: Option<NaiveDateTime>,
 }
 
 impl Ord for MapListEntry<'_> {
@@ -140,7 +146,7 @@ pub struct MapRankingEntry<'a> {
     pub millis: usize,
 
     /// The moment this record was set.
-    #[serde(serialize_with = "format_duration_since")]
+    #[serde(serialize_with = "format_record_age")]
     pub timestamp: NaiveDateTime,
 
     /// `True` if this is the player's own record.
@@ -179,33 +185,4 @@ pub struct ServerRankingEntry<'a> {
 
     /// `True` if this is the player's own rank.
     pub is_own: bool,
-}
-
-/// Serialize the duration since the given timestamp as a readable string.
-#[allow(clippy::trivially_copy_pass_by_ref)]
-fn format_duration_since<S>(x: &NaiveDateTime, s: S) -> Result<S::Ok, S::Error>
-where
-    S: Serializer,
-{
-    let now = Utc::now().naive_utc().round_subsecs(0);
-    let seconds_since = now.timestamp() - x.timestamp();
-    assert!(seconds_since >= 0);
-
-    let days_since = seconds_since / 60 / 60 / 24; // div rounds down
-    let weeks_since = days_since / 7;
-    let months_since = days_since / 30;
-
-    if days_since < 2 {
-        return s.serialize_str("New");
-    }
-    if weeks_since < 2 {
-        return s.serialize_str(&format!("{} days ago", days_since)); // "2..13 days ago"
-    }
-    if months_since < 2 {
-        return s.serialize_str(&format!("{} weeks ago", weeks_since)); // "2..8 weeks ago"
-    }
-    if months_since >= 12 {
-        return s.serialize_str("Long ago");
-    }
-    s.serialize_str(&format!("{} months ago", months_since)) // "2..11 months ago"
 }

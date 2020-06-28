@@ -2,7 +2,9 @@ use chrono::{NaiveDateTime, Utc};
 use postgres_types::{FromSql, ToSql};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 
-use crate::server::{GameString, MapInfo};
+use gbx::MapInfo;
+
+use crate::server::GameString;
 
 /// Database player that has joined the server at least once.
 #[derive(Debug, PartialEq)]
@@ -12,6 +14,20 @@ pub struct Player {
 
     /// Formatted nick name.
     pub nick_name: GameString,
+}
+
+/// Stores the most recent time a player has played a specific map.
+#[derive(Debug)]
+pub struct History {
+    pub player_login: String,
+    pub map_uid: String,
+
+    /// The time this player last played this map, or `None` if they have never played it.
+    pub last_played: Option<NaiveDateTime>,
+
+    /// The number of other maps played since `last_played`, which is a value in
+    /// `0..nb_total_maps`.
+    pub nb_maps_since: usize,
 }
 
 /// Database map.
@@ -28,6 +44,10 @@ pub struct Map {
 
     /// The map author's login.
     pub author_login: String,
+
+    /// The "author time" in milliseconds. This is the time the map
+    /// was validated with in the map editor.
+    pub author_millis: i32,
 
     /// The moment this map was added to the database.
     pub added_since: NaiveDateTime,
@@ -47,6 +67,7 @@ impl From<MapInfo> for Map {
             name: info.name,
             author_login: info.author_login,
             added_since: Utc::now().naive_utc(),
+            author_millis: info.author_millis,
             in_playlist: true,
             exchange_id: None,
         }

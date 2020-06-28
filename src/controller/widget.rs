@@ -1,13 +1,13 @@
 use std::sync::Arc;
-use std::time::Duration;
 
+use chrono::Duration;
 use futures::future::join_all;
 use tokio::sync::RwLock;
 
 use crate::chat::CommandResponse;
 use crate::config::{
-    MAX_DISPLAYED_MAP_RANKS, MAX_DISPLAYED_RACE_RANKS, MAX_DISPLAYED_SERVER_RANKS,
-    START_HIDE_WIDGET_DELAY_MILLIS,
+    MAX_DISPLAYED_IN_QUEUE, MAX_DISPLAYED_MAP_RANKS, MAX_DISPLAYED_RACE_RANKS,
+    MAX_DISPLAYED_SERVER_RANKS, START_HIDE_WIDGET_DELAY_MILLIS,
 };
 use crate::controller::*;
 use crate::database::{Database, PreferenceValue, RecordDetailed};
@@ -29,6 +29,7 @@ pub struct WidgetController {
     live_prefs: Arc<dyn LivePreferences>,
     live_server_ranking: Arc<dyn LiveServerRanking>,
     live_queue: Arc<dyn LiveQueue>,
+    live_schedule: Arc<dyn LiveSchedule>,
 }
 
 /// May be used to select the widgets that will be sent to a player
@@ -51,6 +52,7 @@ impl WidgetController {
         live_server_ranking: &Arc<dyn LiveServerRanking>,
         live_prefs: &Arc<dyn LivePreferences>,
         live_queue: &Arc<dyn LiveQueue>,
+        live_schedule: &Arc<dyn LiveSchedule>,
     ) -> Self {
         WidgetController {
             phase: Arc::new(RwLock::new(MapPhase::Race)),
@@ -63,6 +65,7 @@ impl WidgetController {
             live_server_ranking: live_server_ranking.clone(),
             live_prefs: live_prefs.clone(),
             live_queue: live_queue.clone(),
+            live_schedule: live_schedule.clone(),
         }
     }
 
@@ -209,6 +212,21 @@ impl WidgetController {
         }
     }
 
+    /// Update any widget that displays the server's map queue or schedule.
+    pub async fn refresh_queue_and_schedule(&self, diff: &QueueDiff) {
+        // TODO queue: update UI
+
+        // Only refresh schedule if there are visible changes
+        if diff.first_changed_idx < MAX_DISPLAYED_IN_QUEUE {
+            self.refresh_schedule().await;
+        }
+    }
+
+    /// Update any widget that displays the server's map schedule.
+    pub async fn refresh_schedule(&self) {
+        // TODO schedule: update UI
+    }
+
     /// Display a popup message to the specified player.
     pub async fn show_popup(&self, resp: CommandResponse<'_>, for_login: &str) {
         let mode = PopupMode::from(&resp);
@@ -279,7 +297,7 @@ impl WidgetController {
     {
         let server = self.server.clone();
         let _ = tokio::spawn(async move {
-            tokio::time::delay_for(delay).await;
+            tokio::time::delay_for(delay.to_std().expect("failed to hide widget with delay")).await;
             let res = server.send_manialink_to(&T::hidden(), for_uid).await;
             check_send_res(res);
         });
@@ -289,6 +307,7 @@ impl WidgetController {
         self.show_sector_diff_for(player).await;
         self.show_curr_rank_for(player).await;
         self.show_toggle_menu_for(player).await;
+        // TODO schedule: show widget here if it's a race widget
     }
 
     async fn hide_race_widgets_for(&self, for_uid: i32) {
@@ -303,6 +322,7 @@ impl WidgetController {
         self.hide::<SectorDiffWidget>().await;
         self.hide::<LiveRanksWidget>().await;
         self.hide::<ToggleMenuWidget>().await;
+        // TODO schedule: hide widget here if it's a race widget
     }
 
     async fn show_outro_widgets(&self, ev: &VoteInfo) {
@@ -362,6 +382,9 @@ impl WidgetController {
                 max_map_rank: nb_records,
                 player_preference: preferences.pref(id, &map.uid),
                 preference_counts: preference_counts.clone(),
+                last_played: preferences
+                    .history(id, &map.uid)
+                    .and_then(|h| h.last_played),
             };
             self.show_for(&widget, id).await;
         }
@@ -370,7 +393,7 @@ impl WidgetController {
     async fn hide_intro_widgets_for(&self, for_uid: i32) {
         self.hide_for_delayed::<IntroWidget>(
             for_uid,
-            Duration::from_millis(START_HIDE_WIDGET_DELAY_MILLIS),
+            Duration::milliseconds(START_HIDE_WIDGET_DELAY_MILLIS),
         )
         .await;
     }
@@ -379,10 +402,11 @@ impl WidgetController {
         let records = self.live_records.lock().await;
         let playlist = self.live_playlist.lock().await;
         let server_ranking = self.live_server_ranking.lock().await;
+        let prefs = self.live_prefs.lock().await;
 
         let map_ranking = self.curr_map_ranking(&*records, &player).await;
         let server_ranking = self.curr_server_ranking(&*server_ranking, &player).await;
-        let map_list = self.curr_map_list(&*playlist, &player).await;
+        let map_list = self.curr_map_list(&*playlist, &*prefs, &player).await;
 
         let menu = ToggleMenuWidget {
             map_ranking,
@@ -407,7 +431,7 @@ impl WidgetController {
         if let Some(uid) = self.live_players.uid(player_login).await {
             self.hide_for_delayed::<RunOutroWidget>(
                 uid,
-                Duration::from_millis(START_HIDE_WIDGET_DELAY_MILLIS),
+                Duration::milliseconds(START_HIDE_WIDGET_DELAY_MILLIS),
             )
             .await;
         }
@@ -591,11 +615,13 @@ impl WidgetController {
     async fn curr_map_list<'a>(
         &self,
         playlist: &'a PlaylistState,
+        prefs: &'a PreferenceState,
         player: &'a PlayerInfo,
     ) -> MapList<'a> {
         let curr_map_uid = playlist.current_map().map(|m| &m.uid);
         let mut maps = join_all(playlist.maps().iter().map(|map| async move {
-            let preference = self.live_prefs.lock().await.pref(player.uid, &map.uid);
+            let preference = prefs.pref(player.uid, &map.uid);
+            let history = prefs.history(player.uid, &map.uid);
             let nb_records = self
                 .db
                 .nb_records(&map.uid)
@@ -616,6 +642,7 @@ impl WidgetController {
                 map_rank,
                 added_since: map.added_since,
                 is_current_map: Some(&map.uid) == curr_map_uid,
+                last_played: history.and_then(|h| h.last_played),
                 queue_pos: self
                     .live_queue
                     .pos(&map.uid)

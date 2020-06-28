@@ -6,6 +6,7 @@ use crate::chat::{
     ADMIN_COMMAND_REFERENCE, PLAYER_COMMAND_REFERENCE, SUPER_ADMIN_COMMAND_REFERENCE,
 };
 use crate::config::Config;
+use crate::controller::PublicConfig;
 use crate::database::Map;
 use crate::server::{NetStats, PlayerInfo, ServerInfo};
 
@@ -37,12 +38,28 @@ pub enum CommandOutputResponse<'a> {
     /// Output for: `/help`
     PlayerCommandReference,
 
+    /// List the current config, so that an admin can edit it.
+    ///
+    /// Output for: `/config`
+    CurrentConfig { repr: &'a str },
+
+    /// Tell an admin that the config they submitted was invalid.
+    ///
+    /// Output for: `/config`, after submitting an invalid config
+    InvalidConfig {
+        tried_repr: &'a str,
+        error_msg: &'a str,
+    },
+
     /// List all maps in the database, and group maps in- and outside
     /// of the playlist.
     ///
     /// Output for `/maps`
     MapList(Vec<&'a Map>),
 
+    /// Lists logins and nicknames of connected players.
+    ///
+    /// Output for `/players`
     PlayerList(Vec<&'a PlayerInfo>),
 
     /// Information about server & controller.
@@ -51,7 +68,8 @@ pub enum CommandOutputResponse<'a> {
     Info {
         controller_version: &'a Version,
         most_recent_controller_version: &'a Version,
-        config: &'a Config,
+        private_config: &'a Config,
+        public_config: &'a PublicConfig,
         server_info: &'a ServerInfo,
         net_stats: &'a NetStats,
         blacklist: &'a Vec<String>,
@@ -172,6 +190,20 @@ impl Display for CommandResponse<'_> {
 
             Output(PlayerCommandReference) => write!(f, "{}", PLAYER_COMMAND_REFERENCE),
 
+            Output(CurrentConfig { repr }) => write!(f, "{}", repr),
+
+            Output(InvalidConfig {
+                tried_repr,
+                error_msg,
+            }) => {
+                writeln!(f, "# The config you entered is invalid:")?;
+                for line in error_msg.lines() {
+                    writeln!(f, "# {}", line)?;
+                }
+                writeln!(f)?;
+                write!(f, "{}", tried_repr)
+            }
+
             Error(InvalidPlaylistCommand(UnknownUid)) => write!(f, "No server map with this UID!"),
 
             Error(InvalidPlaylistCommand(UnknownImportId)) => {
@@ -241,7 +273,8 @@ impl Display for CommandResponse<'_> {
             Output(Info {
                 controller_version,
                 most_recent_controller_version,
-                config,
+                private_config,
+                public_config,
                 server_info,
                 net_stats,
                 blacklist,
@@ -259,21 +292,16 @@ impl Display for CommandResponse<'_> {
                 writeln!(f, "{:#?}", server_info)?;
                 writeln!(f)?;
 
-                writeln!(f, "Time limit: {} seconds", config.race_duration_secs)?;
-                writeln!(f, "Outro duration: {} seconds", config.race_duration_secs)?;
-                writeln!(
-                    f,
-                    "Outro vote duration: {} seconds",
-                    config.vote_duration_secs()
-                )?;
+                writeln!(f, "Config:")?;
+                write!(f, "{}", public_config.write())?;
                 writeln!(f)?;
 
                 writeln!(
                     f,
                     "Super Admins: {}",
-                    config.super_admin_whitelist.join(", ")
+                    private_config.super_admin_whitelist.join(", ")
                 )?;
-                writeln!(f, "Admins: {}", config.admin_whitelist.join(", "))?;
+                writeln!(f, "Admins: {}", private_config.admin_whitelist.join(", "))?;
                 writeln!(f, "Blacklisted: {}", blacklist.join(", "))
             }
 

@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use futures::future::join_all;
 use semver::Version;
 
 use async_recursion::async_recursion;
@@ -13,7 +14,7 @@ use crate::compat;
 use crate::config::{Config, BLACKLIST_FILE, VERSION};
 use crate::controller::*;
 use crate::database::{Database, Preference};
-use crate::event::{Command, ControllerEvent, PlaylistDiff, VoteInfo};
+use crate::event::{Command, ConfigDiff, ControllerEvent, PlaylistDiff, VoteInfo};
 use crate::network::most_recent_controller_version;
 use crate::server::{PlayerInfo, Server, ServerEvent};
 use crate::widget::Action;
@@ -30,6 +31,7 @@ pub struct Controller {
     players: PlayerController,
     prefs: PreferenceController,
     queue: QueueController,
+    schedule: ScheduleController,
     ranking: ServerRankController,
     records: RecordController,
     race: RaceController,
@@ -56,7 +58,7 @@ impl Controller {
 
         compat::prepare(&server, &db, &config).await;
 
-        let settings = SettingsController::init(&server, config);
+        let settings = SettingsController::init(&server, config).await;
         let live_settings = Arc::new(settings.clone()) as Arc<dyn LiveSettings>;
 
         let chat = ChatController::init(&server, &live_settings);
@@ -82,6 +84,17 @@ impl Controller {
         let records = RecordController::init(&server, &db, &live_playlist, &live_players).await;
         let live_records = Arc::new(records.clone()) as Arc<dyn LiveRecords>;
 
+        let schedule = ScheduleController::init(
+            &server,
+            &db,
+            &live_playlist,
+            &live_queue,
+            &live_records,
+            &live_settings,
+        )
+        .await;
+        let live_schedule = Arc::new(schedule.clone()) as Arc<dyn LiveSchedule>;
+
         let race = RaceController::init(&server, &live_players).await;
         let live_race = Arc::new(race.clone()) as Arc<dyn LiveRace>;
 
@@ -95,6 +108,7 @@ impl Controller {
             &live_server_ranking,
             &live_prefs,
             &live_queue,
+            &live_schedule,
         )
         .await;
 
@@ -109,6 +123,7 @@ impl Controller {
             players,
             prefs,
             queue,
+            schedule,
             ranking,
             records,
             race,
@@ -149,10 +164,16 @@ impl Controller {
                     .current_map()
                     .await
                     .expect("server loaded map that was not in playlist");
-                let ev = ControllerEvent::BeginIntro {
-                    loaded_map,
-                    is_restart,
-                };
+
+                if is_restart {
+                    let ev = ControllerEvent::EndOutro;
+                    self.on_controller_event(ev).await;
+                } else {
+                    let ev = ControllerEvent::BeginMap { loaded_map };
+                    self.on_controller_event(ev).await;
+                }
+
+                let ev = ControllerEvent::BeginIntro;
                 self.on_controller_event(ev).await;
             }
 
@@ -160,13 +181,13 @@ impl Controller {
                 let ev = ControllerEvent::EndOutro;
                 self.on_controller_event(ev).await;
 
-                let next_index = self.server.playlist_next_index().await;
-                self.playlist.set_index(next_index).await;
+                let ev = ControllerEvent::EndMap;
+                self.on_controller_event(ev).await;
             }
 
             ServerEvent::RaceEnd => {
                 let vote_duration = self.settings.vote_duration().await;
-                let min_restart_vote_ratio = self.queue.current_min_restart_vote_ratio().await;
+                let min_restart_vote_ratio = self.queue.lock().await.min_restart_vote_ratio;
                 let vote_info = VoteInfo {
                     duration: vote_duration,
                     min_restart_vote_ratio,
@@ -174,32 +195,37 @@ impl Controller {
 
                 let outro_ev = ControllerEvent::BeginOutro { vote: vote_info };
                 self.on_controller_event(outro_ev).await;
-                {
-                    // Delay for the duration of the vote.
-                    // Spawn a task to not block the callback loop.
-                    let controller = self.clone(); // 'self' with 'static lifetime
-                    let _ = tokio::spawn(async move {
-                        log::debug!("start vote");
-                        tokio::time::delay_for(vote_duration).await;
-                        log::debug!("end vote");
-                        controller.queue.update_queue().await;
 
-                        let end_vote_ev = ControllerEvent::EndVote {
-                            queue_preview: controller.queue.peek().await,
-                        };
-                        controller.on_controller_event(end_vote_ev).await;
-                    });
-                };
-                {
-                    // Spawn a task to re-calculate the server ranking,
-                    // which could be expensive, depending on how we do it.
-                    let controller = self.clone(); // 'self' with 'static lifetime
-                    let _ = tokio::spawn(async move {
-                        let ranking_change = controller.ranking.update().await;
-                        let new_ranking_ev = ControllerEvent::NewServerRanking(ranking_change);
-                        controller.on_controller_event(new_ranking_ev).await;
-                    });
-                }
+                // Delay for the duration of the vote.
+                // Spawn a task to not block the callback loop.
+                let controller = self.clone(); // 'self' with 'static lifetime
+                let _ = tokio::spawn(async move {
+                    log::debug!("start vote");
+                    tokio::time::delay_for(
+                        vote_duration.to_std().expect("failed to delay vote end"),
+                    )
+                    .await;
+                    log::debug!("end vote");
+
+                    // Sort the queue, now that all restart votes have been cast.
+                    // The next map is now at the top of the queue.
+                    if let Some(diff) = controller.queue.sort_queue().await {
+                        let ev = ControllerEvent::NewQueue(diff);
+                        controller.on_controller_event(ev).await;
+                    }
+
+                    let end_vote_ev = ControllerEvent::EndVote;
+                    controller.on_controller_event(end_vote_ev).await;
+                });
+
+                // Spawn a task to re-calculate the server ranking,
+                // which could be expensive, depending on how we do it.
+                let controller = self.clone(); // 'self' with 'static lifetime
+                let _ = tokio::spawn(async move {
+                    let ranking_change = controller.ranking.update().await;
+                    let new_ranking_ev = ControllerEvent::NewServerRanking(ranking_change);
+                    controller.on_controller_event(new_ranking_ev).await;
+                });
             }
 
             ServerEvent::RunStartline { player_login } => {
@@ -242,10 +268,10 @@ impl Controller {
                 }
             }
 
-            ServerEvent::PlayerAnswer {
+            ServerEvent::PlayerAnswered {
                 from_login, answer, ..
             } => {
-                let action = Action::from_json(&answer);
+                let action = Action::from_answer(answer);
                 let ev = ControllerEvent::IssuedAction {
                     from_login: &from_login,
                     action,
@@ -291,16 +317,14 @@ impl Controller {
                 self.widget.end_run_outro_for(&player_login).await;
             }
 
-            ControllerEvent::BeginIntro {
-                loaded_map,
-                is_restart,
-            } => {
-                self.race.reset().await;
-                self.prefs.reset_restart_votes().await;
+            ControllerEvent::BeginMap { loaded_map } => {
+                self.records.load_for_map(&loaded_map).await;
+            }
 
-                if !is_restart {
-                    self.records.load_for_map(&loaded_map).await;
-                }
+            ControllerEvent::BeginIntro => {
+                self.race.reset().await;
+
+                self.schedule.set_time_limit().await;
 
                 self.widget.begin_intro().await;
             }
@@ -312,19 +336,44 @@ impl Controller {
             ControllerEvent::EndRun { pb_diff } => {
                 self.widget.begin_run_outro_for(&pb_diff).await;
                 self.widget.refresh_personal_best(&pb_diff).await;
-                self.prefs.remove_auto_pick(pb_diff.player_uid).await;
+
+                if let Some(map_uid) = &self.playlist.current_map_uid().await {
+                    self.prefs.update_history(pb_diff.player_uid, map_uid).await;
+                }
             }
 
             ControllerEvent::BeginOutro { vote } => {
                 self.widget.begin_outro_and_vote(&vote).await;
+                let _ = self.race.reset().await;
             }
 
             ControllerEvent::EndOutro => {
                 self.widget.end_outro().await;
             }
 
-            ControllerEvent::EndVote { queue_preview } => {
+            ControllerEvent::EndMap => {
+                // Update the current map
+                let next_index = self.server.playlist_next_index().await;
+                self.playlist.set_index(next_index).await;
+
+                // Re-sort the queue: the current map will move to the back.
+                if let Some(diff) = self.queue.sort_queue().await {
+                    let ev = ControllerEvent::NewQueue(diff);
+                    self.on_controller_event(ev).await;
+                }
+            }
+
+            ControllerEvent::EndVote => {
+                self.prefs.reset_restart_votes().await;
+
+                let queue_preview = self.queue.peek().await;
                 self.widget.end_vote(queue_preview).await;
+
+                self.queue.pop_front().await;
+            }
+
+            ControllerEvent::NewQueue(diff) => {
+                self.widget.refresh_queue_and_schedule(&diff).await;
             }
 
             ControllerEvent::NewPlayerList(diff) => {
@@ -333,9 +382,19 @@ impl Controller {
                 self.widget.refresh_for_player(&diff).await;
             }
 
-            ControllerEvent::NewPlaylist(diff) => {
-                self.queue.insert_or_remove(&diff).await;
-                self.prefs.update_for_map(&diff).await;
+            ControllerEvent::NewPlaylist(playlist_diff) => {
+                // Update active preferences. This has to happen before re-sorting the queue.
+                self.prefs.update_for_map(&playlist_diff).await;
+
+                // Re-sort the map queue.
+                let queue_diff = self.queue.insert_or_remove(&playlist_diff).await;
+                let ev = ControllerEvent::NewQueue(queue_diff);
+                self.on_controller_event(ev).await;
+
+                // Add or remove the map from the schedule.
+                self.schedule.insert_or_remove(&playlist_diff).await;
+
+                // Update playlist UI.
                 self.widget.refresh_playlist().await;
 
                 // At this point, we could update the server ranking, since adding &
@@ -365,21 +424,49 @@ impl Controller {
                     self.on_action(&info, action).await;
                 }
             }
+
+            ControllerEvent::ChangeConfig { change, from_login } => {
+                self.on_config_change(from_login, change).await;
+            }
         }
     }
 
-    async fn on_action(&self, player: &PlayerInfo, action: Action<'_>) {
+    async fn on_action(&self, player: &PlayerInfo, action: Action) {
         use Action::*;
 
         match action {
+            SetConfig { repr } => match PublicConfig::read(&repr) {
+                Ok(new_cfg) => {
+                    let changes = self.settings.set_public_config(new_cfg).await;
+                    join_all(changes.into_iter().map(|change| async move {
+                        let ev = ControllerEvent::ChangeConfig {
+                            change,
+                            from_login: &player.login,
+                        };
+                        self.on_controller_event(ev).await;
+                    }))
+                    .await;
+                }
+                Err(de_err) => {
+                    let err_msg = format!("{:#?}", de_err);
+                    let msg = CommandResponse::Output(CommandOutputResponse::InvalidConfig {
+                        tried_repr: &repr,
+                        error_msg: &err_msg,
+                    });
+                    self.widget.show_popup(msg, &player.login).await;
+                }
+            },
+
             CommandConfirm => {
                 if let Some(cmd) = self.chat.pop_unconfirmed_command(&player.login).await {
                     self.on_dangerous_cmd(&player.login, cmd).await;
                 }
             }
+
             CommandCancel => {
                 let _ = self.chat.pop_unconfirmed_command(&player.login).await;
             }
+
             SetPreference {
                 map_uid,
                 preference,
@@ -390,7 +477,14 @@ impl Controller {
                     value: preference,
                 };
                 self.prefs.set_preference(pref).await;
+
+                self.queue.sort_queue().await;
+                if let Some(diff) = self.queue.sort_queue().await {
+                    let ev = ControllerEvent::NewQueue(diff);
+                    self.on_controller_event(ev).await;
+                }
             }
+
             VoteRestart { vote } => {
                 self.prefs.set_restart_vote(player.uid, vote).await;
             }
@@ -413,14 +507,16 @@ impl Controller {
                     let most_recent_controller_version = &most_recent_controller_version()
                         .await
                         .unwrap_or_else(|_| Version::new(0, 0, 0));
-                    let config = &*controller.settings.lock_config().await;
+                    let private_config = &*controller.settings.lock_config().await;
+                    let public_config = &controller.settings.public_config().await;
                     let server_info = &controller.server.server_info().await;
                     let net_stats = &controller.server.net_stats().await;
                     let blacklist = &controller.server.blacklist().await;
                     let msg = CommandResponse::Output(CommandOutputResponse::Info {
                         controller_version: &VERSION,
                         most_recent_controller_version,
-                        config,
+                        private_config,
+                        public_config,
                         server_info,
                         net_stats,
                         blacklist,
@@ -451,6 +547,15 @@ impl Controller {
         match cmd {
             Help => {
                 let msg = CommandResponse::Output(CommandOutputResponse::AdminCommandReference);
+                self.widget.show_popup(msg, from_login).await;
+            }
+
+            EditConfig => {
+                let curr_cfg = self.settings.public_config().await;
+                let curr_cfg = curr_cfg.write();
+                let msg = CommandResponse::Output(CommandOutputResponse::CurrentConfig {
+                    repr: &curr_cfg,
+                });
                 self.widget.show_popup(msg, from_login).await;
             }
 
@@ -500,7 +605,10 @@ impl Controller {
             }
 
             RestartCurrentMap => {
-                if self.queue.force_restart().await {
+                if let Some(diff) = self.queue.force_restart().await {
+                    let ev = ControllerEvent::NewQueue(diff);
+                    self.on_controller_event(ev).await;
+
                     self.chat
                         .announce(ServerMessage::ForceRestart {
                             admin_name: &from_nick_name.formatted,
@@ -519,27 +627,21 @@ impl Controller {
                         return;
                     }
                 };
-                let map = playlist.at_index(playlist_index).unwrap();
+                let map = playlist
+                    .at_index(playlist_index)
+                    .expect("no map at this playlist index");
 
-                self.queue.force_queue(playlist_index).await;
-                self.chat
-                    .announce(ServerMessage::ForceQueued {
-                        admin_name: &from_nick_name.formatted,
-                        map_name: &map.name.formatted,
-                    })
-                    .await;
-            }
+                if let Some(diff) = self.queue.force_queue(playlist_index).await {
+                    let ev = ControllerEvent::NewQueue(diff);
+                    self.on_controller_event(ev).await;
 
-            SetRaceDuration(secs) => {
-                self.settings
-                    .edit_config(|cfg: &mut Config| cfg.race_duration_secs = secs)
-                    .await;
-            }
-
-            SetOutroDuration(secs) => {
-                self.settings
-                    .edit_config(|cfg: &mut Config| cfg.outro_duration_secs = secs)
-                    .await;
+                    self.chat
+                        .announce(ServerMessage::ForceQueued {
+                            admin_name: &from_nick_name.formatted,
+                            map_name: &map.name.formatted,
+                        })
+                        .await;
+                }
             }
 
             BlacklistAdd { login } => {
@@ -708,6 +810,31 @@ impl Controller {
             Err(err) => {
                 let msg = CommandResponse::Error(CommandErrorResponse::InvalidPlaylistCommand(err));
                 self.widget.show_popup(msg, from_login).await;
+            }
+        }
+    }
+
+    async fn on_config_change(&self, from_login: &str, diff: ConfigDiff) {
+        use ConfigDiff::*;
+
+        let from_nick_name = match self.players.nick_name(from_login).await {
+            Some(name) => name,
+            None => return,
+        };
+
+        match diff {
+            NewTimeLimit { .. } => {
+                self.schedule.set_time_limit().await;
+                self.widget.refresh_schedule().await;
+
+                self.chat
+                    .announce(ServerMessage::TimeLimitChanged {
+                        admin_name: &from_nick_name.formatted,
+                    })
+                    .await;
+            }
+            NewOutroDuration { .. } => {
+                self.widget.refresh_schedule().await;
             }
         }
     }

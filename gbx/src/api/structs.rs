@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use regex::Regex;
 use serde::export::Formatter;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -348,9 +350,29 @@ impl std::fmt::Debug for PlayerInfo {
     }
 }
 
+/// Reference: GetMapList https://doc.maniaplanet.com/dedicated-server/references/xml-rpc-methods
+#[derive(Deserialize, Debug, PartialEq)]
+#[serde(rename_all = "PascalCase")]
+pub struct PlaylistMap {
+    /// A unique identifier.
+    #[serde(rename = "UId")]
+    pub uid: String,
+
+    /// The map's file name in `.../UserData/Maps`.
+    pub file_name: String,
+}
+
+impl PlaylistMap {
+    /// The server's playlist can include bundled maps, that are not stored in `.../UserData/Maps`,
+    /// with a file name like this: `Campaigns\0\A01.Map.Gbx`
+    pub fn is_campaign_map(&self) -> bool {
+        self.file_name.starts_with("Campaigns\\")
+    }
+}
+
 /// Map information.
 ///
-/// Reference: GetMapList https://doc.maniaplanet.com/dedicated-server/references/xml-rpc-methods
+/// Reference: GetMapInfo https://doc.maniaplanet.com/dedicated-server/references/xml-rpc-methods
 #[derive(Deserialize, Debug, PartialEq)]
 #[serde(rename_all = "PascalCase")]
 pub struct MapInfo {
@@ -367,14 +389,11 @@ pub struct MapInfo {
     /// The map author's login.
     #[serde(rename = "Author")]
     pub author_login: String,
-}
 
-impl MapInfo {
-    /// The server's playlist can include bundled maps, that are not stored in `.../UserData/Maps`,
-    /// with a file name like this: `Campaigns\0\A01.Map.Gbx`
-    pub fn is_campaign_map(&self) -> bool {
-        &self.author_login == "Nadeo" && self.file_name.starts_with("Campaigns\\")
-    }
+    /// The "author time" in milliseconds. This is the time the map
+    /// was validated with in the map editor.
+    #[serde(rename = "AuthorTime")]
+    pub author_millis: i32,
 }
 
 /// Run data at the time of crossing any checkpoint or the finish line.
@@ -426,7 +445,7 @@ pub struct Scores {
 
     /// Race ranking sorted from best to worst.
     #[serde(rename = "players")]
-    pub scores: Vec<Score>,
+    pub entries: Vec<Score>,
 }
 
 /// A player's ranking in the current race.
@@ -511,4 +530,16 @@ impl Serialize for GameString {
     {
         serializer.serialize_str(&self.formatted)
     }
+}
+
+/// See `Callback::PlayerAnswered`.
+#[derive(Debug)]
+pub struct PlayerAnswer {
+    /// The answer string, either from a Manialink (`<quad action="my_action"/>`),
+    /// or from ManiaScript (`TriggerPageAction("my_action");`)
+    pub answer: String,
+
+    /// The current values of Manialink inputs like `<entry name="...">`
+    /// or `<textedit name="...">`.
+    pub entries: HashMap<String, String>,
 }

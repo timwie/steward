@@ -1,6 +1,6 @@
 use std::fmt::Display;
-use std::time::Duration;
 
+use chrono::Duration;
 use serde::export::Formatter;
 
 use crate::chat::message::{fmt_time, HIGHLIGHT, NOTICE, RESET};
@@ -84,6 +84,9 @@ pub enum ServerMessage<'a> {
         admin_name: &'a str,
         map_name: &'a str,
     },
+
+    /// Tell players that an admin has changed the time limit config.
+    TimeLimitChanged { admin_name: &'a str },
 }
 
 pub struct TopRankMessage<'a> {
@@ -109,10 +112,7 @@ impl ServerMessage<'_> {
                 nick_name: &info.nick_name.formatted,
             }),
 
-            BeginIntro {
-                loaded_map,
-                is_restart: false,
-            } => Some(CurrentMap {
+            BeginMap { loaded_map } => Some(CurrentMap {
                 name: &loaded_map.name.formatted,
                 author: &loaded_map.author_login,
             }),
@@ -281,7 +281,7 @@ impl Display for ServerMessage<'_> {
             VoteNow { duration, .. } => write!(
                 f,
                 "Vote for a restart in the next {} seconds.",
-                duration.as_secs()
+                duration.num_seconds()
             ),
 
             CurrentMapSkipped { admin_name } => write!(
@@ -330,6 +330,12 @@ impl Display for ServerMessage<'_> {
                 f,
                 "Admin {}{}{} queued map {}{}{}!",
                 admin_name, RESET, NOTICE, map_name, RESET, NOTICE
+            ),
+
+            TimeLimitChanged { admin_name } => write!(
+                f,
+                "Admin {}{}{} changed the time limit settings!",
+                admin_name, RESET, NOTICE
             ),
         }
     }
