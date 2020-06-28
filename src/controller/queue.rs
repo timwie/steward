@@ -336,50 +336,52 @@ impl QueueController {
     /// Tell the server to load the map at the top of the queue next,
     /// then re-sort the queue, so that the next map is no longer at the top.
     pub async fn pop_front(&self) {
-        let mut state = self.state.write().await;
+        {
+            let mut state = self.state.write().await;
 
-        let maybe_curr_index = self.live_playlist.current_index().await;
-        let head = state.entries.first();
-        let next_idx = head
-            .map(|entry| entry.playlist_idx)
-            .expect("queue is empty");
-        let is_restart = Some(next_idx) == maybe_curr_index;
+            let maybe_curr_index = self.live_playlist.current_index().await;
+            let head = state.entries.first();
+            let next_idx = head
+                .map(|entry| entry.playlist_idx)
+                .expect("queue is empty");
+            let is_restart = Some(next_idx) == maybe_curr_index;
 
-        // Every map was skipped once more, except for the current map, which
-        // was skipped zero times.
-        state.times_skipped.iter_mut().for_each(|n| *n += 1);
-        if let Some(curr_index) = maybe_curr_index {
-            if let Some(n) = state.times_skipped.get_mut(curr_index) {
-                *n = 0;
+            // Every map was skipped once more, except for the current map, which
+            // was skipped zero times.
+            state.times_skipped.iter_mut().for_each(|n| *n += 1);
+            if let Some(curr_index) = maybe_curr_index {
+                if let Some(n) = state.times_skipped.get_mut(curr_index) {
+                    *n = 0;
+                }
             }
-        }
 
-        // If restart, increase the needed threshold to make another restart less
-        // likely. Otherwise, reset it for the next map.
-        if is_restart {
-            state.min_restart_vote_ratio += MIN_RESTART_VOTE_RATIO_STEP;
-            if state.min_restart_vote_ratio > 1.0 {
-                state.min_restart_vote_ratio = 1.0;
+            // If restart, increase the needed threshold to make another restart less
+            // likely. Otherwise, reset it for the next map.
+            if is_restart {
+                state.min_restart_vote_ratio += MIN_RESTART_VOTE_RATIO_STEP;
+                if state.min_restart_vote_ratio > 1.0 {
+                    state.min_restart_vote_ratio = 1.0;
+                }
+            } else {
+                state.min_restart_vote_ratio = DEFAULT_MIN_RESTART_VOTE_RATIO;
             }
-        } else {
-            state.min_restart_vote_ratio = DEFAULT_MIN_RESTART_VOTE_RATIO;
-        }
 
-        // If there is no restart, the first index in the force-queue,
-        // if any, will be the index of the next map. Remove it, so that it is
-        // not force-queued again.
-        if !is_restart {
-            let _ = state.force_queue.pop_front();
-        }
+            // If there is no restart, the first index in the force-queue,
+            // if any, will be the index of the next map. Remove it, so that it is
+            // not force-queued again.
+            if !is_restart {
+                let _ = state.force_queue.pop_front();
+            }
 
-        // Tell server the next map.
-        if is_restart {
-            self.server.restart_map().await;
-        } else {
-            self.server
-                .playlist_change_next(next_idx as i32)
-                .await
-                .expect("failed to set next playlist index");
+            // Tell server the next map.
+            if is_restart {
+                self.server.restart_map().await;
+            } else {
+                self.server
+                    .playlist_change_next(next_idx as i32)
+                    .await
+                    .expect("failed to set next playlist index");
+            }
         }
 
         // Re-sort the queue without counting restart votes that may not

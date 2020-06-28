@@ -212,12 +212,18 @@ impl WidgetController {
         }
     }
 
-    /// Update any widget that displays the server's map queue.
+    /// Update any widget that displays the server's map queue or schedule.
     pub async fn refresh_queue_and_schedule(&self, diff: &QueueDiff) {
-        if diff.first_changed_idx < MAX_DISPLAYED_IN_QUEUE {
-            return; // no visible changes to the schedule
-        }
+        // TODO queue: update UI
 
+        // Only refresh schedule if there are visible changes
+        if diff.first_changed_idx < MAX_DISPLAYED_IN_QUEUE {
+            self.refresh_schedule().await;
+        }
+    }
+
+    /// Update any widget that displays the server's map schedule.
+    pub async fn refresh_schedule(&self) {
         // TODO schedule: update UI
     }
 

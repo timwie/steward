@@ -1,5 +1,3 @@
-use std::str::FromStr;
-
 /// Chat commands that can only be executed by admins.
 #[derive(Debug)]
 pub enum AdminCommand<'a> {
@@ -7,6 +5,11 @@ pub enum AdminCommand<'a> {
     ///
     /// Usage: `/help`
     Help,
+
+    /// Open the config editor.
+    ///
+    /// Usage: `/config`
+    EditConfig,
 
     /// List the server's maps and their UIDs.
     /// For each map, it should say whether it is in the playlist
@@ -59,16 +62,6 @@ pub enum AdminCommand<'a> {
     /// Usage `/queue <uid>`
     ForceQueue { uid: &'a str },
 
-    /// Set the duration of a race in seconds.
-    ///
-    /// Usage `/set timelimit <seconds>`
-    SetRaceDuration(u32),
-
-    /// Set the outro duration in seconds.
-    ///
-    /// Usage `/set chattime <seconds>`
-    SetOutroDuration(u32),
-
     /// Add a player to the server's blacklist, and kick them if they are
     /// currently connected.
     ///
@@ -90,6 +83,7 @@ impl AdminCommand<'_> {
 
         match &parts[..] {
             ["/blacklist", login] => Some(BlacklistAdd { login: *login }),
+            ["/config"] => Some(EditConfig),
             ["/help"] => Some(Help),
             ["/map_import", id] => Some(ImportMap { id: *id }),
             ["/maps"] => Some(ListMaps),
@@ -98,18 +92,6 @@ impl AdminCommand<'_> {
             ["/playlist", "remove", uid] => Some(PlaylistRemove { uid: *uid }),
             ["/queue", uid] => Some(ForceQueue { uid: *uid }),
             ["/restart"] => Some(RestartCurrentMap),
-            ["/set", "timelimit", secs] if secs.chars().all(|c| c.is_digit(10)) => {
-                match u32::from_str(*secs) {
-                    Ok(secs) if secs > 0 => Some(SetRaceDuration(secs)),
-                    _ => None,
-                }
-            }
-            ["/set", "chattime", secs] if secs.chars().all(|c| c.is_digit(10)) => {
-                match u32::from_str(*secs) {
-                    Ok(secs) if secs > 0 => Some(SetOutroDuration(secs)),
-                    _ => None,
-                }
-            }
             ["/skip"] => Some(SkipCurrentMap),
             ["/unblacklist", login] => Some(BlacklistRemove { login: *login }),
             _ => None,
@@ -119,6 +101,8 @@ impl AdminCommand<'_> {
 
 /// Admin command reference that can be printed in-game.
 pub(in crate::chat) const ADMIN_COMMAND_REFERENCE: &str = "
+/config     Open the config editor.
+
 /maps        List the server's maps and their UIDs.
 /players     List the connected players with login and nickname.
 
@@ -129,9 +113,6 @@ pub(in crate::chat) const ADMIN_COMMAND_REFERENCE: &str = "
 /skip            Start the next map immediately.
 /restart         Restart the current map after this race.
 /queue <uid>     Set the map that will be played after the current one.
-
-/set timelimit <seconds>     Change the time limit.
-/set chattime <seconds>      Change the outro duration at the end of a map.
 
 /blacklist <login>       Add a player to the server's blacklist.
 /unblacklist <login>     Remove a player from the server's blacklist.

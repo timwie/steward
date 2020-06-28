@@ -84,6 +84,9 @@ pub enum ServerMessage<'a> {
         admin_name: &'a str,
         map_name: &'a str,
     },
+
+    /// Tell players that an admin has changed the time limit config.
+    TimeLimitChanged { admin_name: &'a str },
 }
 
 pub struct TopRankMessage<'a> {
@@ -327,6 +330,12 @@ impl Display for ServerMessage<'_> {
                 f,
                 "Admin {}{}{} queued map {}{}{}!",
                 admin_name, RESET, NOTICE, map_name, RESET, NOTICE
+            ),
+
+            TimeLimitChanged { admin_name } => write!(
+                f,
+                "Admin {}{}{} changed the time limit settings!",
+                admin_name, RESET, NOTICE
             ),
         }
     }

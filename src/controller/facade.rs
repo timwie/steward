@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use futures::future::join_all;
 use semver::Version;
 
 use async_recursion::async_recursion;
@@ -13,7 +14,7 @@ use crate::compat;
 use crate::config::{Config, BLACKLIST_FILE, VERSION};
 use crate::controller::*;
 use crate::database::{Database, Preference};
-use crate::event::{Command, ControllerEvent, PlaylistDiff, VoteInfo};
+use crate::event::{Command, ConfigDiff, ControllerEvent, PlaylistDiff, VoteInfo};
 use crate::network::most_recent_controller_version;
 use crate::server::{PlayerInfo, Server, ServerEvent};
 use crate::widget::Action;
@@ -57,7 +58,7 @@ impl Controller {
 
         compat::prepare(&server, &db, &config).await;
 
-        let settings = SettingsController::init(&server, config);
+        let settings = SettingsController::init(&server, config).await;
         let live_settings = Arc::new(settings.clone()) as Arc<dyn LiveSettings>;
 
         let chat = ChatController::init(&server, &live_settings);
@@ -264,10 +265,10 @@ impl Controller {
                 }
             }
 
-            ServerEvent::PlayerAnswer {
+            ServerEvent::PlayerAnswered {
                 from_login, answer, ..
             } => {
-                let action = Action::from_json(&answer);
+                let action = Action::from_answer(answer);
                 let ev = ControllerEvent::IssuedAction {
                     from_login: &from_login,
                     action,
@@ -416,21 +417,49 @@ impl Controller {
                     self.on_action(&info, action).await;
                 }
             }
+
+            ControllerEvent::ChangeConfig { change, from_login } => {
+                self.on_config_change(from_login, change).await;
+            }
         }
     }
 
-    async fn on_action(&self, player: &PlayerInfo, action: Action<'_>) {
+    async fn on_action(&self, player: &PlayerInfo, action: Action) {
         use Action::*;
 
         match action {
+            SetConfig { repr } => match PublicConfig::read(&repr) {
+                Ok(new_cfg) => {
+                    let changes = self.settings.set_public_config(new_cfg).await;
+                    join_all(changes.into_iter().map(|change| async move {
+                        let ev = ControllerEvent::ChangeConfig {
+                            change,
+                            from_login: &player.login,
+                        };
+                        self.on_controller_event(ev).await;
+                    }))
+                    .await;
+                }
+                Err(de_err) => {
+                    let err_msg = format!("{:#?}", de_err);
+                    let msg = CommandResponse::Output(CommandOutputResponse::InvalidConfig {
+                        tried_repr: &repr,
+                        error_msg: &err_msg,
+                    });
+                    self.widget.show_popup(msg, &player.login).await;
+                }
+            },
+
             CommandConfirm => {
                 if let Some(cmd) = self.chat.pop_unconfirmed_command(&player.login).await {
                     self.on_dangerous_cmd(&player.login, cmd).await;
                 }
             }
+
             CommandCancel => {
                 let _ = self.chat.pop_unconfirmed_command(&player.login).await;
             }
+
             SetPreference {
                 map_uid,
                 preference,
@@ -448,6 +477,7 @@ impl Controller {
                     self.on_controller_event(ev).await;
                 }
             }
+
             VoteRestart { vote } => {
                 self.prefs.set_restart_vote(player.uid, vote).await;
             }
@@ -470,14 +500,16 @@ impl Controller {
                     let most_recent_controller_version = &most_recent_controller_version()
                         .await
                         .unwrap_or_else(|_| Version::new(0, 0, 0));
-                    let config = &*controller.settings.lock_config().await;
+                    let private_config = &*controller.settings.lock_config().await;
+                    let public_config = &controller.settings.public_config().await;
                     let server_info = &controller.server.server_info().await;
                     let net_stats = &controller.server.net_stats().await;
                     let blacklist = &controller.server.blacklist().await;
                     let msg = CommandResponse::Output(CommandOutputResponse::Info {
                         controller_version: &VERSION,
                         most_recent_controller_version,
-                        config,
+                        private_config,
+                        public_config,
                         server_info,
                         net_stats,
                         blacklist,
@@ -508,6 +540,15 @@ impl Controller {
         match cmd {
             Help => {
                 let msg = CommandResponse::Output(CommandOutputResponse::AdminCommandReference);
+                self.widget.show_popup(msg, from_login).await;
+            }
+
+            EditConfig => {
+                let curr_cfg = self.settings.public_config().await;
+                let curr_cfg = curr_cfg.write();
+                let msg = CommandResponse::Output(CommandOutputResponse::CurrentConfig {
+                    repr: &curr_cfg,
+                });
                 self.widget.show_popup(msg, from_login).await;
             }
 
@@ -594,18 +635,6 @@ impl Controller {
                         })
                         .await;
                 }
-            }
-
-            SetRaceDuration(secs) => {
-                self.settings
-                    .edit_config(|cfg: &mut Config| cfg.race_duration_secs = secs)
-                    .await;
-            }
-
-            SetOutroDuration(secs) => {
-                self.settings
-                    .edit_config(|cfg: &mut Config| cfg.outro_duration_secs = secs)
-                    .await;
             }
 
             BlacklistAdd { login } => {
@@ -774,6 +803,31 @@ impl Controller {
             Err(err) => {
                 let msg = CommandResponse::Error(CommandErrorResponse::InvalidPlaylistCommand(err));
                 self.widget.show_popup(msg, from_login).await;
+            }
+        }
+    }
+
+    async fn on_config_change(&self, from_login: &str, diff: ConfigDiff) {
+        use ConfigDiff::*;
+
+        let from_nick_name = match self.players.nick_name(from_login).await {
+            Some(name) => name,
+            None => return,
+        };
+
+        match diff {
+            NewTimeLimit { .. } => {
+                self.schedule.set_time_limit().await;
+                self.widget.refresh_schedule().await;
+
+                self.chat
+                    .announce(ServerMessage::TimeLimitChanged {
+                        admin_name: &from_nick_name.formatted,
+                    })
+                    .await;
+            }
+            NewOutroDuration { .. } => {
+                self.widget.refresh_schedule().await;
             }
         }
     }

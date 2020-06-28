@@ -62,9 +62,12 @@ pub enum ControllerEvent<'a> {
     IssuedCommand(Command<'a>),
 
     /// Signals that a player has issued an `Action`.
-    IssuedAction {
+    IssuedAction { from_login: &'a str, action: Action },
+
+    /// Signals that an admin edited the controller config.
+    ChangeConfig {
         from_login: &'a str,
-        action: Action<'a>,
+        change: ConfigDiff,
     },
 }
 
@@ -211,4 +214,19 @@ pub enum Command<'a> {
         from: &'a str,
         cmd: SuperAdminCommand,
     },
+}
+
+/// A change made to the controller config.
+#[derive(Debug)]
+pub enum ConfigDiff {
+    /// The settings that determine the time limit of each map
+    /// have changed.
+    NewTimeLimit {
+        timelimit_factor: u32,
+        timelimit_max_secs: u32,
+        timelimit_min_secs: u32,
+    },
+
+    /// The duration of the outro after a race has changed.
+    NewOutroDuration { secs: u32 },
 }
