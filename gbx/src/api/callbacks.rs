@@ -68,10 +68,10 @@ pub enum Callback {
     /// - a ManiaScript triggers an action with `TriggerPageAction("my_action");`
     ///
     /// Triggered by `ManiaPlanet.PlayerManialinkPageAnswer`
-    PlayerAnswer {
+    PlayerAnswered {
         from_uid: i32,
         from_login: String,
-        answer: String,
+        answer: PlayerAnswer,
     },
 
     /// Sent when either the playlist or playlist indexes changed.

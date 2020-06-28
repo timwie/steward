@@ -26,8 +26,15 @@ postgres_connection = "host=127.0.0.1 user=postgres password=123"
 super_admin_whitelist = ["admin1", "admin2"]
 admin_whitelist = ["admin3", "admin4"]
 
-# The Time Attack time limit in seconds.
-race_duration_secs = 300
+# To calculate the time limit of a map, this factor is applied to either the
+# author time or the top record.
+timelimit_factor = 10
+
+# The maximum time limit in seconds.
+timelimit_max_secs = 900
+
+# The minimum time limit in seconds.
+timelimit_min_secs = 300
 
 # The time spent on a map after the race ends in seconds.
 # Overrides the S_ChatTime mode setting.

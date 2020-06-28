@@ -10,6 +10,7 @@ pub(self) use race::*;
 pub(self) use record::*;
 pub(self) use schedule::*;
 pub(self) use server_rank::*;
+pub use settings::PublicConfig;
 pub(self) use settings::*;
 pub(self) use widget::*;
 

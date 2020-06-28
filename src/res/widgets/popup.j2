@@ -11,6 +11,7 @@
 
     {% set MODE_DEFAULT = 0 %}
     {% set MODE_CONFIRM = 1 %}
+    {% set MODE_CONFIG_EDITOR = 2 %}
 
     {% if mode == MODE_DEFAULT %}
         {% set cancel_txt = "Close" %}
@@ -18,10 +19,18 @@
         {% set cancel_txt = "Cancel" %}
     {% endif %}
 
+    {% if mode == MODE_CONFIRM %}
+        {% set confirm_txt = "Confirm" %}
+    {% else %}
+        {% set confirm_txt = "Submit" %}
+    {% endif %}
+
     {% if mode == MODE_DEFAULT %}
         {% set header_txt = "Command Output" %}
-    {% else %}
+    {% elif mode == MODE_CONFIRM %}
         {% set header_txt = "Are you sure you want to execute this command?" %}
+    {% else %}
+        {% set header_txt = "Config Editor" %}
     {% endif %}
 
     {% set width  = 200 %}
@@ -43,9 +52,9 @@
     <label text="{{header_txt}}" textemboss="1" textfont="RajdhaniMono" textsize="4"
            size="{{width}} {{height}}" pos="{{width / -2}} {{height / 2 + button_pad}}" valign="bottom"/>
 
-    <textedit id="textedit"
+    <textedit id="textedit" name="config_input"
               style="StyleTextScriptEditor" textcolor="{{col_white}}"
-              autonewline="1" showlinenumbers="1"
+              autonewline="0" showlinenumbers="1"
               size="{{width}} {{height}}" pos="{{width / -2}} {{height / 2}}"/>
 
     <frame pos="0 {{height / -2}}">
@@ -60,14 +69,14 @@
                pos="{{x + button_pad*2}} {{y - button_h / 2}}" valign="center"
                size="{{button_w - button_pad*4}}"/>
 
-        {% if mode == MODE_CONFIRM %}
+        {% if mode != MODE_DEFAULT %}
             {% set x = x - button_pad %}
             <label id="btn-confirm"
                    scriptevents="1" focusareacolor1="{{col_btn_danger}}" focusareacolor2="{{col_btn_danger_hover}}"
                    pos="{{x}} {{y}}" size="{{button_w}} {{button_h}}" halign="right"/>
 
             {% set x = x - button_w %}
-            <label z-index="1" text="Confirm" textemboss="1" textfont="RajdhaniMono"
+            <label z-index="1" text="{{confirm_txt}}" textemboss="1" textfont="RajdhaniMono"
                    pos="{{x + button_pad*2}} {{y - button_h / 2}}" valign="center"
                    size="{{button_w - button_pad*4}}"/>
         {% endif %}
@@ -75,11 +84,45 @@
 </frame>
 
 {% endblock manialink %}
+{# ============================= SCRIPT DECLARATIONS ============================= #}
+{% block decl %}
+{{ super() }}
+
+declare CMlTextEdit UI_PopupText;
+
+
+Void OnClose() {
+    Page.GetFirstChild("popup").Visible = False;
+    EnableMenuNavigationInputs = False;
+}
+
+Void OnClickConfirm() {
+    assert({{mode}} != {{MODE_DEFAULT}});
+
+    OnClose();
+
+    {% if mode == MODE_CONFIG_EDITOR %}
+        TriggerPageAction("""{ "action": "SetConfig" }""");
+    {% else %}
+        TriggerPageAction("""{ "action": "CommandConfirm" }""");
+    {% endif %}
+}
+
+Void OnClickCancel() {
+    OnClose();
+
+    {% if mode == MODE_CONFIRM %}
+        TriggerPageAction("""{ "action": "CommandCancel" }""");
+    {% endif %}
+}
+
+{% endblock decl %}
 {# ============================= SCRIPT MAIN ============================= #}
 {% block main %}
 
- declare UI_PopupText = (Page.GetFirstChild("textedit") as CMlTextEdit);
- UI_PopupText.Value = """{{ output }}""";
+EnableMenuNavigationInputs = True;
+UI_PopupText = (Page.GetFirstChild("textedit") as CMlTextEdit);
+UI_PopupText.Value = """{{ output }}""";
 
 {% endblock main %}
 {# ============================= SCRIPT EVENTS ============================= #}
@@ -88,14 +131,10 @@
 if (Event.Type == CMlScriptEvent::Type::MouseClick) {
     switch (Event.ControlId) {
         case "btn-confirm": {
-            TriggerPageAction("""{ "action": "CommandConfirm" }""");
-            Page.GetFirstChild("popup").Visible = False;
+            OnClickConfirm();
         }
         case "btn-cancel": {
-            {% if mode == MODE_CONFIRM %}
-                TriggerPageAction("""{ "action": "CommandCancel" }""");
-            {% endif %}
-            Page.GetFirstChild("popup").Visible = False;
+            OnClickCancel();
         }
         default: {}
     }

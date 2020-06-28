@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use regex::Regex;
 use serde::export::Formatter;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -528,4 +530,16 @@ impl Serialize for GameString {
     {
         serializer.serialize_str(&self.formatted)
     }
+}
+
+/// See `Callback::PlayerAnswered`.
+#[derive(Debug)]
+pub struct PlayerAnswer {
+    /// The answer string, either from a Manialink (`<quad action="my_action"/>`),
+    /// or from ManiaScript (`TriggerPageAction("my_action");`)
+    pub answer: String,
+
+    /// The current values of Manialink inputs like `<entry name="...">`
+    /// or `<textedit name="...">`.
+    pub entries: HashMap<String, String>,
 }
