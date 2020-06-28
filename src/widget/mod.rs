@@ -28,6 +28,7 @@ mod race_live_ranks;
 mod race_run_outro;
 mod race_sector_diff;
 mod race_toggle_menu;
+mod ser;
 
 pub trait Widget
 where

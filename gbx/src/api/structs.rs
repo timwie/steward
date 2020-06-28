@@ -445,7 +445,7 @@ pub struct Scores {
 
     /// Race ranking sorted from best to worst.
     #[serde(rename = "players")]
-    pub scores: Vec<Score>,
+    pub entries: Vec<Score>,
 }
 
 /// A player's ranking in the current race.

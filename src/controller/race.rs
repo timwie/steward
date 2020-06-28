@@ -16,15 +16,7 @@ pub trait LiveRace: Send + Sync {
 
     /// The ranking of the specified player in the current race,
     /// or `None` if they have not completed a run.
-    async fn rank_of(&self, player_uid: i32) -> Option<usize> {
-        self.lock()
-            .await
-            .ranking
-            .iter()
-            .enumerate()
-            .find(|(_, lr)| lr.uid == player_uid)
-            .map(|(idx, _)| idx + 1)
-    }
+    async fn rank_of(&self, player_uid: i32) -> Option<usize>;
 }
 
 pub struct RaceState {
@@ -52,7 +44,7 @@ pub struct RaceController {
 
 #[derive(Clone)]
 pub struct RaceRank {
-    pub uid: i32,
+    pub login: String,
     pub nick_name: GameString,
     pub millis: Option<usize>,
 }
@@ -85,27 +77,27 @@ impl RaceController {
         let mut state = self.state.write().await;
 
         scores
-            .scores
+            .entries
             .iter()
             .filter_map(|game_score| {
                 live_players.info(&game_score.login).map(|info| RaceRank {
-                    uid: info.uid,
+                    login: info.login.clone(),
                     nick_name: game_score.nick_name.clone(),
                     millis: Some(game_score.best_time_millis as usize).filter(|millis| *millis > 0),
                 })
             })
             .enumerate()
             .for_each(|(idx, score)| {
-                state.ranking.retain(|s| s.uid != score.uid); // remove previous entry
+                state.ranking.retain(|s| s.login != score.login); // remove previous entry
                 state.ranking.insert(idx, score);
             });
     }
 
     /// Clear the ranking for a new race.
-    pub async fn reset(&self) {
+    pub async fn reset(&self) -> Vec<RaceRank> {
         let mut state = self.state.write().await;
 
-        state.ranking.clear();
+        let res = state.ranking.drain(..).collect();
         state.pre_race.clear();
 
         self.live_players
@@ -113,11 +105,13 @@ impl RaceController {
             .await
             .into_iter()
             .map(|info| RaceRank {
-                uid: info.uid,
+                login: info.login,
                 nick_name: info.nick_name,
                 millis: None,
             })
             .for_each(|score| state.ranking.push(score));
+
+        res
     }
 
     /// Update the ranking if the finished line was crossed
@@ -136,7 +130,7 @@ impl RaceController {
         let prev_idx = state
             .ranking
             .iter()
-            .position(|lr| lr.uid == player_info.uid);
+            .position(|lr| lr.login == player_info.login);
         match prev_idx {
             Some(idx)
                 if state.ranking[idx]
@@ -153,7 +147,7 @@ impl RaceController {
         }
 
         let new_ranking = RaceRank {
-            uid: player_info.uid,
+            login: player_info.login,
             nick_name: player_info.nick_name,
             millis: Some(ev.race_time_millis as usize),
         };
@@ -178,5 +172,19 @@ impl RaceController {
 impl LiveRace for RaceController {
     async fn lock(&self) -> RwLockReadGuard<'_, RaceState> {
         self.state.read().await
+    }
+
+    async fn rank_of(&self, player_uid: i32) -> Option<usize> {
+        let player_login = match self.live_players.login(player_uid).await {
+            Some(uid) => uid,
+            None => return None,
+        };
+        self.lock()
+            .await
+            .ranking
+            .iter()
+            .enumerate()
+            .find(|(_, lr)| lr.login == player_login)
+            .map(|(idx, _)| idx + 1)
     }
 }

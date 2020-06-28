@@ -17,6 +17,20 @@ pub struct Player {
     pub nick_name: GameString,
 }
 
+/// Stores the most recent time a player has played a specific map.
+#[derive(Debug)]
+pub struct History {
+    pub player_login: String,
+    pub map_uid: String,
+
+    /// The time this player last played this map, or `None` if they have never played it.
+    pub last_played: Option<SystemTime>,
+
+    /// The number of other maps played since `last_played`, which is a value in
+    /// `0..nb_total_maps`.
+    pub nb_maps_since: usize,
+}
+
 /// Database map.
 #[derive(Clone, Debug)]
 pub struct Map {
