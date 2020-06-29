@@ -100,13 +100,8 @@ impl ConfigController {
 
     /// Returns a public subset of the controller config, omitting credentials etc.
     pub async fn public_config(&self) -> PublicConfig {
-        let cfg = self.state.read().await;
-        PublicConfig {
-            time_limit_factor: cfg.time_limit_factor,
-            time_limit_max_secs: cfg.time_limit_max_secs,
-            time_limit_min_secs: cfg.time_limit_min_secs,
-            outro_duration_secs: cfg.outro_duration_secs,
-        }
+        let config = self.state.read().await;
+        config.public()
     }
 }
 
@@ -135,6 +130,17 @@ pub struct PublicConfig {
     pub time_limit_max_secs: u32,
     pub time_limit_min_secs: u32,
     pub outro_duration_secs: u32,
+}
+
+impl Config {
+    pub fn public(&self) -> PublicConfig {
+        PublicConfig {
+            time_limit_factor: self.time_limit_factor,
+            time_limit_max_secs: self.time_limit_max_secs,
+            time_limit_min_secs: self.time_limit_min_secs,
+            outro_duration_secs: self.outro_duration_secs,
+        }
+    }
 }
 
 impl PublicConfig {

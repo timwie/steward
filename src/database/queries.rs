@@ -292,10 +292,6 @@ pub mod test {
             unimplemented!()
         }
 
-        async fn players_without_map_record(&self, _map_uid: &str) -> Result<Vec<String>> {
-            unimplemented!()
-        }
-
         async fn record_preview(&self, _record: &RecordEvidence) -> Result<i32> {
             unimplemented!()
         }
@@ -305,10 +301,6 @@ pub mod test {
         }
 
         async fn player_preferences(&self, _player_login: &str) -> Result<Vec<Preference>> {
-            unimplemented!()
-        }
-
-        async fn map_preferences(&self, _map_uid: &str) -> Result<Vec<Preference>> {
             unimplemented!()
         }
 
