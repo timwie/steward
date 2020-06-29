@@ -15,7 +15,7 @@ impl Controller {
         match action {
             SetConfig { repr } => match PublicConfig::read(&repr) {
                 Ok(new_cfg) => {
-                    let changes = self.settings.set_public_config(new_cfg).await;
+                    let changes = self.config.set_public_config(new_cfg).await;
                     join_all(changes.into_iter().map(|change| async move {
                         let ev = ControllerEvent::NewConfig {
                             change,

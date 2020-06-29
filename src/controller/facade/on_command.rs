@@ -7,7 +7,7 @@ use crate::chat::{
 };
 use crate::config::BLACKLIST_FILE;
 use crate::config::VERSION;
-use crate::controller::{Controller, LivePlayers, LivePlaylist, LiveSettings};
+use crate::controller::{Controller, LiveConfig, LivePlayers, LivePlaylist};
 use crate::event::{ControllerEvent, PlaylistDiff};
 use crate::network::most_recent_controller_version;
 
@@ -28,8 +28,8 @@ impl Controller {
                     let most_recent_controller_version = &most_recent_controller_version()
                         .await
                         .unwrap_or_else(|_| Version::new(0, 0, 0));
-                    let private_config = &*controller.settings.lock_config().await;
-                    let public_config = &controller.settings.public_config().await;
+                    let private_config = &*controller.config.lock().await;
+                    let public_config = &controller.config.public_config().await;
                     let server_info = &controller.server.server_info().await;
                     let net_stats = &controller.server.net_stats().await;
                     let blacklist = &controller.server.blacklist().await;
@@ -72,7 +72,7 @@ impl Controller {
             }
 
             EditConfig => {
-                let curr_cfg = self.settings.public_config().await;
+                let curr_cfg = self.config.public_config().await;
                 let curr_cfg = curr_cfg.write();
                 let msg = CommandResponse::Output(CommandOutputResponse::CurrentConfig {
                     repr: &curr_cfg,
@@ -287,7 +287,7 @@ impl Controller {
 
                 // Delete file, otherwise the map will be scanned back into the
                 // database at the next launch.
-                let map_path = self.settings.maps_dir().await.join(map.file_name);
+                let map_path = self.config.maps_dir().await.join(map.file_name);
                 if map_path.is_file() {
                     std::fs::remove_file(map_path).expect("failed to delete map file");
                 }

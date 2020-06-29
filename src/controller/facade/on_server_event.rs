@@ -1,4 +1,4 @@
-use crate::controller::{Controller, LivePlaylist, LiveSettings};
+use crate::controller::{Controller, LiveConfig, LivePlaylist};
 use crate::event::ControllerEvent;
 use crate::server::ServerEvent;
 use crate::widget::Action;
@@ -57,7 +57,7 @@ impl Controller {
                 // Delay for the duration of the vote.
                 // Spawn a task to not block the callback loop.
                 let controller = self.clone(); // 'self' with 'static lifetime
-                let vote_duration = self.settings.vote_duration().await;
+                let vote_duration = self.config.vote_duration().await;
                 let _ = tokio::spawn(async move {
                     log::debug!("start vote");
                     tokio::time::delay_for(vote_duration).await;

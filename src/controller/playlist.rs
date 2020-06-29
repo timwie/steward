@@ -10,7 +10,7 @@ use tokio::sync::{RwLock, RwLockReadGuard};
 use async_trait::async_trait;
 
 use crate::chat::PlaylistCommandError;
-use crate::controller::LiveSettings;
+use crate::controller::LiveConfig;
 use crate::database::{Database, Map, MapEvidence};
 use crate::event::PlaylistDiff;
 use crate::network::{exchange_map, ExchangeError};
@@ -84,14 +84,14 @@ pub struct PlaylistController {
     state: Arc<RwLock<PlaylistState>>,
     server: Arc<dyn Server>,
     db: Arc<dyn Database>,
-    live_settings: Arc<dyn LiveSettings>,
+    live_config: Arc<dyn LiveConfig>,
 }
 
 impl PlaylistController {
     pub async fn init(
         server: &Arc<dyn Server>,
         db: &Arc<dyn Database>,
-        live_settings: &Arc<dyn LiveSettings>,
+        live_config: &Arc<dyn LiveConfig>,
     ) -> Self {
         let playlist = db
             .playlist()
@@ -122,7 +122,7 @@ impl PlaylistController {
             state: Arc::new(RwLock::new(state)),
             server: server.clone(),
             db: db.clone(),
-            live_settings: live_settings.clone(),
+            live_config: live_config.clone(),
         }
     }
 
@@ -241,7 +241,7 @@ impl PlaylistController {
             return Err(PlaylistCommandError::MapAlreadyImported);
         }
 
-        let maps_dir = self.live_settings.maps_dir().await;
+        let maps_dir = self.live_config.maps_dir().await;
         let file_name = format!(
             "{}.{}.Map.gbx",
             &import_map.metadata.name_plain.trim(),

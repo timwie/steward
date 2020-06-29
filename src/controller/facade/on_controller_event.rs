@@ -5,7 +5,7 @@ use crate::config::{
     MAX_ANNOUNCED_RANK, MAX_ANNOUNCED_RECORD, MAX_ANNOUNCED_RECORD_IMPROVEMENT,
     MAX_NB_ANNOUNCED_RANKS,
 };
-use crate::controller::{Controller, LivePlayers, LivePlaylist, LiveQueue, LiveSettings};
+use crate::controller::{Controller, LiveConfig, LivePlayers, LivePlaylist, LiveQueue};
 use crate::event::{
     Command, ConfigDiff, ControllerEvent, PbDiff, PlayerTransition, PlaylistDiff, ServerRankingDiff,
 };
@@ -191,7 +191,7 @@ impl Controller {
             }),
 
             BeginOutro => {
-                let vote_duration = self.settings.vote_duration().await;
+                let vote_duration = self.config.vote_duration().await;
                 let min_restart_vote_ratio = self.queue.lock().await.min_restart_vote_ratio;
                 Some(VoteNow {
                     duration: vote_duration,

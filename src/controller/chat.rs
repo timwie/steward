@@ -8,7 +8,7 @@ use async_trait::async_trait;
 use crate::chat::{
     AdminCommand, DangerousCommand, PlayerCommand, PlayerMessage, ServerMessage, SuperAdminCommand,
 };
-use crate::controller::LiveSettings;
+use crate::controller::LiveConfig;
 use crate::event::Command;
 use crate::server::Server;
 
@@ -22,7 +22,7 @@ pub trait LiveChat: Send + Sync {
 #[derive(Clone)]
 pub struct ChatController {
     server: Arc<dyn Server>,
-    live_settings: Arc<dyn LiveSettings>,
+    live_config: Arc<dyn LiveConfig>,
     state: Arc<RwLock<ChatState>>,
 }
 
@@ -41,10 +41,10 @@ impl ChatState {
 }
 
 impl ChatController {
-    pub fn init(server: &Arc<dyn Server>, live_settings: &Arc<dyn LiveSettings>) -> Self {
+    pub fn init(server: &Arc<dyn Server>, live_config: &Arc<dyn LiveConfig>) -> Self {
         ChatController {
             server: server.clone(),
-            live_settings: live_settings.clone(),
+            live_config: live_config.clone(),
             state: Arc::new(RwLock::new(ChatState::init())),
         }
     }
@@ -75,7 +75,7 @@ impl ChatController {
         }
 
         // Check if super admin command.
-        if self.live_settings.is_super_admin(&from_login).await {
+        if self.live_config.is_super_admin(&from_login).await {
             if let Some(cmd) = SuperAdminCommand::from(message) {
                 if let SuperAdminCommand::Unconfirmed(dangerous_cmd) = &cmd {
                     (*self.state.write().await)
@@ -90,7 +90,7 @@ impl ChatController {
         }
 
         // Check if admin command.
-        if self.live_settings.is_admin(&from_login).await {
+        if self.live_config.is_admin(&from_login).await {
             if let Some(cmd) = AdminCommand::from(message) {
                 return Some(Command::Admin {
                     cmd,
@@ -108,12 +108,12 @@ impl ChatController {
         }
 
         // Not a known command - return the appropriate ::Help command
-        if self.live_settings.is_super_admin(&from_login).await {
+        if self.live_config.is_super_admin(&from_login).await {
             Some(Command::SuperAdmin {
                 cmd: SuperAdminCommand::Help,
                 from: from_login,
             })
-        } else if self.live_settings.is_admin(&from_login).await {
+        } else if self.live_config.is_admin(&from_login).await {
             Some(Command::Admin {
                 cmd: AdminCommand::Help,
                 from: from_login,

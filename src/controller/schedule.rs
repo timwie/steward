@@ -7,7 +7,7 @@ use tokio::sync::RwLock;
 
 use async_trait::async_trait;
 
-use crate::controller::{LivePlaylist, LiveQueue, LiveRecords, LiveSettings};
+use crate::controller::{LiveConfig, LivePlaylist, LiveQueue, LiveRecords};
 use crate::database::Database;
 use crate::event::PlaylistDiff;
 use crate::server::Server;
@@ -39,7 +39,7 @@ pub struct ScheduleController {
     live_playlist: Arc<dyn LivePlaylist>,
     live_queue: Arc<dyn LiveQueue>,
     live_records: Arc<dyn LiveRecords>,
-    live_settings: Arc<dyn LiveSettings>,
+    live_config: Arc<dyn LiveConfig>,
 }
 
 impl ScheduleController {
@@ -51,7 +51,7 @@ impl ScheduleController {
         live_playlist: &Arc<dyn LivePlaylist>,
         live_queue: &Arc<dyn LiveQueue>,
         live_records: &Arc<dyn LiveRecords>,
-        live_settings: &Arc<dyn LiveSettings>,
+        live_config: &Arc<dyn LiveConfig>,
     ) -> Self {
         let playlist_state = live_playlist.lock().await;
         let reference_millis = join_all(playlist_state.maps.iter().map(|map| async move {
@@ -75,7 +75,7 @@ impl ScheduleController {
             live_playlist: live_playlist.clone(),
             live_queue: live_queue.clone(),
             live_records: live_records.clone(),
-            live_settings: live_settings.clone(),
+            live_config: live_config.clone(),
         };
 
         controller.set_time_limit().await;
@@ -164,7 +164,7 @@ impl LiveSchedule for ScheduleController {
 
         // The duration in between maps is the duration of the outro, plus
         // some time for map loading and intro. We'll choose five seconds for the latter.
-        let duration_between_maps = self.live_settings.outro_duration().await;
+        let duration_between_maps = self.live_config.outro_duration().await;
         let duration_between_maps = duration_between_maps + Duration::from_secs(5);
 
         let playlist_idx = match self.live_playlist.index_of(&map_uid).await {

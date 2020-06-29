@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use crate::compat;
 use crate::config::Config;
 use crate::controller::*;
 use crate::database::Database;
@@ -17,7 +16,7 @@ mod on_server_event;
 pub struct Controller {
     server: Arc<dyn Server>,
     db: Arc<dyn Database>,
-    settings: SettingsController,
+    config: ConfigController,
     chat: ChatController,
     playlist: PlaylistController,
     players: PlayerController,
@@ -48,15 +47,13 @@ impl Controller {
         // I *think* using something like Box<&'static dyn T> should be fine
         // as well, but I don't see any benefit.
 
-        compat::prepare(&server, &db, &config).await;
+        let config = ConfigController::init(&server, config).await;
+        let live_config = Arc::new(config.clone()) as Arc<dyn LiveConfig>;
 
-        let settings = SettingsController::init(&server, config).await;
-        let live_settings = Arc::new(settings.clone()) as Arc<dyn LiveSettings>;
-
-        let chat = ChatController::init(&server, &live_settings);
+        let chat = ChatController::init(&server, &live_config);
         let msg_players = Arc::new(chat.clone()) as Arc<dyn LiveChat>;
 
-        let playlist = PlaylistController::init(&server, &db, &live_settings).await;
+        let playlist = PlaylistController::init(&server, &db, &live_config).await;
         let live_playlist = Arc::new(playlist.clone()) as Arc<dyn LivePlaylist>;
 
         let players = PlayerController::init(&server, &db).await;
@@ -82,7 +79,7 @@ impl Controller {
             &live_playlist,
             &live_queue,
             &live_records,
-            &live_settings,
+            &live_config,
         )
         .await;
         let live_schedule = Arc::new(schedule.clone()) as Arc<dyn LiveSchedule>;
@@ -107,7 +104,7 @@ impl Controller {
         Controller {
             server,
             db,
-            settings,
+            config,
             chat,
             playlist,
             players,

@@ -1,4 +1,6 @@
 pub(self) use chat::*;
+pub use config::PublicConfig;
+pub(self) use config::*;
 pub use facade::Controller;
 pub(self) use player::*;
 pub(self) use playlist::*;
@@ -10,11 +12,10 @@ pub(self) use race::*;
 pub(self) use record::*;
 pub(self) use schedule::*;
 pub(self) use server_rank::*;
-pub use settings::PublicConfig;
-pub(self) use settings::*;
 pub(self) use widget::*;
 
 mod chat;
+mod config;
 mod facade;
 mod player;
 mod playlist;
@@ -24,5 +25,4 @@ mod race;
 mod record;
 mod schedule;
 mod server_rank;
-mod settings;
 mod widget;
