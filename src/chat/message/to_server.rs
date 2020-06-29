@@ -4,14 +4,8 @@ use std::time::Duration;
 use serde::export::Formatter;
 
 use crate::chat::message::{fmt_time, HIGHLIGHT, NOTICE, RESET};
-use crate::config::{
-    MAX_ANNOUNCED_RANK, MAX_ANNOUNCED_RECORD, MAX_ANNOUNCED_RECORD_IMPROVEMENT,
-    MAX_NB_ANNOUNCED_RANKS,
-};
-use crate::event::{ControllerEvent, PbDiff, PlayerDiff, PlaylistDiff, ServerRankingDiff};
 
 /// Chat announcements from the controller to all players.
-/// Many variants can be derived from `ControllerEvent`s.
 ///
 /// Note: messages should typically convey information that is
 /// not already conveyed by widgets.
@@ -89,106 +83,10 @@ pub enum ServerMessage<'a> {
     TimeLimitChanged { admin_name: &'a str },
 }
 
+/// A player improved their rank, and took one of the top spots.
 pub struct TopRankMessage<'a> {
-    nick_name: &'a str,
-    rank: usize,
-}
-
-impl ServerMessage<'_> {
-    pub fn from_event<'a>(event: &'a ControllerEvent) -> Option<ServerMessage<'a>> {
-        use ControllerEvent::*;
-        use ServerMessage::*;
-
-        match event {
-            NewPlayerList(PlayerDiff::AddPlayer(info))
-            | NewPlayerList(PlayerDiff::AddSpectator(info))
-            | NewPlayerList(PlayerDiff::AddPureSpectator(info)) => Some(Joining {
-                nick_name: &info.nick_name.formatted,
-            }),
-
-            NewPlayerList(PlayerDiff::RemovePlayer(info))
-            | NewPlayerList(PlayerDiff::RemoveSpectator(info))
-            | NewPlayerList(PlayerDiff::RemovePureSpectator(info)) => Some(Leaving {
-                nick_name: &info.nick_name.formatted,
-            }),
-
-            BeginMap { loaded_map } => Some(CurrentMap {
-                name: &loaded_map.name.formatted,
-                author: &loaded_map.author_login,
-            }),
-
-            BeginOutro { vote } => Some(VoteNow {
-                duration: vote.duration,
-                threshold: vote.min_restart_vote_ratio,
-            }),
-
-            EndRun {
-                pb_diff:
-                    PbDiff {
-                        new_pos,
-                        pos_gained,
-                        new_record: Some(new_record),
-                        ..
-                    },
-            } if *pos_gained > 0 && *new_pos <= MAX_ANNOUNCED_RECORD => Some(TopRecord {
-                player_nick_name: &new_record.player_nick_name.formatted,
-                new_map_rank: *new_pos,
-                millis: new_record.millis as usize,
-            }),
-
-            EndRun {
-                pb_diff:
-                    PbDiff {
-                        new_pos,
-                        pos_gained,
-                        new_record: Some(new_record),
-                        millis_diff: Some(diff),
-                        ..
-                    },
-            } if *pos_gained == 0 && *diff < 0 && *new_pos <= MAX_ANNOUNCED_RECORD_IMPROVEMENT => {
-                Some(TopRecordImproved {
-                    player_nick_name: &new_record.player_nick_name.formatted,
-                    map_rank: *new_pos,
-                    millis: new_record.millis as usize,
-                })
-            }
-
-            NewPlaylist(PlaylistDiff::AppendNew(map)) => Some(NewMap {
-                name: &map.name.formatted,
-                author: &map.author_login,
-            }),
-
-            NewPlaylist(PlaylistDiff::Append(map)) => Some(AddedMap {
-                name: &map.name.formatted,
-            }),
-
-            NewPlaylist(PlaylistDiff::Remove { map, .. }) => Some(RemovedMap {
-                name: &map.name.formatted,
-            }),
-
-            NewServerRanking(ServerRankingDiff { diffs, .. }) => {
-                let mut top_ranks: Vec<TopRankMessage> = diffs
-                    .values()
-                    .filter_map(|diff| {
-                        if diff.gained_pos > 0 && diff.new_pos <= MAX_ANNOUNCED_RANK {
-                            Some(TopRankMessage {
-                                nick_name: &diff.player_nick_name.formatted,
-                                rank: diff.new_pos,
-                            })
-                        } else {
-                            None
-                        }
-                    })
-                    .collect();
-                top_ranks.sort_by_key(|tr| tr.rank); // lowest ranks (highest number) last
-                top_ranks = top_ranks.into_iter().take(MAX_NB_ANNOUNCED_RANKS).collect();
-                top_ranks.reverse(); // highest ranks last -> more prominent in chat
-                Some(NewTopRanks(top_ranks))
-            }
-
-            _ => None,
-        }
-    }
+    pub nick_name: &'a str,
+    pub rank: usize,
 }
 
 impl Display for ServerMessage<'_> {

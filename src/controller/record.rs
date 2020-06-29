@@ -9,7 +9,7 @@ use async_trait::async_trait;
 use crate::config::{MAX_DISPLAYED_MAP_RANKS, MAX_GHOST_REPLAY_RANK};
 use crate::controller::{LivePlayers, LivePlaylist};
 use crate::database::{Database, Map, Record, RecordDetailed, RecordEvidence, RecordSector};
-use crate::event::{PbDiff, PlayerDiff};
+use crate::event::{PbDiff, PlayerDiff, PlayerTransition};
 use crate::server::{CheckpointEvent, Server};
 
 /// Shared component that allows to look up records
@@ -159,30 +159,30 @@ impl RecordController {
     }
 
     /// Load a player's personal best when they join, or unload it when they leave.
-    pub async fn load_for_player(&self, ev: &PlayerDiff) {
-        use PlayerDiff::*;
+    pub async fn load_for_player(&self, diff: &PlayerDiff) {
+        use PlayerTransition::*;
 
         let map_uid = match self.live_playlist.current_map_uid().await {
             Some(uid) => uid,
             None => return,
         };
 
-        match ev {
-            AddPlayer(info) | AddSpectator(info) | AddPureSpectator(info) => {
+        match diff.transition {
+            AddPlayer | AddSpectator | AddPureSpectator => {
                 let pb = self
                     .db
-                    .player_record(&map_uid, &info.login)
+                    .player_record(&map_uid, &diff.info.login)
                     .await
                     .expect("failed to load player PB");
                 if let Some(pb) = pb {
                     let mut records_state = self.state.write().await;
-                    records_state.pbs.insert(info.uid, pb);
+                    records_state.pbs.insert(diff.info.uid, pb);
                 }
             }
-            RemovePlayer(info) | RemoveSpectator(info) | RemovePureSpectator(info) => {
+            RemovePlayer | RemoveSpectator | RemovePureSpectator => {
                 let mut records_state = self.state.write().await;
-                records_state.pbs.remove(&info.uid);
-                records_state.run_sectors.remove(&info.uid);
+                records_state.pbs.remove(&diff.info.uid);
+                records_state.run_sectors.remove(&diff.info.uid);
             }
             _ => {}
         }
