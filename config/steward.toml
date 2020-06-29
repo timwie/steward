@@ -28,13 +28,13 @@ admin_whitelist = ["admin3", "admin4"]
 
 # To calculate the time limit of a map, this factor is applied to either the
 # author time or the top record.
-timelimit_factor = 10
+time_limit_factor = 10
 
 # The maximum time limit in seconds.
-timelimit_max_secs = 900
+time_limit_max_secs = 900
 
 # The minimum time limit in seconds.
-timelimit_min_secs = 300
+time_limit_min_secs = 300
 
 # The time spent on a map after the race ends in seconds.
 # Overrides the S_ChatTime mode setting.

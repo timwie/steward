@@ -146,13 +146,13 @@ pub struct Config {
 
     /// To calculate the time limit of a map, this factor is applied to either the
     /// author time or the top record.
-    pub timelimit_factor: u32,
+    pub time_limit_factor: u32,
 
     /// The maximum time limit in seconds.
-    pub timelimit_max_secs: u32,
+    pub time_limit_max_secs: u32,
 
     /// The minimum time limit in seconds.
-    pub timelimit_min_secs: u32,
+    pub time_limit_min_secs: u32,
 
     /// The time spent on a map after the race ends in seconds.
     /// Overrides the `S_ChatTime` mode setting.

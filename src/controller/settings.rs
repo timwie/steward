@@ -76,19 +76,19 @@ impl SettingsController {
             set_mode_options(&self.server, &cfg).await;
         }
 
-        if cfg.timelimit_factor != new_cfg.timelimit_factor
-            || cfg.timelimit_max_secs != new_cfg.timelimit_max_secs
-            || cfg.timelimit_min_secs != new_cfg.timelimit_min_secs
+        if cfg.time_limit_factor != new_cfg.time_limit_factor
+            || cfg.time_limit_max_secs != new_cfg.time_limit_max_secs
+            || cfg.time_limit_min_secs != new_cfg.time_limit_min_secs
         {
             diffs.push(NewTimeLimit {
-                timelimit_factor: new_cfg.timelimit_factor,
-                timelimit_max_secs: new_cfg.timelimit_max_secs,
-                timelimit_min_secs: new_cfg.timelimit_min_secs,
+                time_limit_factor: new_cfg.time_limit_factor,
+                time_limit_max_secs: new_cfg.time_limit_max_secs,
+                time_limit_min_secs: new_cfg.time_limit_min_secs,
             });
 
-            cfg.timelimit_factor = new_cfg.timelimit_factor;
-            cfg.timelimit_max_secs = new_cfg.timelimit_max_secs;
-            cfg.timelimit_min_secs = new_cfg.timelimit_min_secs;
+            cfg.time_limit_factor = new_cfg.time_limit_factor;
+            cfg.time_limit_max_secs = new_cfg.time_limit_max_secs;
+            cfg.time_limit_min_secs = new_cfg.time_limit_min_secs;
         }
 
         if !diffs.is_empty() {
@@ -102,9 +102,9 @@ impl SettingsController {
     pub async fn public_config(&self) -> PublicConfig {
         let cfg = self.config.read().await;
         PublicConfig {
-            timelimit_factor: cfg.timelimit_factor,
-            timelimit_max_secs: cfg.timelimit_max_secs,
-            timelimit_min_secs: cfg.timelimit_min_secs,
+            time_limit_factor: cfg.time_limit_factor,
+            time_limit_max_secs: cfg.time_limit_max_secs,
+            time_limit_min_secs: cfg.time_limit_min_secs,
             outro_duration_secs: cfg.outro_duration_secs,
         }
     }
@@ -131,9 +131,9 @@ impl LiveSettings for SettingsController {
 /// that is ready to be displayed and edited in-game.
 #[derive(Deserialize, Serialize)]
 pub struct PublicConfig {
-    pub timelimit_factor: u32,
-    pub timelimit_max_secs: u32,
-    pub timelimit_min_secs: u32,
+    pub time_limit_factor: u32,
+    pub time_limit_max_secs: u32,
+    pub time_limit_min_secs: u32,
     pub outro_duration_secs: u32,
 }
 
@@ -147,13 +147,13 @@ impl PublicConfig {
 
         let cfg: PublicConfig = toml::from_str(serialized)?;
 
-        if cfg.timelimit_factor == 0 {
+        if cfg.time_limit_factor == 0 {
             return Err(TimeLimitFactorCannotBeZero);
         }
-        if cfg.timelimit_max_secs == 0 {
+        if cfg.time_limit_max_secs == 0 {
             return Err(TimeLimitMaxCannotBeZero);
         }
-        if cfg.timelimit_min_secs >= cfg.timelimit_max_secs {
+        if cfg.time_limit_min_secs >= cfg.time_limit_max_secs {
             return Err(TimeLimitMinGreaterThanMax);
         }
 
@@ -167,12 +167,12 @@ pub enum PublicConfigError {
     #[error("Not a valid config")]
     ParseError(#[from] toml::de::Error),
 
-    #[error("timelimit_factor must be greater than zero")]
+    #[error("time_limit_factor must be greater than zero")]
     TimeLimitFactorCannotBeZero,
 
-    #[error("timelimit_max_secs must be greater than zero")]
+    #[error("time_limit_max_secs must be greater than zero")]
     TimeLimitMaxCannotBeZero,
 
-    #[error("timelimit_max_secs must be greater than timelimit_min_secs")]
+    #[error("time_limit_max_secs must be greater than time_limit_min_secs")]
     TimeLimitMinGreaterThanMax,
 }

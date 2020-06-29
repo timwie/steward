@@ -15,7 +15,7 @@ All `0.1.0-alpha` releases are unstable, and have missing widgets.
 - The controller config has changed:
   - Refer to the new [default](https://github.com/timwie/steward/blob/v0.1.0-alpha4/config/steward.toml) config.
   - Remove `race_duration_secs`.
-  - Add `timelimit_factor`, `timelimit_max_secs` and `timelimit_min_secs`. 
+  - Add `time_limit_factor`, `time_limit_max_secs` and `time_limit_min_secs`. 
 - Clear your database with `DROP SCHEMA steward CASCADE`.
   There are no migrations for `0.1.0-alpha` releases.
   
