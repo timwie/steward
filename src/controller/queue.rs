@@ -169,7 +169,10 @@ impl QueueController {
         live_playlist: &Arc<dyn LivePlaylist>,
         live_prefs: &Arc<dyn LivePreferences>,
     ) -> Self {
-        let state = QueueState::init(live_playlist.nb_maps().await);
+        let state = {
+            let playlist_state = live_playlist.lock().await;
+            QueueState::init(playlist_state.maps.len())
+        };
         let controller = QueueController {
             state: Arc::new(RwLock::new(state)),
             server: server.clone(),
@@ -184,17 +187,17 @@ impl QueueController {
     /// Update the queue when maps are added or removed from the playlist,
     /// and re-sort it.
     pub async fn insert_or_remove(&self, diff: &PlaylistDiff) -> QueueDiff {
-        let mut state = self.state.write().await;
+        let mut queue_state = self.state.write().await;
         match diff {
             PlaylistDiff::AppendNew(_) => {
-                let new_idx = state.extend();
-                state.force_queue_back(new_idx);
+                let new_idx = queue_state.extend();
+                queue_state.force_queue_back(new_idx);
             }
             PlaylistDiff::Append(_) => {
-                state.extend();
+                queue_state.extend();
             }
             PlaylistDiff::Remove { was_index, .. } => {
-                state.remove(*was_index);
+                queue_state.remove(*was_index);
             }
         }
         self.sort_queue()
@@ -210,8 +213,8 @@ impl QueueController {
             None => return None,
         };
 
-        let mut state = self.state.write().await;
-        if state.force_queue_front(curr_index) {
+        let mut queue_state = self.state.write().await;
+        if queue_state.force_queue_front(curr_index) {
             return self.sort_queue().await;
         }
         None
@@ -225,8 +228,8 @@ impl QueueController {
     /// Other maps that are force-queued have a lower priority for each map
     /// that was force-queued before them.
     pub async fn force_queue(&self, playlist_index: usize) -> Option<QueueDiff> {
-        let mut state = self.state.write().await;
-        if state.force_queue_back(playlist_index) {
+        let mut queue_state = self.state.write().await;
+        if queue_state.force_queue_back(playlist_index) {
             return self.sort_queue().await;
         }
         None
@@ -242,14 +245,14 @@ impl QueueController {
     }
 
     async fn sort_queue2(&self, is_vote_active: bool) -> Option<QueueDiff> {
-        let mut state = self.state.write().await;
-        let live_prefs = self.live_prefs.lock().await;
-        let live_playlist = self.live_playlist.lock().await;
+        let mut queue_state = self.state.write().await;
+        let preferences_state = self.live_prefs.lock().await;
+        let playlist_state = self.live_playlist.lock().await;
 
         let uid_playing = self.live_players.uid_playing().await;
         let active_votes = self.live_prefs.poll_restart().await;
 
-        let maybe_curr_index = live_playlist.current_index();
+        let maybe_curr_index = playlist_state.current_index;
 
         let voted_restart = is_vote_active && {
             let nb_for_restart: Vec<&i32> = uid_playing.intersection(&active_votes).collect();
@@ -258,17 +261,17 @@ impl QueueController {
             } else {
                 uid_playing.len() as f32 / nb_for_restart.len() as f32
             };
-            restart_vote_ratio >= state.min_restart_vote_ratio
+            restart_vote_ratio >= queue_state.min_restart_vote_ratio
         };
 
         let pref_sum = |idx: usize| -> i32 {
             use ActivePreferenceValue::*;
 
-            let map_uid = &live_playlist
+            let map_uid = &playlist_state
                 .at_index(idx)
                 .expect("no map at this playlist index")
                 .uid;
-            let active_prefs = live_prefs.map_prefs(map_uid);
+            let active_prefs = preferences_state.map_prefs(map_uid);
             active_prefs
                 .iter()
                 .map(|pv| match pv {
@@ -279,14 +282,14 @@ impl QueueController {
                 .sum()
         };
 
-        let mut priorities: Vec<(usize, QueuePriority)> = state
+        let mut priorities: Vec<(usize, QueuePriority)> = queue_state
             .times_skipped
             .iter()
             .enumerate()
             .map(|(idx, skip_count)| {
                 let prio = if voted_restart && Some(idx) == maybe_curr_index {
                     QueuePriority::VoteRestart
-                } else if let Some(pos) = state.force_queue_pos(idx) {
+                } else if let Some(pos) = queue_state.force_queue_pos(idx) {
                     QueuePriority::Force(pos)
                 } else if Some(idx) == maybe_curr_index {
                     QueuePriority::NoRestart
@@ -311,7 +314,7 @@ impl QueueController {
             .collect();
 
         // Find the first index where a map has moved.
-        let first_changed_idx = state
+        let first_changed_idx = queue_state
             .entries
             .iter()
             .zip(new_entries.iter())
@@ -320,13 +323,13 @@ impl QueueController {
         // If there are new maps in the queue, the minimum changed index is equal
         // to the length of the old queue.
         let first_changed_idx =
-            if first_changed_idx.is_none() && new_entries.len() > state.entries.len() {
-                Some(state.entries.len())
+            if first_changed_idx.is_none() && new_entries.len() > queue_state.entries.len() {
+                Some(queue_state.entries.len())
             } else {
                 first_changed_idx
             };
 
-        state.entries = new_entries;
+        queue_state.entries = new_entries;
 
         first_changed_idx.map(|idx| QueueDiff {
             first_changed_idx: idx,
@@ -337,10 +340,10 @@ impl QueueController {
     /// then re-sort the queue, so that the next map is no longer at the top.
     pub async fn pop_front(&self) {
         {
-            let mut state = self.state.write().await;
+            let mut queue_state = self.state.write().await;
 
             let maybe_curr_index = self.live_playlist.current_index().await;
-            let head = state.entries.first();
+            let head = queue_state.entries.first();
             let next_idx = head
                 .map(|entry| entry.playlist_idx)
                 .expect("queue is empty");
@@ -348,9 +351,9 @@ impl QueueController {
 
             // Every map was skipped once more, except for the current map, which
             // was skipped zero times.
-            state.times_skipped.iter_mut().for_each(|n| *n += 1);
+            queue_state.times_skipped.iter_mut().for_each(|n| *n += 1);
             if let Some(curr_index) = maybe_curr_index {
-                if let Some(n) = state.times_skipped.get_mut(curr_index) {
+                if let Some(n) = queue_state.times_skipped.get_mut(curr_index) {
                     *n = 0;
                 }
             }
@@ -358,19 +361,19 @@ impl QueueController {
             // If restart, increase the needed threshold to make another restart less
             // likely. Otherwise, reset it for the next map.
             if is_restart {
-                state.min_restart_vote_ratio += MIN_RESTART_VOTE_RATIO_STEP;
-                if state.min_restart_vote_ratio > 1.0 {
-                    state.min_restart_vote_ratio = 1.0;
+                queue_state.min_restart_vote_ratio += MIN_RESTART_VOTE_RATIO_STEP;
+                if queue_state.min_restart_vote_ratio > 1.0 {
+                    queue_state.min_restart_vote_ratio = 1.0;
                 }
             } else {
-                state.min_restart_vote_ratio = DEFAULT_MIN_RESTART_VOTE_RATIO;
+                queue_state.min_restart_vote_ratio = DEFAULT_MIN_RESTART_VOTE_RATIO;
             }
 
             // If there is no restart, the first index in the force-queue,
             // if any, will be the index of the next map. Remove it, so that it is
             // not force-queued again.
             if !is_restart {
-                let _ = state.force_queue.pop_front();
+                let _ = queue_state.force_queue.pop_front();
             }
 
             // Tell server the next map.
@@ -397,9 +400,9 @@ impl LiveQueue for QueueController {
     }
 
     async fn pos(&self, map_uid: &str) -> Option<usize> {
-        let state = self.lock().await;
+        let queue_state = self.lock().await;
         self.live_playlist.index_of(map_uid).await.and_then(|idx| {
-            state.entries.iter().find_map(|entry| {
+            queue_state.entries.iter().find_map(|entry| {
                 if entry.playlist_idx == idx {
                     Some(entry.pos)
                 } else {
@@ -410,14 +413,14 @@ impl LiveQueue for QueueController {
     }
 
     async fn peek(&self) -> Vec<QueueMap> {
-        let live_playlist = self.live_playlist.lock().await;
+        let playlist_state = self.live_playlist.lock().await;
         self.lock()
             .await
             .entries
             .iter()
             .take(MAX_DISPLAYED_IN_QUEUE)
             .filter_map(|entry| {
-                live_playlist
+                playlist_state
                     .at_index(entry.playlist_idx)
                     .cloned()
                     .map(|map| QueueMap {

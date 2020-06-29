@@ -131,6 +131,8 @@ impl PlayersState {
             .collect()
     }
 
+    /// Return the login of the player with the specified UID, or `None` if no
+    /// player with that UID is connected.
     pub fn login(&self, player_uid: i32) -> Option<&str> {
         self.uid_to_info
             .get(&player_uid)
@@ -165,44 +167,52 @@ impl PlayerController {
             return self.remove_player(&info.login).await;
         }
 
-        let mut state = self.state.write().await;
+        let mut players_state = self.state.write().await;
         let uid = info.uid;
 
         // If player connected
-        if !state.uid_to_info.contains_key(&uid) {
+        if !players_state.uid_to_info.contains_key(&uid) {
             self.db
                 .upsert_player(&info)
                 .await
                 .expect("failed to upsert player data");
 
-            let _ = state.login_to_uid.insert(info.login.to_string(), info.uid);
-            let _ = state.uid_to_info.insert(info.uid, info.clone());
+            let _ = players_state
+                .login_to_uid
+                .insert(info.login.to_string(), info.uid);
+            let _ = players_state.uid_to_info.insert(info.uid, info.clone());
         }
 
         match info.slot() {
             PlayerSlot::None => None,
             PlayerSlot::Player => {
-                if !state.playing.insert(uid) {
+                if !players_state.playing.insert(uid) {
                     None
-                } else if state.spectating.remove(&uid) || state.pure_spectating.remove(&uid) {
+                } else if players_state.spectating.remove(&uid)
+                    || players_state.pure_spectating.remove(&uid)
+                {
                     Some(MoveToPlayer(info))
                 } else {
                     Some(AddPlayer(info))
                 }
             }
             PlayerSlot::PlayerSpectator => {
-                if !state.spectating.insert(uid) {
+                if !players_state.spectating.insert(uid) {
                     None
-                } else if state.playing.remove(&uid) || state.pure_spectating.remove(&uid) {
+                } else if players_state.playing.remove(&uid)
+                    || players_state.pure_spectating.remove(&uid)
+                {
                     Some(MoveToSpectator(info))
                 } else {
                     Some(AddSpectator(info))
                 }
             }
             PlayerSlot::PureSpectator => {
-                if !state.pure_spectating.insert(uid) {
+                if !players_state.pure_spectating.insert(uid) {
                     None
-                } else if state.playing.remove(&uid) || state.spectating.remove(&uid) {
+                } else if players_state.playing.remove(&uid)
+                    || players_state.spectating.remove(&uid)
+                {
                     Some(MoveToPureSpectator(info))
                 } else {
                     Some(AddPureSpectator(info))
@@ -215,25 +225,25 @@ impl PlayerController {
     pub async fn remove_player(&self, login: &str) -> Option<PlayerDiff> {
         use PlayerDiff::*;
 
-        let mut state = self.state.write().await;
+        let mut players_state = self.state.write().await;
 
-        let uid = match state.login_to_uid.remove(&login.to_string()) {
+        let uid = match players_state.login_to_uid.remove(&login.to_string()) {
             Some(uid) => uid,
             None => return None,
         };
 
-        let info = match state.uid_to_info.remove(&uid) {
+        let info = match players_state.uid_to_info.remove(&uid) {
             Some(info) => info,
             None => return None,
         };
 
-        if state.playing.remove(&uid) {
+        if players_state.playing.remove(&uid) {
             return Some(RemovePlayer(info));
         }
-        if state.spectating.remove(&uid) {
+        if players_state.spectating.remove(&uid) {
             return Some(RemoveSpectator(info));
         }
-        if state.pure_spectating.remove(&uid) {
+        if players_state.pure_spectating.remove(&uid) {
             return Some(RemovePureSpectator(info));
         }
 

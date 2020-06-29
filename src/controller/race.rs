@@ -20,7 +20,7 @@ pub trait LiveRace: Send + Sync {
 }
 
 pub struct RaceState {
-    ranking: Vec<RaceRank>,
+    pub ranking: Vec<RaceRank>,
 
     /// Lists UIDs of non-spectators that are still in the intro phase.
     /// The server does not wait for every player to start the race.
@@ -68,19 +68,20 @@ impl RaceController {
             Some(uid) => uid,
             None => return false,
         };
-        self.state.write().await.pre_race.insert(uid)
+        let mut race_state = self.state.write().await;
+        race_state.pre_race.insert(uid)
     }
 
     /// Replace the entire ranking.
     pub async fn set(&self, scores: &Scores) {
-        let live_players = self.live_players.lock().await;
-        let mut state = self.state.write().await;
+        let players_state = self.live_players.lock().await;
+        let mut race_state = self.state.write().await;
 
         scores
             .entries
             .iter()
             .filter_map(|game_score| {
-                live_players.info(&game_score.login).map(|info| RaceRank {
+                players_state.info(&game_score.login).map(|info| RaceRank {
                     login: info.login.clone(),
                     nick_name: game_score.nick_name.clone(),
                     millis: Some(game_score.best_time_millis as usize).filter(|millis| *millis > 0),
@@ -88,17 +89,17 @@ impl RaceController {
             })
             .enumerate()
             .for_each(|(idx, score)| {
-                state.ranking.retain(|s| s.login != score.login); // remove previous entry
-                state.ranking.insert(idx, score);
+                race_state.ranking.retain(|s| s.login != score.login); // remove previous entry
+                race_state.ranking.insert(idx, score);
             });
     }
 
     /// Clear the ranking for a new race.
     pub async fn reset(&self) -> Vec<RaceRank> {
-        let mut state = self.state.write().await;
+        let mut race_state = self.state.write().await;
 
-        let res = state.ranking.drain(..).collect();
-        state.pre_race.clear();
+        let res = race_state.ranking.drain(..).collect();
+        race_state.pre_race.clear();
 
         self.live_players
             .info_all()
@@ -109,7 +110,7 @@ impl RaceController {
                 nick_name: info.nick_name,
                 millis: None,
             })
-            .for_each(|score| state.ranking.push(score));
+            .for_each(|score| race_state.ranking.push(score));
 
         res
     }
@@ -125,15 +126,15 @@ impl RaceController {
             None => return,
         };
 
-        let mut state = self.state.write().await;
+        let mut race_state = self.state.write().await;
 
-        let prev_idx = state
+        let prev_idx = race_state
             .ranking
             .iter()
             .position(|lr| lr.login == player_info.login);
         match prev_idx {
             Some(idx)
-                if state.ranking[idx]
+                if race_state.ranking[idx]
                     .millis
                     .map(|prev_millis| prev_millis < ev.race_time_millis as usize)
                     .unwrap_or(false) =>
@@ -141,7 +142,7 @@ impl RaceController {
                 return
             }
             Some(idx) => {
-                state.ranking.remove(idx);
+                race_state.ranking.remove(idx);
             }
             None => {}
         }
@@ -152,7 +153,7 @@ impl RaceController {
             millis: Some(ev.race_time_millis as usize),
         };
 
-        let new_idx = state
+        let new_idx = race_state
             .ranking
             .iter()
             .enumerate()
@@ -162,8 +163,8 @@ impl RaceController {
             .map(|(idx, _)| idx);
 
         match new_idx {
-            Some(idx) => state.ranking.insert(idx, new_ranking),
-            None => state.ranking.push(new_ranking),
+            Some(idx) => race_state.ranking.insert(idx, new_ranking),
+            None => race_state.ranking.push(new_ranking),
         }
     }
 }
