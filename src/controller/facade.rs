@@ -72,7 +72,7 @@ impl Controller {
         let playlist = PlaylistController::init(&server, &db, &live_settings).await;
         let live_playlist = Arc::new(playlist.clone()) as Arc<dyn LivePlaylist>;
 
-        let players = PlayerController::init(&db);
+        let players = PlayerController::init(&server, &db).await;
         let live_players = Arc::new(players.clone()) as Arc<dyn LivePlayers>;
 
         let prefs =
@@ -117,9 +117,7 @@ impl Controller {
         )
         .await;
 
-        let init_players = server.players().await;
-
-        let controller = Controller {
+        Controller {
             server,
             db,
             settings,
@@ -133,15 +131,7 @@ impl Controller {
             records,
             race,
             widget,
-        };
-
-        // It's easier to act as if players that were already connected just joined.
-        for info in init_players {
-            let ev = ServerEvent::PlayerInfoChanged { info };
-            controller.on_server_event(ev).await;
         }
-
-        controller
     }
 
     /// Server events are converted to controller events with the
@@ -373,7 +363,7 @@ impl Controller {
             }
 
             ControllerEvent::NewPlayerList(diff) => {
-                self.records.load_for_player(&diff).await;
+                self.records.update_for_player(&diff).await;
                 self.prefs.update_for_player(&diff).await;
                 self.widget.refresh_for_player(&diff).await;
             }
@@ -836,6 +826,7 @@ impl Controller {
         }
     }
 
+    #[allow(clippy::needless_lifetimes)]
     async fn message_from_event<'a>(
         &self,
         event: &'a ControllerEvent<'_>,

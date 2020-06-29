@@ -54,7 +54,7 @@ impl WidgetController {
         live_queue: &Arc<dyn LiveQueue>,
         live_schedule: &Arc<dyn LiveSchedule>,
     ) -> Self {
-        WidgetController {
+        let controller = WidgetController {
             state: Arc::new(RwLock::new(WidgetState::Race)),
             server: server.clone(),
             db: db.clone(),
@@ -66,7 +66,13 @@ impl WidgetController {
             live_prefs: live_prefs.clone(),
             live_queue: live_queue.clone(),
             live_schedule: live_schedule.clone(),
+        };
+
+        for diff in live_players.lock().await.replay_diffs() {
+            controller.refresh_for_player(&diff).await;
         }
+
+        controller
     }
 
     /// Add widgets that are displayed during the intro.

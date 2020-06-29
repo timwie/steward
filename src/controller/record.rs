@@ -2,9 +2,11 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::SystemTime;
 
+use futures::future::join_all;
 use tokio::sync::{RwLock, RwLockReadGuard};
 
 use async_trait::async_trait;
+use gbx::PlayerInfo;
 
 use crate::config::{MAX_DISPLAYED_MAP_RANKS, MAX_GHOST_REPLAY_RANK};
 use crate::controller::{LivePlayers, LivePlaylist};
@@ -153,13 +155,23 @@ impl RecordController {
 
         if let Some(map) = live_playlist.current_map().await {
             controller.load_for_map(&map).await;
+
+            join_all(
+                live_players
+                    .lock()
+                    .await
+                    .info_all()
+                    .iter()
+                    .map(|info| controller.load_for_player(&map.uid, &info)),
+            )
+            .await;
         }
 
         controller
     }
 
     /// Load a player's personal best when they join, or unload it when they leave.
-    pub async fn load_for_player(&self, diff: &PlayerDiff) {
+    pub async fn update_for_player(&self, diff: &PlayerDiff) {
         use PlayerTransition::*;
 
         let map_uid = match self.live_playlist.current_map_uid().await {
@@ -169,15 +181,7 @@ impl RecordController {
 
         match diff.transition {
             AddPlayer | AddSpectator | AddPureSpectator => {
-                let pb = self
-                    .db
-                    .player_record(&map_uid, &diff.info.login)
-                    .await
-                    .expect("failed to load player PB");
-                if let Some(pb) = pb {
-                    let mut records_state = self.state.write().await;
-                    records_state.pbs.insert(diff.info.uid, pb);
-                }
+                self.load_for_player(&map_uid, &diff.info).await;
             }
             RemovePlayer | RemoveSpectator | RemovePureSpectator => {
                 let mut records_state = self.state.write().await;
@@ -185,6 +189,18 @@ impl RecordController {
                 records_state.run_sectors.remove(&diff.info.uid);
             }
             _ => {}
+        }
+    }
+
+    async fn load_for_player(&self, map_uid: &str, info: &PlayerInfo) {
+        let pb = self
+            .db
+            .player_record(&map_uid, &info.login)
+            .await
+            .expect("failed to load player PB");
+        if let Some(pb) = pb {
+            let mut records_state = self.state.write().await;
+            records_state.pbs.insert(info.uid, pb);
         }
     }
 
