@@ -20,11 +20,6 @@ use crate::server::GameString;
 pub trait LiveServerRanking: Send + Sync {
     /// While holding this guard, the state is read-only, and can be referenced.
     async fn lock(&self) -> RwLockReadGuard<'_, ServerRankingState>;
-
-    /// The number of players that have a server rank.
-    async fn max_pos(&self) -> usize {
-        self.lock().await.max_pos()
-    }
 }
 
 pub struct ServerRankingState {
@@ -172,30 +167,30 @@ impl ServerRankController {
     /// Update the server ranking, and return information of changed
     /// ranks for connected players.
     pub async fn update(&self) -> ServerRankingDiff {
-        let mut state = self.state.write().await;
-        let live_players = self.live_players.lock().await;
+        let mut server_ranking_state = self.state.write().await;
+        let players_state = self.live_players.lock().await;
 
         // Remove all rankings of offline players, as they don't need a diff.
-        state
+        server_ranking_state
             .all_ranks
-            .retain(|login, _| live_players.uid(&login).is_some());
+            .retain(|login, _| players_state.uid(&login).is_some());
 
         // Calculate new ranking from scratch
         let new_ranking = calc_server_ranking(&self.db).await;
 
         // List for newly ranked players
-        let first_ranks: Vec<(i32, &ServerRank)> = live_players
+        let first_ranks: Vec<(i32, &ServerRank)> = players_state
             .info_all()
             .into_iter()
             .map(|info| (Cow::<'_, str>::from(&info.login), info))
-            .filter(|(key, _)| !state.all_ranks.contains_key(key))
+            .filter(|(key, _)| !server_ranking_state.all_ranks.contains_key(key))
             .filter_map(|(key, info)| new_ranking.get(&key).map(|r| (info.uid, r)))
             .collect();
 
-        let mut diffs: HashMap<i32, ServerRankDiff> = state
+        let mut diffs: HashMap<i32, ServerRankDiff> = server_ranking_state
             .all_ranks
             .iter()
-            .filter_map(|(key, old_rank)| match live_players.uid(&key) {
+            .filter_map(|(key, old_rank)| match players_state.uid(&key) {
                 None => None,
                 Some(uid) => {
                     let new_rank = new_ranking.get(key).unwrap();
@@ -223,11 +218,11 @@ impl ServerRankController {
         }
 
         // Overwrite old ranking.
-        state.all_ranks = new_ranking;
+        server_ranking_state.all_ranks = new_ranking;
 
         ServerRankingDiff {
             diffs,
-            max_pos: state.all_ranks.len(),
+            max_pos: server_ranking_state.all_ranks.len(),
         }
     }
 }

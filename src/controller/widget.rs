@@ -19,7 +19,7 @@ use crate::widget::*;
 /// to build and send widgets to connected players.
 #[derive(Clone)]
 pub struct WidgetController {
-    phase: Arc<RwLock<MapPhase>>,
+    state: Arc<RwLock<WidgetState>>,
     server: Arc<dyn Server>,
     db: Arc<dyn Database>,
     live_playlist: Arc<dyn LivePlaylist>,
@@ -35,7 +35,7 @@ pub struct WidgetController {
 /// May be used to select the widgets that will be sent to a player
 /// when joining the server.
 #[derive(PartialEq)]
-enum MapPhase {
+enum WidgetState {
     Race,
     Outro { voting: bool, has_ranking: bool },
 }
@@ -55,7 +55,7 @@ impl WidgetController {
         live_schedule: &Arc<dyn LiveSchedule>,
     ) -> Self {
         WidgetController {
-            phase: Arc::new(RwLock::new(MapPhase::Race)),
+            state: Arc::new(RwLock::new(WidgetState::Race)),
             server: server.clone(),
             db: db.clone(),
             live_playlist: live_playlist.clone(),
@@ -71,8 +71,8 @@ impl WidgetController {
 
     /// Add widgets that are displayed during the intro.
     pub async fn begin_intro(&self) {
-        let mut phase = self.phase.write().await;
-        *phase = MapPhase::Race;
+        let mut widget_state = self.state.write().await;
+        *widget_state = WidgetState::Race;
 
         self.show_intro_widgets().await;
     }
@@ -80,8 +80,8 @@ impl WidgetController {
     /// For the specified player, remove widgets that are displayed during the intro,
     /// and add widgets that are displayed during the race.
     pub async fn end_intro_for(&self, player_login: &str) {
-        let live_players = self.live_players.lock().await;
-        if let Some(info) = live_players.info(player_login) {
+        let players_state = self.live_players.lock().await;
+        if let Some(info) = players_state.info(player_login) {
             self.hide_intro_widgets_for(info.uid).await;
             self.show_race_widgets_for(info).await;
         }
@@ -100,8 +100,8 @@ impl WidgetController {
     /// Remove race widgets, and add outro widgets, in particular
     /// those that are to be displayed during the vote.
     pub async fn begin_outro_and_vote(&self, ev: &VoteInfo) {
-        let mut phase = self.phase.write().await;
-        *phase = MapPhase::Outro {
+        let mut widget_state = self.state.write().await;
+        *widget_state = WidgetState::Outro {
             voting: true,
             has_ranking: false,
         };
@@ -113,11 +113,11 @@ impl WidgetController {
     /// Remove widgets that are displayed during the vote,
     /// and add ones that display the vote's results.
     pub async fn end_vote(&self, queued_next: Vec<QueueMap>) {
-        let mut phase = self.phase.write().await;
-        *phase = MapPhase::Outro {
+        let mut widget_state = self.state.write().await;
+        *widget_state = WidgetState::Outro {
             voting: false,
-            has_ranking: match *phase {
-                MapPhase::Outro { has_ranking, .. } => has_ranking,
+            has_ranking: match *widget_state {
+                WidgetState::Outro { has_ranking, .. } => has_ranking,
                 _ => false,
             },
         };
@@ -142,7 +142,7 @@ impl WidgetController {
         // it happens *at most* for a player while they are on the server,
         // and both intro & outro are short enough to justify this.
 
-        if *self.phase.read().await != MapPhase::Race {
+        if *self.state.read().await != WidgetState::Race {
             return;
         }
         match ev {
@@ -174,8 +174,8 @@ impl WidgetController {
         {
             // After players have set their first record on a map, send them
             // the sector diff widget.
-            let live_players = self.live_players.lock().await;
-            if let Some(info) = live_players.info(&new_record.player_login) {
+            let players_state = self.live_players.lock().await;
+            if let Some(info) = players_state.info(&new_record.player_login) {
                 self.show_sector_diff_for(info).await;
             }
         }
@@ -183,20 +183,20 @@ impl WidgetController {
 
     /// Add or update widgets that should display server ranks.
     pub async fn refresh_server_ranking(&self, change: &ServerRankingDiff) {
-        let mut phase = self.phase.write().await;
+        let mut widget_state = self.state.write().await;
 
-        if *phase == MapPhase::Race {
-            let players = self.live_players.lock().await;
-            for info in players.info_playing() {
+        if *widget_state == WidgetState::Race {
+            let players_state = self.live_players.lock().await;
+            for info in players_state.info_playing() {
                 self.show_curr_rank_for(info).await;
             }
             return;
         }
 
-        *phase = MapPhase::Outro {
+        *widget_state = WidgetState::Outro {
             has_ranking: true,
-            voting: match *phase {
-                MapPhase::Outro { voting, .. } => voting,
+            voting: match *widget_state {
+                WidgetState::Outro { voting, .. } => voting,
                 _ => false,
             },
         };
@@ -206,8 +206,8 @@ impl WidgetController {
 
     /// Update any widget that displays the server's playlist.
     pub async fn refresh_playlist(&self) {
-        let live_players = self.live_players.lock().await;
-        for info in live_players.info_all() {
+        let players_state = self.live_players.lock().await;
+        for info in players_state.info_all() {
             self.show_toggle_menu_for(&info).await;
         }
     }
@@ -237,13 +237,13 @@ impl WidgetController {
     }
 
     async fn show_sector_diff_for(&self, player: &PlayerInfo) {
-        let records = self.live_records.lock().await;
+        let records_state = self.live_records.lock().await;
 
-        let top_1: &RecordDetailed = match records.top_record() {
+        let top_1: &RecordDetailed = match &records_state.top_record {
             Some(rec) => rec,
             None => return,
         };
-        let pb: &RecordDetailed = match records.pb(player.uid) {
+        let pb: &RecordDetailed = match records_state.pb(player.uid) {
             Some(rec) => rec,
             None => return,
         };
@@ -354,7 +354,9 @@ impl WidgetController {
             .expect("failed to load player")
             .map(|p| p.nick_name);
 
-        let nb_records = self.live_records.nb_records().await;
+        let records_state = self.live_records.lock().await;
+        let preferences_state = self.live_prefs.lock().await;
+
         let preference_counts: Vec<(PreferenceValue, usize)> = self
             .db
             .count_map_preferences(&map.uid)
@@ -363,9 +365,6 @@ impl WidgetController {
             .into_iter()
             .map(|(k, v)| (k, v as usize))
             .collect();
-
-        let records = self.live_records.lock().await;
-        let preferences = self.live_prefs.lock().await;
 
         // Do not show for pure spectators.
         let id_playing = self.live_players.uid_playing().await;
@@ -378,11 +377,11 @@ impl WidgetController {
                     Some(str) => Some(&str.formatted),
                     None => None,
                 },
-                player_map_rank: records.pb(id).map(|rec| rec.map_rank as usize),
-                max_map_rank: nb_records,
-                player_preference: preferences.pref(id, &map.uid),
+                player_map_rank: records_state.pb(id).map(|rec| rec.map_rank as usize),
+                max_map_rank: records_state.nb_records,
+                player_preference: preferences_state.pref(id, &map.uid),
                 preference_counts: preference_counts.clone(),
-                last_played: preferences
+                last_played: preferences_state
                     .history(id, &map.uid)
                     .and_then(|h| h.last_played),
             };
@@ -399,14 +398,18 @@ impl WidgetController {
     }
 
     async fn show_toggle_menu_for(&self, player: &PlayerInfo) {
-        let records = self.live_records.lock().await;
-        let playlist = self.live_playlist.lock().await;
-        let server_ranking = self.live_server_ranking.lock().await;
-        let prefs = self.live_prefs.lock().await;
+        let records_state = self.live_records.lock().await;
+        let playlist_state = self.live_playlist.lock().await;
+        let server_ranking_state = self.live_server_ranking.lock().await;
+        let preferences_state = self.live_prefs.lock().await;
 
-        let map_ranking = self.curr_map_ranking(&*records, &player).await;
-        let server_ranking = self.curr_server_ranking(&*server_ranking, &player).await;
-        let map_list = self.curr_map_list(&*playlist, &*prefs, &player).await;
+        let map_ranking = self.curr_map_ranking(&*records_state, &player).await;
+        let server_ranking = self
+            .curr_server_ranking(&*server_ranking_state, &player)
+            .await;
+        let map_list = self
+            .curr_map_list(&*playlist_state, &*preferences_state, &player)
+            .await;
 
         let menu = ToggleMenuWidget {
             map_ranking,
@@ -448,12 +451,12 @@ impl WidgetController {
             _ => return,
         };
 
-        let players = self.live_players.lock().await;
-        let records = self.live_records.lock().await;
+        let players_state = self.live_players.lock().await;
+        let records_state = self.live_records.lock().await;
 
-        let need_update = records.playing_pbs().filter_map(|pb| {
+        let need_update = records_state.playing_pbs().filter_map(|pb| {
             if pb.map_rank as usize >= *max_pos_changed {
-                players.info(&pb.player_login)
+                players_state.info(&pb.player_login)
             } else {
                 None
             }
@@ -496,11 +499,11 @@ impl WidgetController {
     }
 
     async fn show_outro_ranking(&self, change: &ServerRankingDiff) {
-        let players = self.live_players.lock().await;
-        let server_ranking = self.live_server_ranking.lock().await;
+        let players_state = self.live_players.lock().await;
+        let server_ranking_state = self.live_server_ranking.lock().await;
 
         for (id, diff) in change.diffs.iter() {
-            let info = match players.uid_info(*id) {
+            let info = match players_state.uid_info(*id) {
                 Some(info) => info,
                 None => continue,
             };
@@ -509,19 +512,21 @@ impl WidgetController {
                 max_pos: change.max_pos,
                 wins_gained: diff.gained_wins,
                 pos_gained: diff.gained_pos,
-                server_ranking: self.curr_server_ranking(&*server_ranking, &info).await,
+                server_ranking: self
+                    .curr_server_ranking(&*server_ranking_state, &info)
+                    .await,
             };
             self.show_for(&widget, *id).await;
         }
     }
 
     async fn show_outro_scores(&self) {
-        let players = self.live_players.lock().await;
-        let records = self.live_records.lock().await;
+        let players_state = self.live_players.lock().await;
+        let records_state = self.live_records.lock().await;
 
-        for info in players.info_all() {
+        for info in players_state.info_all() {
             let widget = OutroMapRankingsWidget {
-                map_ranking: self.curr_map_ranking(&*records, &info).await,
+                map_ranking: self.curr_map_ranking(&*records_state, &info).await,
                 max_displayed_race_ranks: MAX_DISPLAYED_RACE_RANKS,
             };
             self.show_for(&widget, info.uid).await;
@@ -529,24 +534,27 @@ impl WidgetController {
     }
 
     async fn show_curr_rank_for(&self, player: &PlayerInfo) {
-        let records = self.live_records.lock().await;
-        let server_ranking = self.live_server_ranking.lock().await;
-        let players = self.live_players.lock().await;
+        let players_state = self.live_players.lock().await;
+        let records_state = self.live_records.lock().await;
+        let server_ranking_state = self.live_server_ranking.lock().await;
 
-        let maybe_pb = records.pb(player.uid);
+        let maybe_pb = records_state.pb(player.uid);
 
-        let server_rank = players
+        let server_rank = players_state
             .login(player.uid)
-            .and_then(|login| server_ranking.rank_of(login))
+            .and_then(|login| server_ranking_state.rank_of(login))
             .map(|rank| rank.pos);
 
         let widget = LiveRanksWidget {
             pb_millis: maybe_pb.map(|rec| rec.millis as usize),
-            top1_millis: records.top_record().as_ref().map(|rec| rec.millis as usize),
+            top1_millis: records_state
+                .top_record
+                .as_ref()
+                .map(|rec| rec.millis as usize),
             map_rank: maybe_pb.map(|rec| rec.map_rank as usize),
-            max_map_rank: records.nb_records(),
+            max_map_rank: records_state.nb_records,
             server_rank,
-            max_server_rank: server_ranking.max_pos(),
+            max_server_rank: server_ranking_state.max_pos(),
         };
 
         self.show_for(&widget, player.uid).await;
@@ -555,7 +563,7 @@ impl WidgetController {
     async fn curr_server_ranking<'a>(
         &self,
         server_ranking: &'a ServerRankingState,
-        player: &'a PlayerInfo,
+        for_player: &'a PlayerInfo,
     ) -> ServerRanking<'a> {
         let to_entry = |r: &'a ServerRank| -> ServerRankingEntry {
             ServerRankingEntry {
@@ -563,13 +571,13 @@ impl WidgetController {
                 nick_name: &r.player_nick_name.formatted,
                 nb_wins: r.nb_wins,
                 nb_losses: r.nb_losses,
-                is_own: r.player_login == player.login,
+                is_own: r.player_login == for_player.login,
             }
         };
 
         let entries = server_ranking.top_ranks().map(to_entry).collect();
 
-        let personal_entry = server_ranking.rank_of(&player.login).map(to_entry);
+        let personal_entry = server_ranking.rank_of(&for_player.login).map(to_entry);
 
         ServerRanking {
             max_pos: server_ranking.max_pos(),
@@ -581,11 +589,11 @@ impl WidgetController {
 
     async fn curr_map_ranking<'a>(
         &self,
-        records: &'a RecordState,
-        player: &'a PlayerInfo,
+        records_state: &'a RecordsState,
+        for_player: &'a PlayerInfo,
     ) -> MapRanking<'a> {
-        let map_ranks = records
-            .top_records()
+        let map_ranks = records_state
+            .top_records
             .iter()
             .enumerate()
             .map(|(idx, rec)| MapRankingEntry {
@@ -593,16 +601,16 @@ impl WidgetController {
                 nick_name: &rec.player_nick_name.formatted,
                 millis: rec.millis as usize,
                 timestamp: rec.timestamp,
-                is_own: rec.player_login == player.login,
+                is_own: rec.player_login == for_player.login,
             })
             .collect();
 
-        let personal_entry = records.pb(player.uid).map(|rec| MapRankingEntry {
+        let personal_entry = records_state.pb(for_player.uid).map(|rec| MapRankingEntry {
             pos: rec.map_rank as usize,
             nick_name: &rec.player_nick_name.formatted,
             millis: rec.millis as usize,
             timestamp: rec.timestamp,
-            is_own: rec.player_login == player.login,
+            is_own: rec.player_login == for_player.login,
         });
 
         MapRanking {
@@ -614,14 +622,14 @@ impl WidgetController {
 
     async fn curr_map_list<'a>(
         &self,
-        playlist: &'a PlaylistState,
-        prefs: &'a PreferenceState,
-        player: &'a PlayerInfo,
+        playlist_state: &'a PlaylistState,
+        prefs: &'a PreferencesState,
+        for_player: &'a PlayerInfo,
     ) -> MapList<'a> {
-        let curr_map_uid = playlist.current_map().map(|m| &m.uid);
-        let mut maps = join_all(playlist.maps().iter().map(|map| async move {
-            let preference = prefs.pref(player.uid, &map.uid);
-            let history = prefs.history(player.uid, &map.uid);
+        let curr_map_uid = playlist_state.current_map().map(|m| &m.uid);
+        let mut maps = join_all(playlist_state.maps.iter().map(|map| async move {
+            let preference = prefs.pref(for_player.uid, &map.uid);
+            let history = prefs.history(for_player.uid, &map.uid);
             let nb_records = self
                 .db
                 .nb_records(&map.uid)
@@ -629,7 +637,7 @@ impl WidgetController {
                 .expect("failed to load number of records") as usize;
             let map_rank = self
                 .db
-                .player_record(&map.uid, &player.login)
+                .player_record(&map.uid, &for_player.login)
                 .await
                 .expect("failed to load player PB")
                 .map(|rec| rec.map_rank as usize);

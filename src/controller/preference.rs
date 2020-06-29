@@ -19,7 +19,7 @@ use crate::server::PlayerInfo;
 #[async_trait]
 pub trait LivePreferences: Send + Sync {
     /// While holding this guard, the state is read-only, and can be referenced.
-    async fn lock(&self) -> RwLockReadGuard<'_, PreferenceState>;
+    async fn lock(&self) -> RwLockReadGuard<'_, PreferencesState>;
 
     /// Map connected players' UID to their preferences for the current map.
     async fn current_map_prefs(&self) -> HashMap<i32, ActivePreferenceValue> {
@@ -41,7 +41,7 @@ pub trait LivePreferences: Send + Sync {
     async fn poll_restart(&self) -> HashSet<i32>;
 }
 
-pub struct PreferenceState {
+pub struct PreferencesState {
     /// The preferences of connected players (without spectators)
     /// for every map.
     preferences: HashMap<PlayerMapKey<'static>, ActivePreference>,
@@ -71,9 +71,9 @@ pub enum ActivePreferenceValue {
     AutoPick = 100,
 }
 
-impl PreferenceState {
+impl PreferencesState {
     pub fn init() -> Self {
-        PreferenceState {
+        PreferencesState {
             restart_votes: HashSet::new(),
             history: HashMap::new(),
             preferences: HashMap::new(),
@@ -147,7 +147,7 @@ impl<'a> PlayerMapKey<'a> {
 
 #[derive(Clone)]
 pub struct PreferenceController {
-    state: Arc<RwLock<PreferenceState>>,
+    state: Arc<RwLock<PreferencesState>>,
     db: Arc<dyn Database>,
     live_chat: Arc<dyn LiveChat>,
     live_playlist: Arc<dyn LivePlaylist>,
@@ -162,7 +162,7 @@ impl PreferenceController {
         live_players: &Arc<dyn LivePlayers>,
     ) -> Self {
         let controller = PreferenceController {
-            state: Arc::new(RwLock::new(PreferenceState::init())),
+            state: Arc::new(RwLock::new(PreferencesState::init())),
             db: db.clone(),
             live_chat: live_chat.clone(),
             live_playlist: live_playlist.clone(),
@@ -201,8 +201,8 @@ impl PreferenceController {
             .await
             .expect("failed to load player history");
 
-        let mut state = self.state.write().await;
-        let players = self.live_players.lock().await;
+        let mut preferences_state = self.state.write().await;
+        let players_state = self.live_players.lock().await;
 
         for map_uid in auto_picked_maps {
             let pref = ActivePreference {
@@ -210,24 +210,24 @@ impl PreferenceController {
                 map_uid,
                 value: ActivePreferenceValue::AutoPick,
             };
-            state.add_pref(pref);
+            preferences_state.add_pref(pref);
         }
         for pref in prefs {
-            if let Some(pref) = to_active_pref(pref, &players) {
-                state.add_pref(pref);
+            if let Some(pref) = to_active_pref(pref, &players_state) {
+                preferences_state.add_pref(pref);
             }
         }
 
         for entry in history {
-            if let Some(player_uid) = players.uid(&entry.player_login) {
-                state.add_history(*player_uid, entry);
+            if let Some(player_uid) = players_state.uid(&entry.player_login) {
+                preferences_state.add_history(*player_uid, entry);
             }
         }
 
         self.live_chat
             .tell(
                 PlayerMessage::PreferenceReminder {
-                    nb_active_preferences: state.nb_player_prefs(player.uid),
+                    nb_active_preferences: preferences_state.nb_player_prefs(player.uid),
                 },
                 &player.login,
             )
@@ -247,10 +247,14 @@ impl PreferenceController {
             PlayerDiff::RemovePlayer(info)
             | PlayerDiff::MoveToSpectator(info)
             | PlayerDiff::MoveToPureSpectator(info) => {
-                let mut state = self.state.write().await;
-                state.preferences.retain(|k, _| k.player_uid != info.uid);
-                state.history.retain(|k, _| k.player_uid != info.uid);
-                state.restart_votes.remove(&info.uid);
+                let mut preferences_state = self.state.write().await;
+                preferences_state
+                    .preferences
+                    .retain(|k, _| k.player_uid != info.uid);
+                preferences_state
+                    .history
+                    .retain(|k, _| k.player_uid != info.uid);
+                preferences_state.restart_votes.remove(&info.uid);
             }
             _ => {}
         }
@@ -267,9 +271,13 @@ impl PreferenceController {
                 self.load_for_new_map(map).await;
             }
             PlaylistDiff::Remove { map, .. } => {
-                let mut state = self.state.write().await;
-                state.preferences.retain(|k, _| k.map_uid != map.uid);
-                state.history.retain(|k, _| k.map_uid != map.uid);
+                let mut preferences_state = self.state.write().await;
+                preferences_state
+                    .preferences
+                    .retain(|k, _| k.map_uid != map.uid);
+                preferences_state
+                    .history
+                    .retain(|k, _| k.map_uid != map.uid);
             }
         }
     }
@@ -289,10 +297,10 @@ impl PreferenceController {
             .expect("failed to update player history");
 
         // Update in state
-        let mut state = self.state.write().await;
+        let mut preferences_state = self.state.write().await;
 
         let key = PlayerMapKey::new(player_uid, map_uid.to_string());
-        let map_last_played: Option<SystemTime> = state
+        let map_last_played: Option<SystemTime> = preferences_state
             .history
             .get(&key)
             .expect("failed to find map history")
@@ -303,13 +311,13 @@ impl PreferenceController {
             if let Some(ActivePreference {
                 value: ActivePreferenceValue::AutoPick,
                 ..
-            }) = state.preferences.get(&key)
+            }) = preferences_state.preferences.get(&key)
             {
-                state.preferences.remove(&key);
+                preferences_state.preferences.remove(&key);
             }
         }
 
-        for (k, v) in state.history.iter_mut() {
+        for (k, v) in preferences_state.history.iter_mut() {
             // Only look at player's history on other maps
             if k.player_uid != player_uid || k.map_uid == map_uid {
                 continue;
@@ -321,7 +329,7 @@ impl PreferenceController {
             }
         }
 
-        let map_history = state
+        let map_history = preferences_state
             .history
             .get_mut(&key)
             .expect("failed to find map history");
@@ -330,27 +338,27 @@ impl PreferenceController {
     }
 
     async fn load_for_new_map(&self, map: &Map) {
-        let mut state = self.state.write().await;
-        let live_players = self.live_players.lock().await;
-        let live_playlist = self.live_playlist.lock().await;
+        let mut preferences_state = self.state.write().await;
+        let players_state = self.live_players.lock().await;
+        let playlist_state = self.live_playlist.lock().await;
 
-        live_players.info_playing().iter().for_each(|info| {
+        players_state.info_playing().iter().for_each(|info| {
             let pref = ActivePreference {
                 player_uid: info.uid,
                 map_uid: map.uid.clone(),
                 value: ActivePreferenceValue::AutoPick,
             };
-            state.add_pref(pref)
+            preferences_state.add_pref(pref)
         });
 
-        live_players.info_playing().iter().for_each(|info| {
+        players_state.info_playing().iter().for_each(|info| {
             let history = History {
                 player_login: info.login.clone(),
                 map_uid: map.uid.clone(),
                 last_played: None,
-                nb_maps_since: live_playlist.maps().len(),
+                nb_maps_since: playlist_state.maps.len(),
             };
-            state.add_history(info.uid, history);
+            preferences_state.add_history(info.uid, history);
         });
     }
 
@@ -361,27 +369,28 @@ impl PreferenceController {
             .await
             .expect("failed to upsert preference of player");
 
-        let mut state = self.state.write().await;
-        let players = self.live_players.lock().await;
+        let mut preferences_state = self.state.write().await;
+        let players_state = self.live_players.lock().await;
 
-        if let Some(pref) = to_active_pref(preference, &players) {
-            state.add_pref(pref);
+        if let Some(pref) = to_active_pref(preference, &players_state) {
+            preferences_state.add_pref(pref);
         }
     }
 
     /// Update a player's restart vote for the current map.
     pub async fn set_restart_vote(&self, player_uid: i32, vote: bool) {
-        let mut state = self.state.write().await;
+        let mut preferences_state = self.state.write().await;
         if vote {
-            state.restart_votes.insert(player_uid);
+            preferences_state.restart_votes.insert(player_uid);
         } else {
-            state.restart_votes.remove(&player_uid);
+            preferences_state.restart_votes.remove(&player_uid);
         }
     }
 
     /// Reset all restart votes when maps change.
     pub async fn reset_restart_votes(&self) {
-        self.state.write().await.restart_votes.clear()
+        let mut preferences_state = self.state.write().await;
+        preferences_state.restart_votes.clear()
     }
 }
 
@@ -399,7 +408,7 @@ fn to_active_pref(pref: Preference, players: &PlayersState) -> Option<ActivePref
 
 #[async_trait]
 impl LivePreferences for PreferenceController {
-    async fn lock(&self) -> RwLockReadGuard<'_, PreferenceState> {
+    async fn lock(&self) -> RwLockReadGuard<'_, PreferencesState> {
         self.state.read().await
     }
 

@@ -564,9 +564,10 @@ impl Controller {
             }
 
             ListPlayers => {
-                let players = self.players.lock().await;
-                let msg =
-                    CommandResponse::Output(CommandOutputResponse::PlayerList(players.info_all()));
+                let players_state = self.players.lock().await;
+                let msg = CommandResponse::Output(CommandOutputResponse::PlayerList(
+                    players_state.info_all(),
+                ));
                 self.widget.show_popup(msg, from_login).await;
             }
 
@@ -615,8 +616,8 @@ impl Controller {
             }
 
             ForceQueue { uid } => {
-                let playlist = self.playlist.lock().await;
-                let playlist_index = match playlist.index_of(uid) {
+                let playlist_state = self.playlist.lock().await;
+                let playlist_index = match playlist_state.index_of(uid) {
                     Some(idx) => idx,
                     None => {
                         let msg = CommandResponse::Error(CommandErrorResponse::UnknownMap);
@@ -624,7 +625,7 @@ impl Controller {
                         return;
                     }
                 };
-                let map = playlist
+                let map = playlist_state
                     .at_index(playlist_index)
                     .expect("no map at this playlist index");
 
