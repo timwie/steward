@@ -7,7 +7,7 @@ use async_trait::async_trait;
 
 use crate::database::Database;
 use crate::event::{PlayerDiff, PlayerTransition};
-use crate::server::{GameString, PlayerInfo, PlayerSlot};
+use crate::server::{GameString, PlayerInfo, PlayerSlot, Server};
 
 /// Use to lookup information of connected players.
 #[async_trait]
@@ -138,6 +138,25 @@ impl PlayersState {
             .get(&player_uid)
             .map(|info| info.login.as_str())
     }
+
+    pub fn replay_diffs(&self) -> Vec<PlayerDiff> {
+        let players = self.playing.iter().map(|uid| PlayerDiff {
+            transition: PlayerTransition::AddPlayer,
+            info: self.uid_to_info[uid].clone(),
+        });
+
+        let spectators = self.spectating.iter().map(|uid| PlayerDiff {
+            transition: PlayerTransition::AddSpectator,
+            info: self.uid_to_info[uid].clone(),
+        });
+
+        let pure_spectators = self.pure_spectating.iter().map(|uid| PlayerDiff {
+            transition: PlayerTransition::AddPureSpectator,
+            info: self.uid_to_info[uid].clone(),
+        });
+
+        players.chain(spectators).chain(pure_spectators).collect()
+    }
 }
 
 #[derive(Clone)]
@@ -147,11 +166,18 @@ pub struct PlayerController {
 }
 
 impl PlayerController {
-    pub fn init(db: &Arc<dyn Database>) -> Self {
-        PlayerController {
+    pub async fn init(server: &Arc<dyn Server>, db: &Arc<dyn Database>) -> Self {
+        let controller = PlayerController {
             state: Arc::new(RwLock::new(PlayersState::init())),
             db: db.clone(),
+        };
+
+        let init_players = server.players().await;
+        for info in init_players {
+            controller.update_player(info).await;
         }
+
+        controller
     }
 
     /// Update a player's information.
