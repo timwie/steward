@@ -12,33 +12,33 @@ use crate::config::Config;
 use crate::event::ConfigDiff;
 use crate::server::Server;
 
-/// Use to look up controller, server and mode settings.
+/// Use to look up controller and server configs.
 #[async_trait]
-pub trait LiveSettings: Send + Sync {
+pub trait LiveConfig: Send + Sync {
     /// While holding this guard, the state is read-only, and can be referenced.
-    async fn lock_config(&self) -> RwLockReadGuard<'_, Config>;
+    async fn lock(&self) -> RwLockReadGuard<'_, Config>;
 
     /// Returns `True` if the given login belongs to a super admin.
     async fn is_super_admin(&self, login: &str) -> bool {
-        let cfg = self.lock_config().await;
-        cfg.super_admin_whitelist.contains(&login.to_string())
+        let config = self.lock().await;
+        config.super_admin_whitelist.contains(&login.to_string())
     }
 
     /// Returns `True` if the given login belongs to an admin or super admin.
     async fn is_admin(&self, login: &str) -> bool {
-        let cfg = self.lock_config().await;
-        cfg.admin_whitelist.contains(&login.to_string())
-            || cfg.super_admin_whitelist.contains(&login.to_string())
+        let config = self.lock().await;
+        config.admin_whitelist.contains(&login.to_string())
+            || config.super_admin_whitelist.contains(&login.to_string())
     }
 
     /// The time within the outro in which players can vote for a restart.
     async fn vote_duration(&self) -> Duration {
-        Duration::from_secs(self.lock_config().await.vote_duration_secs() as u64)
+        Duration::from_secs(self.lock().await.vote_duration_secs() as u64)
     }
 
     /// The duration of the outro at the end of a map.
     async fn outro_duration(&self) -> Duration {
-        Duration::from_secs(self.lock_config().await.outro_duration_secs as u64)
+        Duration::from_secs(self.lock().await.outro_duration_secs as u64)
     }
 
     /// The `.../UserData/Maps` server directory.
@@ -46,17 +46,17 @@ pub trait LiveSettings: Send + Sync {
 }
 
 #[derive(Clone)]
-pub struct SettingsController {
+pub struct ConfigController {
+    state: Arc<RwLock<Config>>,
     server: Arc<dyn Server>,
-    config: Arc<RwLock<Config>>,
 }
 
-impl SettingsController {
+impl ConfigController {
     pub async fn init(server: &Arc<dyn Server>, config: Config) -> Self {
         set_mode_options(server, &config).await;
-        SettingsController {
+        ConfigController {
+            state: Arc::new(RwLock::new(config)),
             server: server.clone(),
-            config: Arc::new(RwLock::new(config)),
         }
     }
 
@@ -65,7 +65,7 @@ impl SettingsController {
         use ConfigDiff::*;
 
         let mut diffs = Vec::new();
-        let mut cfg = self.config.write().await;
+        let mut cfg = self.state.write().await;
 
         if cfg.outro_duration_secs != new_cfg.outro_duration_secs {
             diffs.push(NewOutroDuration {
@@ -100,7 +100,7 @@ impl SettingsController {
 
     /// Returns a public subset of the controller config, omitting credentials etc.
     pub async fn public_config(&self) -> PublicConfig {
-        let cfg = self.config.read().await;
+        let cfg = self.state.read().await;
         PublicConfig {
             time_limit_factor: cfg.time_limit_factor,
             time_limit_max_secs: cfg.time_limit_max_secs,
@@ -117,9 +117,9 @@ async fn set_mode_options(server: &Arc<dyn Server>, config: &Config) {
 }
 
 #[async_trait]
-impl LiveSettings for SettingsController {
-    async fn lock_config(&self) -> RwLockReadGuard<'_, Config> {
-        self.config.read().await
+impl LiveConfig for ConfigController {
+    async fn lock(&self) -> RwLockReadGuard<'_, Config> {
+        self.state.read().await
     }
 
     async fn maps_dir(&self) -> PathBuf {

@@ -52,6 +52,8 @@ async fn main() {
 
     let server = Arc::new(conn.client.clone()) as Arc<dyn Server>;
 
+    compat::prepare(&server, &db, &config).await;
+
     let controller = Controller::init(config, server, db).await;
 
     log::info!("running callback loop...");
