@@ -7,7 +7,7 @@ use tokio::sync::RwLock;
 
 use async_trait::async_trait;
 
-use crate::controller::{LiveConfig, LivePlaylist, LiveQueue, LiveRecords};
+use crate::controller::{LiveConfig, LivePlaylist, LiveQueue, LiveRecords, PublicConfig};
 use crate::database::Database;
 use crate::event::PlaylistDiff;
 use crate::server::Server;
@@ -95,6 +95,9 @@ impl ScheduleController {
         let mut schedule_state = self.state.write().await;
         let records_state = self.live_records.lock().await;
 
+        let config = self.live_config.lock().await;
+        let public_config = config.public();
+
         // Update in case a new record have been set the last time this map was played.
         if let Some(top_record) = &records_state.top_record {
             let top1_millis = top_record.millis as u64;
@@ -102,7 +105,7 @@ impl ScheduleController {
         }
 
         // Set the server's time limit
-        let new_time_limit = self.to_limit(schedule_state.reference_millis[idx]);
+        let new_time_limit = self.to_limit(schedule_state.reference_millis[idx], &public_config);
         let mut mode_options = self.server.mode_options().await;
         mode_options.time_limit_secs = new_time_limit.as_secs() as i32;
         self.server.set_mode_options(&mode_options).await;
@@ -132,17 +135,11 @@ impl ScheduleController {
         }
     }
 
-    fn to_limit(&self, ref_millis: u64) -> Duration {
-        // TODO schedule: use config to calculate time limits
-
-        const TIME_LIMIT_FACTOR: u64 = 10;
-        const TIME_LIMIT_MIN: u64 = 300 * 1000;
-        const TIME_LIMIT_MAX: u64 = 900 * 1000;
-
-        const TIME_LIMIT_DIVIDER: u64 = 30 * 1000;
+    fn to_limit(&self, ref_millis: u64, public_config: &PublicConfig) -> Duration {
+        const TIME_LIMIT_DIVIDER: u64 = 30 * 1000; // use steps of 30 seconds
 
         let n = TIME_LIMIT_DIVIDER;
-        let i = ref_millis * TIME_LIMIT_FACTOR;
+        let i = ref_millis * public_config.time_limit_factor as u64;
 
         let rem = i % n;
         let limit = if rem > n / 2 {
@@ -151,8 +148,9 @@ impl ScheduleController {
             i - rem // round down
         };
 
-        let limit = min(TIME_LIMIT_MAX, limit);
-        let limit = max(TIME_LIMIT_MIN, limit);
+        let limit = min(public_config.time_limit_max_secs as u64, limit);
+        let limit = max(public_config.time_limit_min_secs as u64, limit);
+
         Duration::from_millis(limit)
     }
 }
@@ -177,6 +175,9 @@ impl LiveSchedule for ScheduleController {
             return Some(Duration::default());
         }
 
+        let config = self.live_config.lock().await;
+        let public_config = config.public();
+
         let queue_state = self.live_queue.lock().await;
         let entries_ahead = queue_state
             .entries
@@ -189,7 +190,7 @@ impl LiveSchedule for ScheduleController {
         if let Some(idx) = curr_playlist_idx {
             let time_since_map_start = schedule_state.map_start_time.elapsed().unwrap_or_default();
             let ref_millis = schedule_state.reference_millis[idx];
-            result += self.to_limit(ref_millis);
+            result += self.to_limit(ref_millis, &public_config);
             result -= time_since_map_start;
         }
         result += duration_between_maps;
@@ -197,7 +198,7 @@ impl LiveSchedule for ScheduleController {
         // 2. add time until the specified map starts
         for entry in entries_ahead {
             let ref_millis = schedule_state.reference_millis[entry.playlist_idx];
-            result += self.to_limit(ref_millis);
+            result += self.to_limit(ref_millis, &public_config);
             result += duration_between_maps;
         }
 
