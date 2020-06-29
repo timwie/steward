@@ -157,8 +157,9 @@ impl RaceController {
             .ranking
             .iter()
             .enumerate()
-            .find(|(_, lr)| {
-                lr.millis.is_none() || lr.millis.unwrap() > ev.race_time_millis as usize
+            .find(|(_, lr)| match lr.millis {
+                None => true,
+                Some(millis) => millis > ev.race_time_millis as usize,
             })
             .map(|(idx, _)| idx);
 

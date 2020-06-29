@@ -428,7 +428,11 @@ impl WidgetController {
 
     async fn show_run_outro_for(&self, diff: &PbDiff) {
         let widget = RunOutroWidget {
-            race_pos: self.live_race.rank_of(diff.player_uid).await.unwrap(),
+            race_pos: self
+                .live_race
+                .rank_of(diff.player_uid)
+                .await
+                .expect("failed to get race rank of player"),
             pb_diff_millis: diff.millis_diff,
             record_pos: diff.new_pos,
             record_pos_gained: diff.pos_gained,

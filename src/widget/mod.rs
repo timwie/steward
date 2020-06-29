@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-use include_dir::Dir;
+use include_dir::{Dir, File};
 use lazy_static::*;
 use serde::Serialize;
 use tera::Tera;
@@ -82,26 +82,38 @@ where
 }
 
 lazy_static! {
-    static ref TEMPLATES: Tera = {
-        // Include all widget templates at compile-time:
-        static TEMPLATE_DIR: Dir = include_dir!("src/res/widgets/");
+    static ref TEMPLATES: Tera = collect_templates().unwrap();
+}
 
-        let mut tera = Tera::default();
+fn collect_templates() -> tera::Result<Tera> {
+    // Include all widget templates at compile-time:
+    static TEMPLATE_DIR: Dir = include_dir!("src/res/widgets/");
 
-        // Add 'base_*' templates first, because others depend on them.
-        let base_static = TEMPLATE_DIR.get_file("base_static.j2").unwrap();
-        let base_dynamic = TEMPLATE_DIR.get_file("base_dynamic.j2").unwrap();
-        tera.add_raw_template("base_static.j2", base_static.contents_utf8().unwrap()).unwrap();
-        tera.add_raw_template("base_dynamic.j2", base_dynamic.contents_utf8().unwrap()).unwrap();
+    let mut tera = Tera::default();
 
-        // Add all other templates.
-        for file in TEMPLATE_DIR.files() {
-            tera.add_raw_template(
-                file.path().to_str().unwrap(),
-                file.contents_utf8().unwrap()
-            ).unwrap();
-        }
-
-        tera
+    let add_from_file = |tera: &mut Tera, file: &File| {
+        let file_name = file.path().to_str().expect("failed to read base");
+        tera.add_raw_template(
+            file_name,
+            file.contents_utf8().expect("failed to read template"),
+        )
     };
+
+    let add_from_name = |tera: &mut Tera, file_name: &str| {
+        let file = TEMPLATE_DIR
+            .get_file(file_name)
+            .expect("failed to find template");
+        add_from_file(tera, &file)
+    };
+
+    // Add 'base_*' templates first, because others depend on them.
+    add_from_name(&mut tera, "base_static.j2")?;
+    add_from_name(&mut tera, "base_dynamic.j2")?;
+
+    // Add all other templates.
+    for file in TEMPLATE_DIR.files() {
+        add_from_file(&mut tera, file)?;
+    }
+
+    Ok(tera)
 }
