@@ -10,7 +10,8 @@ use crate::config::{
     DEFAULT_MIN_RESTART_VOTE_RATIO, MAX_DISPLAYED_IN_QUEUE, MIN_RESTART_VOTE_RATIO_STEP,
 };
 use crate::controller::{ActivePreferenceValue, LivePlayers, LivePlaylist, LivePreferences};
-use crate::event::{PlaylistDiff, QueueDiff, QueueMap};
+use crate::database::Map;
+use crate::event::{PlaylistDiff, QueueDiff};
 use crate::server::Server;
 
 /// Use to lookup the current queue, which is an ordering of the playlist.
@@ -25,13 +26,13 @@ pub trait LiveQueue: Send + Sync {
 
     /// Returns a subset of the queue, ordered by priority.
     /// The first item in the list will be the next map.
-    async fn peek(&self) -> Vec<QueueMap>;
+    async fn peek(&self) -> Vec<QueueEntry>;
 }
 
 pub struct QueueState {
     /// An ordering of playlist indexes, sorted from highest to lowest
     /// priority.
-    pub entries: Vec<QueueEntry>,
+    pub entries: Vec<QueueIndexEntry>,
 
     /// Counts the number of times a map in the playlist was skipped.
     /// The number at the `n-th` index of this list is the skip count
@@ -50,10 +51,10 @@ pub struct QueueState {
     pub min_restart_vote_ratio: f32,
 }
 
-/// An entry in the map queue, which assigns a priority to a
-/// map in the playlist.
+/// An entry in the map queue, which assigns a priority to the map in the playlist
+/// at the given index.
 #[derive(Debug)]
-pub struct QueueEntry {
+pub struct QueueIndexEntry {
     /// Position in the queue, starting at 0.
     /// The map at position 0 is the current map.
     /// The map at position 1 will be queued as the next map.
@@ -63,6 +64,22 @@ pub struct QueueEntry {
     pub playlist_idx: usize,
 
     /// The priority of the map represented by this entry.
+    /// The map with the highest priority will be queued as the next map.
+    pub priority: QueuePriority,
+}
+
+/// An entry in the map queue, which assigns a priority to a map in the playlist.
+#[derive(Debug)]
+pub struct QueueEntry {
+    /// A map in the queue.
+    pub map: Map,
+
+    /// Position in the queue, starting at 0.
+    /// The map at position 0 is the current map.
+    /// The map at position 1 will be queued as the next map.
+    pub pos: usize,
+
+    /// The queue priority of this map.
     /// The map with the highest priority will be queued as the next map.
     pub priority: QueuePriority,
 }
@@ -303,10 +320,10 @@ impl QueueController {
         // Sort by priority.
         priorities.sort_by(|(_, a), (_, b)| a.cmp(&b));
 
-        let new_entries: Vec<QueueEntry> = priorities
+        let new_entries: Vec<QueueIndexEntry> = priorities
             .into_iter()
             .enumerate()
-            .map(|(idx, (playlist_idx, prio))| QueueEntry {
+            .map(|(idx, (playlist_idx, prio))| QueueIndexEntry {
                 pos: idx,
                 playlist_idx,
                 priority: prio,
@@ -412,7 +429,7 @@ impl LiveQueue for QueueController {
         })
     }
 
-    async fn peek(&self) -> Vec<QueueMap> {
+    async fn peek(&self) -> Vec<QueueEntry> {
         let playlist_state = self.live_playlist.lock().await;
         self.lock()
             .await
@@ -423,7 +440,7 @@ impl LiveQueue for QueueController {
                 playlist_state
                     .at_index(entry.playlist_idx)
                     .cloned()
-                    .map(|map| QueueMap {
+                    .map(|map| QueueEntry {
                         pos: entry.pos,
                         map,
                         priority: entry.priority,

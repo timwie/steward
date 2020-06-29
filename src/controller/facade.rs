@@ -8,13 +8,18 @@ use async_recursion::async_recursion;
 use crate::chat::{
     AdminCommand, CommandConfirmResponse, CommandErrorResponse, CommandOutputResponse,
     CommandResponse, DangerousCommand, PlayerCommand, PlaylistCommandError, ServerMessage,
-    SuperAdminCommand,
+    SuperAdminCommand, TopRankMessage,
 };
 use crate::compat;
-use crate::config::{Config, BLACKLIST_FILE, VERSION};
+use crate::config::{
+    Config, BLACKLIST_FILE, MAX_ANNOUNCED_RANK, MAX_ANNOUNCED_RECORD,
+    MAX_ANNOUNCED_RECORD_IMPROVEMENT, MAX_NB_ANNOUNCED_RANKS, VERSION,
+};
 use crate::controller::*;
 use crate::database::{Database, Preference};
-use crate::event::{Command, ConfigDiff, ControllerEvent, PlaylistDiff, VoteInfo};
+use crate::event::{
+    Command, ConfigDiff, ControllerEvent, PbDiff, PlayerTransition, PlaylistDiff, ServerRankingDiff,
+};
 use crate::network::most_recent_controller_version;
 use crate::server::{PlayerInfo, Server, ServerEvent};
 use crate::widget::Action;
@@ -169,7 +174,7 @@ impl Controller {
                     let ev = ControllerEvent::EndOutro;
                     self.on_controller_event(ev).await;
                 } else {
-                    let ev = ControllerEvent::BeginMap { loaded_map };
+                    let ev = ControllerEvent::BeginMap(loaded_map);
                     self.on_controller_event(ev).await;
                 }
 
@@ -186,19 +191,13 @@ impl Controller {
             }
 
             ServerEvent::RaceEnd => {
-                let vote_duration = self.settings.vote_duration().await;
-                let min_restart_vote_ratio = self.queue.lock().await.min_restart_vote_ratio;
-                let vote_info = VoteInfo {
-                    duration: vote_duration,
-                    min_restart_vote_ratio,
-                };
-
-                let outro_ev = ControllerEvent::BeginOutro { vote: vote_info };
+                let outro_ev = ControllerEvent::BeginOutro;
                 self.on_controller_event(outro_ev).await;
 
                 // Delay for the duration of the vote.
                 // Spawn a task to not block the callback loop.
                 let controller = self.clone(); // 'self' with 'static lifetime
+                let vote_duration = self.settings.vote_duration().await;
                 let _ = tokio::spawn(async move {
                     log::debug!("start vote");
                     tokio::time::delay_for(vote_duration).await;
@@ -258,7 +257,7 @@ impl Controller {
                     let controller = self.clone(); // 'self' with 'static lifetime
                     let _ = tokio::spawn(async move {
                         if let Some(pb_diff) = controller.records.end_run(&event).await {
-                            let ev = ControllerEvent::EndRun { pb_diff };
+                            let ev = ControllerEvent::EndRun(pb_diff);
                             controller.on_controller_event(ev).await;
                         }
                     });
@@ -269,7 +268,7 @@ impl Controller {
                 from_login, answer, ..
             } => {
                 let action = Action::from_answer(answer);
-                let ev = ControllerEvent::IssuedAction {
+                let ev = ControllerEvent::IssueAction {
                     from_login: &from_login,
                     action,
                 };
@@ -282,7 +281,7 @@ impl Controller {
                 ..
             } => {
                 if let Some(cmd) = self.chat.forward(&message, &from_login).await {
-                    self.on_controller_event(ControllerEvent::IssuedCommand(cmd))
+                    self.on_controller_event(ControllerEvent::IssueCommand(cmd))
                         .await;
                 }
             }
@@ -304,7 +303,7 @@ impl Controller {
 
     #[async_recursion]
     async fn on_controller_event(&self, event: ControllerEvent<'async_recursion>) {
-        if let Some(server_msg) = ServerMessage::from_event(&event) {
+        if let Some(server_msg) = self.message_from_event(&event).await {
             self.chat.announce(server_msg).await;
         }
         log::debug!("{:#?}", &event);
@@ -314,7 +313,7 @@ impl Controller {
                 self.widget.end_run_outro_for(&player_login).await;
             }
 
-            ControllerEvent::BeginMap { loaded_map } => {
+            ControllerEvent::BeginMap(loaded_map) => {
                 self.records.load_for_map(&loaded_map).await;
             }
 
@@ -330,7 +329,7 @@ impl Controller {
                 self.widget.end_intro_for(&player_login).await;
             }
 
-            ControllerEvent::EndRun { pb_diff } => {
+            ControllerEvent::EndRun(pb_diff) => {
                 self.widget.begin_run_outro_for(&pb_diff).await;
                 self.widget.refresh_personal_best(&pb_diff).await;
 
@@ -339,8 +338,8 @@ impl Controller {
                 }
             }
 
-            ControllerEvent::BeginOutro { vote } => {
-                self.widget.begin_outro_and_vote(&vote).await;
+            ControllerEvent::BeginOutro => {
+                self.widget.begin_outro_and_vote().await;
                 let _ = self.race.reset().await;
             }
 
@@ -404,25 +403,25 @@ impl Controller {
                 self.widget.refresh_server_ranking(&change).await;
             }
 
-            ControllerEvent::IssuedCommand(Command::Player { from, cmd }) => {
+            ControllerEvent::IssueCommand(Command::Player { from, cmd }) => {
                 self.on_cmd(&from, cmd).await
             }
 
-            ControllerEvent::IssuedCommand(Command::Admin { from, cmd }) => {
+            ControllerEvent::IssueCommand(Command::Admin { from, cmd }) => {
                 self.on_admin_cmd(&from, cmd).await
             }
 
-            ControllerEvent::IssuedCommand(Command::SuperAdmin { from, cmd }) => {
+            ControllerEvent::IssueCommand(Command::SuperAdmin { from, cmd }) => {
                 self.on_super_admin_cmd(&from, cmd).await
             }
 
-            ControllerEvent::IssuedAction { from_login, action } => {
+            ControllerEvent::IssueAction { from_login, action } => {
                 if let Some(info) = self.players.info(&from_login).await {
                     self.on_action(&info, action).await;
                 }
             }
 
-            ControllerEvent::ChangeConfig { change, from_login } => {
+            ControllerEvent::NewConfig { change, from_login } => {
                 self.on_config_change(from_login, change).await;
             }
         }
@@ -436,7 +435,7 @@ impl Controller {
                 Ok(new_cfg) => {
                     let changes = self.settings.set_public_config(new_cfg).await;
                     join_all(changes.into_iter().map(|change| async move {
-                        let ev = ControllerEvent::ChangeConfig {
+                        let ev = ControllerEvent::NewConfig {
                             change,
                             from_login: &player.login,
                         };
@@ -834,6 +833,104 @@ impl Controller {
             NewOutroDuration { .. } => {
                 self.widget.refresh_schedule().await;
             }
+        }
+    }
+
+    async fn message_from_event<'a>(
+        &self,
+        event: &'a ControllerEvent<'_>,
+    ) -> Option<ServerMessage<'a>> {
+        use ControllerEvent::*;
+        use ServerMessage::*;
+
+        match event {
+            NewPlayerList(diff) => {
+                use PlayerTransition::*;
+
+                match diff.transition {
+                    AddPlayer | AddSpectator | AddPureSpectator => Some(Joining {
+                        nick_name: &diff.info.nick_name.formatted,
+                    }),
+                    RemovePlayer | RemoveSpectator | RemovePureSpectator => Some(Leaving {
+                        nick_name: &diff.info.nick_name.formatted,
+                    }),
+                    _ => None,
+                }
+            }
+
+            BeginMap(loaded_map) => Some(CurrentMap {
+                name: &loaded_map.name.formatted,
+                author: &loaded_map.author_login,
+            }),
+
+            BeginOutro => {
+                let vote_duration = self.settings.vote_duration().await;
+                let min_restart_vote_ratio = self.queue.lock().await.min_restart_vote_ratio;
+                Some(VoteNow {
+                    duration: vote_duration,
+                    threshold: min_restart_vote_ratio,
+                })
+            }
+
+            EndRun(PbDiff {
+                new_pos,
+                pos_gained,
+                new_record: Some(new_record),
+                ..
+            }) if *pos_gained > 0 && *new_pos <= MAX_ANNOUNCED_RECORD => Some(TopRecord {
+                player_nick_name: &new_record.player_nick_name.formatted,
+                new_map_rank: *new_pos,
+                millis: new_record.millis as usize,
+            }),
+
+            EndRun(PbDiff {
+                new_pos,
+                pos_gained,
+                new_record: Some(new_record),
+                millis_diff: Some(diff),
+                ..
+            }) if *pos_gained == 0 && *diff < 0 && *new_pos <= MAX_ANNOUNCED_RECORD_IMPROVEMENT => {
+                Some(TopRecordImproved {
+                    player_nick_name: &new_record.player_nick_name.formatted,
+                    map_rank: *new_pos,
+                    millis: new_record.millis as usize,
+                })
+            }
+
+            NewPlaylist(PlaylistDiff::AppendNew(map)) => Some(NewMap {
+                name: &map.name.formatted,
+                author: &map.author_login,
+            }),
+
+            NewPlaylist(PlaylistDiff::Append(map)) => Some(AddedMap {
+                name: &map.name.formatted,
+            }),
+
+            NewPlaylist(PlaylistDiff::Remove { map, .. }) => Some(RemovedMap {
+                name: &map.name.formatted,
+            }),
+
+            NewServerRanking(ServerRankingDiff { diffs, .. }) => {
+                let mut top_ranks: Vec<TopRankMessage> = diffs
+                    .values()
+                    .filter_map(|diff| {
+                        if diff.gained_pos > 0 && diff.new_pos <= MAX_ANNOUNCED_RANK {
+                            Some(TopRankMessage {
+                                nick_name: &diff.player_nick_name.formatted,
+                                rank: diff.new_pos,
+                            })
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
+                top_ranks.sort_by_key(|tr| tr.rank); // lowest ranks (highest number) last
+                top_ranks = top_ranks.into_iter().take(MAX_NB_ANNOUNCED_RANKS).collect();
+                top_ranks.reverse(); // highest ranks last -> more prominent in chat
+                Some(NewTopRanks(top_ranks))
+            }
+
+            _ => None,
         }
     }
 }

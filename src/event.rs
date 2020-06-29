@@ -1,19 +1,16 @@
 use std::collections::HashMap;
-use std::time::Duration;
 
 use crate::chat::{AdminCommand, PlayerCommand, SuperAdminCommand};
-use crate::controller::QueuePriority;
 use crate::database::{Map, RecordDetailed};
 use crate::server::{GameString, PlayerInfo};
 use crate::widget::Action;
 
 /// This data type is introduced to complement `ServerEvent`s,
 /// and to make it easier to understand the controller flow.
-/// Many variants contain data that is used to update widgets.
 #[derive(Debug)]
 pub enum ControllerEvent<'a> {
     /// Signals that a new map was loaded by the server.
-    BeginMap { loaded_map: Map },
+    BeginMap(Map),
 
     /// Signals that a new race is about to begin.
     BeginIntro,
@@ -29,11 +26,11 @@ pub enum ControllerEvent<'a> {
 
     /// Signals that a player completed a run, and the start of the
     /// run outro for them.
-    EndRun { pb_diff: PbDiff },
+    EndRun(PbDiff),
 
     /// Signals the start of the vote, which begins when the race is
     /// concluded, and ends at some point before the map is unloaded.
-    BeginOutro { vote: VoteInfo },
+    BeginOutro,
 
     /// Signals that the outro has ended, and that the current map will
     /// either restart, or will be unloaded.
@@ -58,72 +55,57 @@ pub enum ControllerEvent<'a> {
     /// Signals that the server ranking has been updated.
     NewServerRanking(ServerRankingDiff),
 
-    /// Signals that a chat command has been issued.
-    IssuedCommand(Command<'a>),
-
-    /// Signals that a player has issued an `Action`.
-    IssuedAction { from_login: &'a str, action: Action },
-
     /// Signals that an admin edited the controller config.
-    ChangeConfig {
+    NewConfig {
         from_login: &'a str,
         change: ConfigDiff,
     },
+
+    /// Signals that a chat command has been issued.
+    IssueCommand(Command<'a>),
+
+    /// Signals that a player has issued an `Action`.
+    IssueAction { from_login: &'a str, action: Action },
 }
 
 /// Contains information of a player that is either joining, leaving, or
 /// transitioning between playing and spectating.
 #[derive(Debug)]
-pub enum PlayerDiff {
+pub struct PlayerDiff {
+    pub info: PlayerInfo,
+    pub transition: PlayerTransition,
+}
+
+/// Transitions convey whether a player is joining, leaving, or
+/// transitioning between playing and spectating.
+#[derive(Debug)]
+pub enum PlayerTransition {
     /// Player joined into a player slot.
-    AddPlayer(PlayerInfo),
+    AddPlayer,
 
     /// Player joined into a player slot, but is spectating.
-    AddSpectator(PlayerInfo),
+    AddSpectator,
 
     /// Player joined into a spectator slot.
-    AddPureSpectator(PlayerInfo),
+    AddPureSpectator,
 
     /// Player stopped spectating.
-    MoveToPlayer(PlayerInfo),
+    MoveToPlayer,
 
     /// A player started spectating, but still has their player slot.
-    MoveToSpectator(PlayerInfo),
+    MoveToSpectator,
 
     /// A player has moved into a spectator slot.
-    MoveToPureSpectator(PlayerInfo),
+    MoveToPureSpectator,
 
     /// A player with a player slot has disconnected.
-    RemovePlayer(PlayerInfo),
+    RemovePlayer,
 
     /// A spectator with a player slot has disconnected.
-    RemoveSpectator(PlayerInfo),
+    RemoveSpectator,
 
     /// A spectator without a player slot has disconnected.
-    RemovePureSpectator(PlayerInfo),
-}
-
-/// Details of a vote during the outro.
-#[derive(Debug)]
-pub struct VoteInfo {
-    pub min_restart_vote_ratio: f32,
-    pub duration: Duration,
-}
-
-/// An entry in the map queue, which assigns a priority to a
-/// map in the playlist.
-#[derive(Debug)]
-pub struct QueueMap {
-    pub map: Map,
-
-    /// Position in the queue, starting at 0.
-    /// The map at position 0 is the current map.
-    /// The map at position 1 will be queued as the next map.
-    pub pos: usize,
-
-    /// The queue priority of this map.
-    /// The map with the highest priority will be queued as the next map.
-    pub priority: QueuePriority,
+    RemovePureSpectator,
 }
 
 /// A change of the server playlist. Only maps in the playlist can be queued.

@@ -12,7 +12,7 @@ use async_trait::async_trait;
 use crate::chat::PlayerMessage;
 use crate::controller::{LiveChat, LivePlayers, LivePlaylist, PlayersState};
 use crate::database::{Database, History, Map, Preference, PreferenceValue};
-use crate::event::{PlayerDiff, PlaylistDiff};
+use crate::event::{PlayerDiff, PlayerTransition, PlaylistDiff};
 use crate::server::PlayerInfo;
 
 /// Use to lookup preferences of connected players.
@@ -239,22 +239,22 @@ impl PreferenceController {
     ///
     /// Any map a player has no record on will be given the `AutoPick`
     /// preference, unless another preference has been set.
-    pub async fn update_for_player(&self, ev: &PlayerDiff) {
-        match ev {
-            PlayerDiff::AddPlayer(info) | PlayerDiff::MoveToPlayer(info) => {
-                self.load_for_player(info).await;
+    pub async fn update_for_player(&self, diff: &PlayerDiff) {
+        use PlayerTransition::*;
+
+        match diff.transition {
+            AddPlayer | MoveToPlayer => {
+                self.load_for_player(&diff.info).await;
             }
-            PlayerDiff::RemovePlayer(info)
-            | PlayerDiff::MoveToSpectator(info)
-            | PlayerDiff::MoveToPureSpectator(info) => {
+            RemovePlayer | MoveToSpectator | MoveToPureSpectator => {
                 let mut preferences_state = self.state.write().await;
                 preferences_state
                     .preferences
-                    .retain(|k, _| k.player_uid != info.uid);
+                    .retain(|k, _| k.player_uid != diff.info.uid);
                 preferences_state
                     .history
-                    .retain(|k, _| k.player_uid != info.uid);
-                preferences_state.restart_votes.remove(&info.uid);
+                    .retain(|k, _| k.player_uid != diff.info.uid);
+                preferences_state.restart_votes.remove(&diff.info.uid);
             }
             _ => {}
         }

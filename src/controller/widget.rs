@@ -99,7 +99,7 @@ impl WidgetController {
 
     /// Remove race widgets, and add outro widgets, in particular
     /// those that are to be displayed during the vote.
-    pub async fn begin_outro_and_vote(&self, ev: &VoteInfo) {
+    pub async fn begin_outro_and_vote(&self) {
         let mut widget_state = self.state.write().await;
         *widget_state = WidgetState::Outro {
             voting: true,
@@ -107,12 +107,12 @@ impl WidgetController {
         };
 
         self.hide_race_widgets().await;
-        self.show_outro_widgets(ev).await;
+        self.show_outro_widgets().await;
     }
 
     /// Remove widgets that are displayed during the vote,
     /// and add ones that display the vote's results.
-    pub async fn end_vote(&self, queued_next: Vec<QueueMap>) {
+    pub async fn end_vote(&self, queued_next: Vec<QueueEntry>) {
         let mut widget_state = self.state.write().await;
         *widget_state = WidgetState::Outro {
             voting: false,
@@ -133,8 +133,8 @@ impl WidgetController {
 
     /// Display appropriate widgets for (new or transitioning) players
     /// and spectators.
-    pub async fn refresh_for_player(&self, ev: &PlayerDiff) {
-        use PlayerDiff::*;
+    pub async fn refresh_for_player(&self, diff: &PlayerDiff) {
+        use PlayerTransition::*;
 
         // Showing intro & outro widgets for joining players would require more
         // effort here: normally we collect the needed data, and display them
@@ -145,13 +145,13 @@ impl WidgetController {
         if *self.state.read().await != WidgetState::Race {
             return;
         }
-        match ev {
-            AddPlayer(info) | MoveToPlayer(info) => {
-                self.show_race_widgets_for(info).await;
+        match diff.transition {
+            AddPlayer | MoveToPlayer => {
+                self.show_race_widgets_for(&diff.info).await;
             }
-            MoveToSpectator(info) | MoveToPureSpectator(info) => {
-                self.hide_intro_widgets_for(info.uid).await; // in case they moved during the intro
-                self.hide_race_widgets_for(info.uid).await; // in case they moved during the race
+            MoveToSpectator | MoveToPureSpectator => {
+                self.hide_intro_widgets_for(diff.info.uid).await; // in case they moved during the intro
+                self.hide_race_widgets_for(diff.info.uid).await; // in case they moved during the race
             }
             _ => {}
         }
@@ -325,8 +325,8 @@ impl WidgetController {
         // TODO schedule: hide widget here if it's a race widget
     }
 
-    async fn show_outro_widgets(&self, ev: &VoteInfo) {
-        self.show_outro_poll(ev).await;
+    async fn show_outro_widgets(&self) {
+        self.show_outro_poll().await;
         self.show_outro_scores().await;
         self.show(OutroServerRankingPlaceholder {}).await;
     }
@@ -467,19 +467,20 @@ impl WidgetController {
         }
     }
 
-    async fn show_outro_poll(&self, ev: &VoteInfo) {
+    async fn show_outro_poll(&self) {
+        let min_restart_vote_ratio = self.live_queue.lock().await.min_restart_vote_ratio;
         let prefs = self.live_prefs.current_map_prefs().await;
 
         for id in self.live_players.uid_all().await {
             let widget = OutroQueueVoteWidget {
-                min_restart_vote_ratio: ev.min_restart_vote_ratio,
+                min_restart_vote_ratio,
                 init_preference: prefs.get(&id).copied(),
             };
             self.show_for(&widget, id).await;
         }
     }
 
-    async fn show_outro_poll_result(&self, queued_next: Vec<QueueMap>) {
+    async fn show_outro_poll_result(&self, queued_next: Vec<QueueEntry>) {
         let is_restart = match queued_next.first().map(|e| e.priority) {
             Some(QueuePriority::VoteRestart) => true,
             _ => false,
