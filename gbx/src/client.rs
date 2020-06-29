@@ -158,7 +158,7 @@ fn tcp_loop(tcp_stream: TcpStream, msg_out: Sender<Msg>) -> ThreadHandle<()> {
                 .context("no TCP connection")?;
 
             let message =
-                std::str::from_utf8(&message_bytes).context("tcp response was not UTF-8")?;
+                std::str::from_utf8(&message_bytes).context("TCP response was not UTF-8")?;
 
             let is_callback = message_handle & RESPONSE_MASK == 0;
             let msg = if is_callback {
@@ -178,7 +178,7 @@ fn tcp_loop(tcp_stream: TcpStream, msg_out: Sender<Msg>) -> ThreadHandle<()> {
     }
 
     std::thread::spawn(move || {
-        try_loop(tcp_stream, msg_out).unwrap(); // let it crash
+        try_loop(tcp_stream, msg_out).expect("broken TCP loop"); // let it crash
     })
 }
 

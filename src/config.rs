@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 lazy_static! {
     /// Controller version.
-    pub static ref VERSION: Version = Version::parse(env!("CARGO_PKG_VERSION")).unwrap();
+    pub static ref VERSION: Version = Version::parse(env!("CARGO_PKG_VERSION")).expect("failed to parse our own SemVer");
 }
 
 /// User-Agent header for outgoing requests.

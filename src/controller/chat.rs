@@ -143,7 +143,7 @@ impl ChatController {
         self.server
             .chat_send_from_to(message, from_login, vec![])
             .await
-            .unwrap();
+            .expect("failed to send server message");
     }
 }
 
