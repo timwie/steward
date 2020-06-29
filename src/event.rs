@@ -204,9 +204,9 @@ pub enum ConfigDiff {
     /// The settings that determine the time limit of each map
     /// have changed.
     NewTimeLimit {
-        timelimit_factor: u32,
-        timelimit_max_secs: u32,
-        timelimit_min_secs: u32,
+        time_limit_factor: u32,
+        time_limit_max_secs: u32,
+        time_limit_min_secs: u32,
     },
 
     /// The duration of the outro after a race has changed.
