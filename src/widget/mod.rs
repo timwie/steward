@@ -92,7 +92,7 @@ fn collect_templates() -> tera::Result<Tera> {
     let mut tera = Tera::default();
 
     let add_from_file = |tera: &mut Tera, file: &File| {
-        let file_name = file.path().to_str().expect("failed to read base");
+        let file_name = file.path().to_str().expect("failed to read template");
         tera.add_raw_template(
             file_name,
             file.contents_utf8().expect("failed to read template"),
