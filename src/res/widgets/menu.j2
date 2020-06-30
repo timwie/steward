@@ -1,0 +1,72 @@
+{% extends "base_menu.j2" %}
+
+{# ============================= VARIABLES ============================= #}
+{% block vars %}
+    {{ super() }}
+
+{% endblock vars %}
+{# ============================= MANIALINK ============================= #}
+{% block manialink %}
+{{ super() }}
+
+<frame id="menu" z-index="100">
+    <quad pos="-160 90" size="320 180" style="Bgs1" substyle="BgEmpty" z-index="-3"/>
+    <quad pos="-160 90" size="320 180" bgcolor="{{col_bg}}" opacity="0.95" z-index="-3"/>
+</frame>
+
+{% endblock manialink %}
+{# ============================= SCRIPT DECLARATIONS ============================= #}
+{% block decl %}
+{{ super() }}
+
+#Const TOGGLE_GAMEPAD CInputEvent::EButton::View
+#Const TOGGLE_KB      129
+
+declare CMlFrame UI_Menu;
+
+
+Void Toggle() {
+    declare Integer P_ToggleMenuState for LocalUser;
+
+    if (P_ToggleMenuState == {{ MENU_PAGE2 }}) {
+        P_ToggleMenuState = {{ MENU_HIDDEN }};
+    } else {
+        P_ToggleMenuState = P_ToggleMenuState + 1;
+    }
+
+    UI_Menu.Visible              = P_ToggleMenuState != {{ MENU_HIDDEN }};
+    ClientUI.OverlayScoreSummary = P_ToggleMenuState != {{ MENU_HIDDEN }}; // if True, hides the toggleable scores
+}
+
+{% endblock decl %}
+{# ============================= SCRIPT MAIN ============================= #}
+{% block main %}
+
+UI_Menu = (Page.GetFirstChild("menu") as CMlFrame);
+
+declare Integer P_ToggleMenuState for LocalUser;
+P_ToggleMenuState = {{ MENU_INIT }};
+
+Toggle();
+
+{% endblock main %}
+{# ============================= SCRIPT EVENTS ============================= #}
+{% block input_events %}
+
+if (Event.Button == TOGGLE_GAMEPAD) {
+    Toggle();
+}
+
+{% endblock input_events %}
+
+{% block ml_events %}
+
+switch (Event.Type) {
+    case CMlScriptEvent::Type::KeyPress: {
+        if (Event.KeyCode == TOGGLE_KB) {
+            Toggle();
+        }
+    }
+}
+
+{% endblock ml_events %}

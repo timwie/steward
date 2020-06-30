@@ -44,7 +44,7 @@
 </frame>
 
 <!-- Colored bar at the top indicates whether the run is on course to become a new PB -->
-<frame z-index="101">
+<frame z-index="1">
     <quad id="color_bar"     pos="0 90"                   size="{{color_bar_w}} {{color_bar_h}}"
           bgcolor="{{col_neutral}}" z-index="1" halign="center"/>
 
@@ -52,7 +52,7 @@
           bgcolor="{{col_neutral}}" halign="center" valign="center" opacity="0.1" />
 </frame>
 
-<frame id="sectors" pos="{{frame_x_offset}} {{90 - color_bar_h}}" z-index="100">
+<frame id="sectors" pos="{{frame_x_offset}} {{90 - color_bar_h}}">
     <!-- Dividing lines -->
     {% for i in range(end=nb_sectors-1) %}
         <quad id="sector_div_{{i}}"

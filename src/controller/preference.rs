@@ -64,7 +64,7 @@ pub struct ActivePreference {
 #[derive(Serialize_repr, Debug, PartialEq, Eq, Clone, Copy)]
 #[repr(u8)]
 pub enum ActivePreferenceValue {
-    // None = 0,
+    None = 0,
     Pick = 1,
     Veto = 2,
     Remove = 3,
@@ -96,9 +96,12 @@ impl PreferencesState {
     }
 
     /// Return the specified player's preference for the specified map.
-    pub fn pref(&self, player_uid: i32, map_uid: &str) -> Option<ActivePreferenceValue> {
+    pub fn pref(&self, player_uid: i32, map_uid: &str) -> ActivePreferenceValue {
         let key = PlayerMapKey::new(player_uid, map_uid);
-        self.preferences.get(&key).map(|pref| pref.value)
+        self.preferences
+            .get(&key)
+            .map(|pref| pref.value)
+            .unwrap_or(ActivePreferenceValue::None)
     }
 
     /// Return the specified player's history for the specified map.

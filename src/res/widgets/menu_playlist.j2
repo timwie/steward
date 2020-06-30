@@ -1,0 +1,260 @@
+{% extends "base_menu.j2" %}
+
+{# TODO playlist widget #}
+
+{# ============================= VARIABLES ============================= #}
+{% block vars %}
+    {{ super() }}
+
+    {% set w_map_name = 80 %}
+    {% set w_map_author = 30 %}
+
+    {% set h_map = 10 %}
+
+    {% set max_visible_maps = (h_menu - 10) / h_map | int %}
+
+{% endblock vars %}
+{# ============================= MANIALINK ============================= #}
+{% block manialink %}
+{{ super() }}
+
+<frame id="page1" z-index="101" pos="{{x_menu}} {{y_menu}}" hidden="1">
+    <label text="Playlist" textfont="RajdhaniMono" textsize="5"/>
+
+    {% set y = -10 %}
+
+    <quad id="scroll-up" halign="center" pos="-{{(160+x_menu)/2}} {{y}}" size="{{h_map/2}} {{h_map/2}}" image="{{cdn}}/icon_scroll_up.png"/>
+    <quad id="scroll-down" halign="center" valign="bottom" pos="-{{(160+x_menu)/2}} {{y - max_visible_maps * h_map}}" size="{{h_map/2}} {{h_map/2}}" image="{{cdn}}/icon_scroll_down.png"/>
+
+    <frame id="maps">
+    <frame pos="0 {{y}}">
+        <frame id="map_focus">
+            <quad size="{{w_menu}} {{h_map}}" bgcolor="fff" opacity="0.15"/>
+            <quad z-index="1" halign="right" valign="bottom" pos="{{w_menu}} {{h_map * -0.25}}" size="{{w_menu / 2}} {{h_map}}" bgcolor="000"/>
+        </frame>
+    </frame>
+
+    {# TODO add header with column labels #}
+
+    {% for map in entries %}
+        <frame class="map" pos="0 {{y + loop.index0 * h_map*-1}}">
+            {% if loop.index0 > 0 %}
+                <quad z-index="-1" pos="0 {{y + h_map}}" size="{{w_menu}} 0.2" bgcolor="{{col_white}}" opacity="0.05" valign="center"/>
+            {% endif %}
+
+            {% set x = 0 %}
+            {% if map.preference == PREF_PICK or map.preference == PREF_AUTOPICK %}
+                {% set col = col_remove %}
+                {% set icon = "icon_pref_remove" %}
+            {% elif map.preference == PREF_VETO %}
+                {% set col = col_veto %}
+                {% set icon = "icon_pref_veto" %}
+            {% elif map.preference == PREF_REMOVE %}
+                {% set col = col_remove %}
+                {% set icon = "icon_pref_remove" %}
+            {% endif %}
+            {% if col %}
+                <quad pos="{{x}} 0" size="{{h_map}} {{h_map}}" bgcolor="{{col}}"/>
+                <quad pos="{{x + 3}} -3" size="{{h_map - 6}} {{h_map - 6}}" z-index="1" image="{{cdn}}/{{icon}}.png"/>
+            {% endif %}
+
+            {% set x = x + h_map + 2 %}
+            <label z-index="2" textemboss="1" textfont="RajdhaniMono" text="{{map.map_name}}"
+                   size="{{w_map_name}} 4" pos="{{x}} -{{h_map/2}}" valign="center" textsize="3"/>
+
+            {% set x = x + w_map_name %}
+            <label z-index="2" textemboss="1" textfont="RajdhaniMono" text="{{map.map_author_login}}"
+                   size="{{w_map_author}} 4" pos="{{x}} -{{h_map/2}}"  valign="center" textsize="2"/>
+
+            {# TODO display map rank #}
+            {# TODO display last played #}
+        </frame>
+    {% endfor %}
+    </frame>
+</frame>
+
+{% endblock manialink %}
+{# ============================= SCRIPT DECLARATIONS ============================= #}
+{% block decl %}
+{{ super() }}
+
+#Const MAX_VISIBLE_MAPS {{max_visible_maps}}
+
+#Struct SMapEntry {
+    Text    Uid;
+    Text    Name;
+    Text    Author;
+    Integer Preference;
+    Integer Rank;
+    Integer MaxRank;
+    Text    AddedSince;
+}
+
+declare CMlFrame UI_Page1;
+declare CMlFrame UI_Maps;
+declare CMlFrame UI_MapFocus;
+declare CMlQuad  UI_ScrollUp;
+declare CMlQuad  UI_ScrollDown;
+
+declare Integer   G_ScrollY; // which map is displayed at the top?
+declare Integer   G_FocusY;  // which map is focused?
+declare Integer   G_FocusX;  // which preference button is focused?
+declare Integer[] G_ActiveX; // which preference is selected?
+
+declare SMapEntry[] G_Maps;
+
+
+Void OnScroll(Integer OffsetY) {
+    declare Integer MaxY = G_ActiveX.count - 1;
+    G_FocusY = MathLib::Min(G_FocusY + OffsetY, MaxY);
+    G_FocusY = MathLib::Max(G_FocusY, 0);
+
+    UI_MapFocus.RelativePosition_V3 = <0., G_FocusY * -{{h_map}}.>;
+
+    declare PrevScrollY = G_ScrollY;
+    G_ScrollY = MathLib::Min(G_FocusY, G_ScrollY); // prevent out of top bounds
+    G_ScrollY = MathLib::Max(G_ScrollY, G_FocusY + 1 - MAX_VISIBLE_MAPS); // prevent out of bottom bounds
+    log(G_ScrollY ^ " / " ^ {{entries | length}} - MAX_VISIBLE_MAPS);
+
+    if (G_ScrollY == PrevScrollY && OffsetY != 0) {
+        return; // nothing to do
+    }
+
+    UI_Maps.RelativePosition_V3 = <0., G_ScrollY * {{h_map}}.>;
+
+    Page.GetClassChildren("map", UI_Maps, False);
+    for(i, 0, Page.GetClassChildren_Result.count - 1) {
+        Page.GetClassChildren_Result[i].Visible = i >= G_ScrollY && i < G_ScrollY + MAX_VISIBLE_MAPS;
+    }
+
+    UI_ScrollUp  .Visible = G_ScrollY > 0;
+    UI_ScrollDown.Visible = G_ScrollY < {{entries | length}} - MAX_VISIBLE_MAPS;
+}
+
+Void FocusRight() {
+    declare Integer MaxX = 3; // None, Pick, Veto, Remove
+    G_FocusX = MathLib::Min(G_FocusX + 1, MaxX);
+    // TODO set preference focus
+}
+
+Void FocusLeft() {
+    G_FocusX = MathLib::Max(G_FocusX - 1, 0);
+    // TODO set preference focus
+}
+
+Void FocusUp() {
+    OnScroll(-1);
+    G_FocusX = G_ActiveX[G_FocusY];
+    // TODO set preference focus
+}
+
+Void FocusDown() {
+    OnScroll(1);
+    G_FocusX = G_ActiveX[G_FocusY];
+    // TODO set preference focus
+}
+
+Void SetPreference() {
+    if (G_ActiveX[G_FocusY] == G_FocusX) {
+        return; // prevent action spam
+    }
+
+    // Set local preference.
+    G_ActiveX[G_FocusY] = G_FocusX;
+
+    // Update highlighted preference.
+    // TODO set preference focus
+
+    // Remove the # from the uid.
+    declare Text Uid = "";
+    Uid ^= InputPlayer.Id;
+    Uid = TextLib::SubString(Uid, 1, TextLib::Length(Uid) - 1);
+
+    // Set remote preference. Yes, this has to be a single line for some reason.
+    // TODO setting to NONE is not supported; do we want it to be though?
+    {% raw %}
+    declare Text Action = """{ "action": "SetPreference", "map_uid": "{{{G_Maps[G_FocusY].Uid}}}",  "player_uid": "{{{Uid}}}", "preference": {{{G_FocusX}}} }""";
+    {% endraw %}
+    TriggerPageAction(Action);
+}
+
+{% endblock decl %}
+{# ============================= SCRIPT MAIN ============================= #}
+{% block main %}
+
+UI_Page1 = (Page.GetFirstChild("page1") as CMlFrame);
+UI_Maps = (Page.GetFirstChild("maps") as CMlFrame);
+UI_MapFocus = (Page.GetFirstChild("map_focus") as CMlFrame);
+UI_ScrollUp = (Page.GetFirstChild("scroll-up") as CMlQuad);
+UI_ScrollDown = (Page.GetFirstChild("scroll-down") as CMlQuad);
+
+{% for entry in entries %}
+    G_Maps.add(SMapEntry {
+        Uid = "{{entry.map_uid}}",
+        Name = "{{entry.map_name}}",
+        Author = "{{entry.map_author_login}}",
+        Preference = {{entry.preference}},
+        Rank = {{entry.map_rank}},
+        MaxRank = {{entry.nb_records}},
+        AddedSince = "{{entry.added_since}}"
+    });
+{% endfor %}
+
+foreach (Entry in G_Maps) {
+    if (Entry.Preference == {{PREF_AUTOPICK}}) {
+        G_ActiveX.add({{PREF_NONE}});
+    } else {
+        G_ActiveX.add(Entry.Preference);
+    }
+}
+
+G_FocusX = G_ActiveX[0];
+
+OnScroll(0);
+
+declare Integer P_ToggleMenuState for LocalUser;
+
+{% endblock main %}
+{# ============================= LOOP ============================= #}
+{% block loop %}
+
+UI_Page1.Visible           = P_ToggleMenuState == {{ MENU_PAGE1 }};
+EnableMenuNavigationInputs = P_ToggleMenuState == {{ MENU_PAGE1 }};
+
+if (P_ToggleMenuState != {{ MENU_PAGE1 }}) {
+    continue;
+}
+
+{% endblock loop %}
+{# ============================= SCRIPT EVENTS ============================= #}
+{% block ml_events %}
+
+switch (Event.Type) {
+    case CMlScriptEvent::Type::MenuNavigation: {
+        switch (Event.MenuNavAction) {
+            case CMlScriptEvent::EMenuNavAction::Select,
+                 CMlScriptEvent::EMenuNavAction::Action1,
+                 CMlScriptEvent::EMenuNavAction::Action2: {
+                SetPreference();
+            }
+            case CMlScriptEvent::EMenuNavAction::Up,
+                 CMlScriptEvent::EMenuNavAction::PageUp,
+                 CMlScriptEvent::EMenuNavAction::ScrollUp: {
+                FocusUp();
+            }
+            case CMlScriptEvent::EMenuNavAction::Down,
+                 CMlScriptEvent::EMenuNavAction::PageDown,
+                 CMlScriptEvent::EMenuNavAction::ScrollDown: {
+                FocusDown();
+            }
+            case CMlScriptEvent::EMenuNavAction::Right: {
+                FocusRight();
+            }
+            case CMlScriptEvent::EMenuNavAction::Left: {
+                FocusLeft();
+            }
+        }
+    }
+}
+
+{% endblock ml_events %}

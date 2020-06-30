@@ -40,7 +40,7 @@ pub struct IntroWidget<'a> {
     pub max_map_rank: usize,
 
     /// The player's preference for this map, if any.
-    pub player_preference: Option<ActivePreferenceValue>,
+    pub player_preference: ActivePreferenceValue,
 
     /// Counts the preferences of any player for this map,
     /// connected or not.
