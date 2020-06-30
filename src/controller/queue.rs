@@ -389,10 +389,8 @@ impl QueueController {
                 queue_state.min_restart_vote_ratio = DEFAULT_MIN_RESTART_VOTE_RATIO;
             }
 
-            // If there is no restart, the first index in the force-queue,
-            // if any, will be the index of the next map. Remove it, so that it is
-            // not force-queued again.
-            if !is_restart {
+            // If the next map was force-queued, remove it from the force-queue.
+            if Some(&next_idx) == queue_state.force_queue.front() {
                 let _ = queue_state.force_queue.pop_front();
             }
 
