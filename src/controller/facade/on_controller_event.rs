@@ -27,8 +27,7 @@ impl Controller {
                 self.widget.end_run_outro_for(&player_login).await;
             }
 
-            BeginMap(_) => {
-            }
+            BeginMap(_) => {}
 
             BeginIntro => {
                 self.race.reset().await;

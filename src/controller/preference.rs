@@ -1,8 +1,8 @@
 use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
-use std::time::SystemTime;
 
+use chrono::{NaiveDateTime, Utc};
 use futures::future::join_all;
 use serde_repr::Serialize_repr;
 use tokio::sync::{RwLock, RwLockReadGuard};
@@ -291,8 +291,9 @@ impl PreferenceController {
         };
 
         // Update in database
+        let now = Utc::now().naive_utc();
         self.db
-            .add_history(&player_login, &map_uid)
+            .add_history(&player_login, &map_uid, &now)
             .await
             .expect("failed to update player history");
 
@@ -300,7 +301,7 @@ impl PreferenceController {
         let mut preferences_state = self.state.write().await;
 
         let key = PlayerMapKey::new(player_uid, map_uid.to_string());
-        let map_last_played: Option<SystemTime> = preferences_state
+        let map_last_played: Option<NaiveDateTime> = preferences_state
             .history
             .get(&key)
             .expect("failed to find map history")
@@ -334,7 +335,7 @@ impl PreferenceController {
             .get_mut(&key)
             .expect("failed to find map history");
         map_history.nb_maps_since = 0;
-        map_history.last_played = Some(SystemTime::now());
+        map_history.last_played = Some(Utc::now().naive_utc());
     }
 
     async fn load_for_new_map(&self, map: &Map) {

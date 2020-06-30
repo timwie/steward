@@ -3,8 +3,8 @@ use std::io::Write;
 use std::ops::Deref;
 use std::path::Path;
 use std::sync::Arc;
-use std::time::SystemTime;
 
+use chrono::Utc;
 use tokio::sync::{RwLock, RwLockReadGuard};
 
 use async_trait::async_trait;
@@ -278,8 +278,8 @@ impl PlaylistController {
             file_name,
             name: GameString::from(import_map.metadata.name.trim().to_string()),
             author_login: map_info.author_login,
+            added_since: Utc::now().naive_utc(),
             author_millis: map_info.author_millis,
-            added_since: SystemTime::now(),
             in_playlist: true,
             exchange_id: Some(import_map.metadata.exchange_id),
         };

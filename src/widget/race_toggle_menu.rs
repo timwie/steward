@@ -1,6 +1,6 @@
 use std::cmp::Ordering;
-use std::time::SystemTime;
 
+use chrono::NaiveDateTime;
 use serde::Serialize;
 
 use crate::controller::ActivePreferenceValue;
@@ -72,7 +72,7 @@ pub struct MapListEntry<'a> {
 
     /// The moment this map was added to the server.
     #[serde(serialize_with = "format_map_age")]
-    pub added_since: SystemTime,
+    pub added_since: NaiveDateTime,
 
     /// `True` if this map is currently being played.
     /// This is significant, because the record stats will
@@ -93,7 +93,7 @@ pub struct MapListEntry<'a> {
     /// The most recent time this player has played this map, or `None` if
     /// they have never played it. "Playing" means "finishing" here.
     #[serde(serialize_with = "format_last_played")]
-    pub last_played: Option<SystemTime>,
+    pub last_played: Option<NaiveDateTime>,
 }
 
 impl Ord for MapListEntry<'_> {
@@ -147,7 +147,7 @@ pub struct MapRankingEntry<'a> {
 
     /// The moment this record was set.
     #[serde(serialize_with = "format_record_age")]
-    pub timestamp: SystemTime,
+    pub timestamp: NaiveDateTime,
 
     /// `True` if this is the player's own record.
     pub is_own: bool,

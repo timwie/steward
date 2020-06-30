@@ -1,6 +1,6 @@
 use std::fmt::Display;
-use std::time::Duration;
 
+use chrono::Duration;
 use serde::export::Formatter;
 
 use crate::chat::message::{fmt_time, HIGHLIGHT, NOTICE, RESET};
@@ -179,7 +179,7 @@ impl Display for ServerMessage<'_> {
             VoteNow { duration, .. } => write!(
                 f,
                 "Vote for a restart in the next {} seconds.",
-                duration.as_secs()
+                duration.num_seconds()
             ),
 
             CurrentMapSkipped { admin_name } => write!(

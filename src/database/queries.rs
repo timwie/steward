@@ -4,6 +4,7 @@ use async_trait::async_trait;
 
 use crate::database::structs::*;
 use crate::server::PlayerInfo;
+use chrono::NaiveDateTime;
 
 #[async_trait]
 pub trait Queries: Send + Sync {
@@ -19,7 +20,12 @@ pub trait Queries: Send + Sync {
 
     /// Update a player's history, setting *now* as the time they most recently
     /// played the specified map.
-    async fn add_history(&self, player_login: &str, map_uid: &str) -> Result<()>;
+    async fn add_history(
+        &self,
+        player_login: &str,
+        map_uid: &str,
+        last_played: &NaiveDateTime,
+    ) -> Result<()>;
 
     /// Returns the player's history for each map currently in the playlist.
     async fn history(&self, player_login: &str) -> Result<Vec<History>>;
@@ -65,7 +71,20 @@ pub trait Queries: Send + Sync {
         &self,
         map_uid: &str,
         player_login: &str,
-    ) -> Result<Option<RecordDetailed>>;
+    ) -> Result<Option<RecordDetailed>> {
+        Ok(self
+            .player_records(map_uid, vec![player_login])
+            .await?
+            .into_iter()
+            .next())
+    }
+    /// Return the personal best for each of the specified players on the specified map,
+    /// if they have one.
+    async fn player_records(
+        &self,
+        map_uid: &str,
+        player_logins: Vec<&str>,
+    ) -> Result<Vec<RecordDetailed>>;
 
     /// Return the number of players that have set a record on at least one map.
     async fn nb_players_with_record(&self) -> Result<i64>;
@@ -75,7 +94,7 @@ pub trait Queries: Send + Sync {
 
     /// Without inserting the given record, return the map rank it would achieve,
     /// if it were inserted.
-    async fn record_preview(&self, record: &RecordEvidence) -> Result<i32>;
+    async fn record_preview(&self, record: &RecordEvidence) -> Result<i64>;
 
     /// Updates the player's personal best on a map.
     ///
@@ -125,7 +144,8 @@ pub trait Queries: Send + Sync {
 pub mod test {
     use std::collections::{HashMap, HashSet};
     use std::sync::Arc;
-    use std::time::SystemTime;
+
+    use chrono::Utc;
 
     use async_trait::async_trait;
 
@@ -167,8 +187,8 @@ pub mod test {
                     file_name: "".to_string(),
                     name: GameString::from("".to_string()),
                     author_login: "".to_string(),
+                    added_since: Utc::now().naive_utc(),
                     author_millis: 0,
-                    added_since: SystemTime::now(),
                     in_playlist,
                     exchange_id: None,
                 },
@@ -181,7 +201,7 @@ pub mod test {
                 player_login: login.to_string(),
                 map_uid: uid.to_string(),
                 millis,
-                timestamp: SystemTime::now(),
+                timestamp: Utc::now().naive_utc(),
                 sectors: vec![],
                 validation: vec![],
                 ghost: None,
@@ -219,9 +239,15 @@ pub mod test {
             unimplemented!()
         }
 
-        async fn add_history(&self, _player_login: &str, _map_uid: &str) -> Result<()> {
+        async fn add_history(
+            &self,
+            _player_login: &str,
+            _map_uid: &str,
+            _last_played: &NaiveDateTime,
+        ) -> Result<()> {
             unimplemented!()
         }
+
         async fn history(&self, _player_login: &str) -> Result<Vec<History>> {
             unimplemented!()
         }
@@ -271,11 +297,11 @@ pub mod test {
             unimplemented!()
         }
 
-        async fn player_record(
+        async fn player_records(
             &self,
             _map_uid: &str,
-            _player_login: &str,
-        ) -> Result<Option<RecordDetailed>> {
+            _player_logins: Vec<&str>,
+        ) -> Result<Vec<RecordDetailed>> {
             unimplemented!()
         }
 
@@ -292,7 +318,7 @@ pub mod test {
             unimplemented!()
         }
 
-        async fn record_preview(&self, _record: &RecordEvidence) -> Result<i32> {
+        async fn record_preview(&self, _record: &RecordEvidence) -> Result<i64> {
             unimplemented!()
         }
 

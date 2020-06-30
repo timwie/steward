@@ -105,7 +105,7 @@ pub const MAX_NB_ANNOUNCED_RANKS: usize = 3;
 ///
 /// The idea is that we maximize the time you can display widgets in-between runs,
 /// but still keep it low enough so that it is not a distraction when starting the next.
-pub const START_HIDE_WIDGET_DELAY_MILLIS: u64 = 1500;
+pub const START_HIDE_WIDGET_DELAY_MILLIS: i64 = 1500;
 
 /// The file that will contain the list of blacklisted players.
 pub const BLACKLIST_FILE: &str = "blacklist.txt";

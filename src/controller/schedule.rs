@@ -1,7 +1,8 @@
 use std::cmp::{max, min};
+use std::ops::{Add, Sub};
 use std::sync::Arc;
-use std::time::{Duration, SystemTime};
 
+use chrono::{Duration, NaiveDateTime, Utc};
 use futures::future::join_all;
 use tokio::sync::RwLock;
 
@@ -23,7 +24,7 @@ pub trait LiveSchedule: Send + Sync {
 
 struct ScheduleState {
     /// The moment the current map started.
-    map_start_time: SystemTime,
+    map_start_time: NaiveDateTime,
 
     /// This list contains the reference times for each map in the playlist.
     /// These times should typically be the top record, or the author time,
@@ -64,7 +65,7 @@ impl ScheduleController {
         .await;
 
         let state = ScheduleState {
-            map_start_time: SystemTime::now(), // we don't know the actual time
+            map_start_time: Utc::now().naive_utc(), // we don't know the actual time
             reference_millis,
         };
 
@@ -107,7 +108,7 @@ impl ScheduleController {
         // Set the server's time limit
         let new_time_limit = self.to_limit(schedule_state.reference_millis[idx], &public_config);
         let mut mode_options = self.server.mode_options().await;
-        mode_options.time_limit_secs = new_time_limit.as_secs() as i32;
+        mode_options.time_limit_secs = new_time_limit.num_seconds() as i32;
         self.server.set_mode_options(&mode_options).await;
     }
 
@@ -150,8 +151,7 @@ impl ScheduleController {
 
         let limit = min(public_config.time_limit_max_secs as u64, limit);
         let limit = max(public_config.time_limit_min_secs as u64, limit);
-
-        Duration::from_millis(limit)
+        Duration::milliseconds(limit as i64)
     }
 }
 
@@ -163,7 +163,7 @@ impl LiveSchedule for ScheduleController {
         // The duration in between maps is the duration of the outro, plus
         // some time for map loading and intro. We'll choose five seconds for the latter.
         let duration_between_maps = self.live_config.outro_duration().await;
-        let duration_between_maps = duration_between_maps + Duration::from_secs(5);
+        let duration_between_maps = duration_between_maps + Duration::seconds(5);
 
         let playlist_idx = match self.live_playlist.index_of(&map_uid).await {
             Some(idx) => idx,
@@ -172,7 +172,7 @@ impl LiveSchedule for ScheduleController {
 
         let curr_playlist_idx = self.live_playlist.current_index().await;
         if Some(playlist_idx) == curr_playlist_idx {
-            return Some(Duration::default());
+            return Some(Duration::zero());
         }
 
         let config = self.live_config.lock().await;
@@ -184,22 +184,23 @@ impl LiveSchedule for ScheduleController {
             .iter()
             .take_while(|entry| entry.playlist_idx != playlist_idx);
 
-        let mut result = Duration::default();
+        let mut result = Duration::zero();
 
         // 1. add time until current map ends
         if let Some(idx) = curr_playlist_idx {
-            let time_since_map_start = schedule_state.map_start_time.elapsed().unwrap_or_default();
+            let now = Utc::now().naive_utc();
+            let time_since_map_start = now.signed_duration_since(schedule_state.map_start_time);
             let ref_millis = schedule_state.reference_millis[idx];
-            result += self.to_limit(ref_millis, &public_config);
-            result -= time_since_map_start;
+            result = result.add(self.to_limit(ref_millis, &public_config));
+            result = result.sub(time_since_map_start);
         }
-        result += duration_between_maps;
+        result = result.add(duration_between_maps);
 
         // 2. add time until the specified map starts
         for entry in entries_ahead {
             let ref_millis = schedule_state.reference_millis[entry.playlist_idx];
-            result += self.to_limit(ref_millis, &public_config);
-            result += duration_between_maps;
+            result = result.add(self.to_limit(ref_millis, &public_config));
+            result = result.add(duration_between_maps);
         }
 
         Some(result)

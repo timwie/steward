@@ -3,19 +3,24 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use anyhow::Result;
-use include_dir::Dir;
 use tokio_postgres::Row;
 
 use async_trait::async_trait;
+use include_dir::{include_dir, Dir};
 
-use crate::config::Config;
 use crate::database::queries::Queries;
 use crate::database::structs::*;
 use crate::server::{GameString, PlayerInfo};
+use chrono::NaiveDateTime;
 
 /// Connect to the Postgres database and open a connection pool.
-pub async fn pg_connect(config: &Config) -> Arc<dyn Queries> {
-    let config = tokio_postgres::config::Config::from_str(&config.postgres_connection)
+pub async fn db_connect(conn: &str) -> Arc<dyn Queries> {
+    let client = pg_connect(conn).await;
+    Arc::new(client) as Arc<dyn Queries>
+}
+
+pub async fn pg_connect(conn: &str) -> PostgresClient {
+    let config = tokio_postgres::config::Config::from_str(&conn)
         .expect("failed to parse postgres connection string");
 
     log::debug!("using postgres connection config:");
@@ -28,7 +33,7 @@ pub async fn pg_connect(config: &Config) -> Arc<dyn Queries> {
         .await
         .expect("failed to build database pool");
 
-    Arc::new(PostgresClient(pool)) as Arc<dyn Queries>
+    PostgresClient(pool)
 }
 
 /// A connection pool that maintains a set of open
@@ -38,7 +43,7 @@ type PostgresPool = bb8::Pool<bb8_postgres::PostgresConnectionManager<tokio_post
 
 /// `Queries` implementation that produces `bb8::RunError<tokio_postgres::Error>s`.
 #[derive(Clone)]
-struct PostgresClient(PostgresPool);
+pub struct PostgresClient(pub PostgresPool);
 
 impl PostgresClient {
     async fn playlist_edit(&self, map_uid: &str, in_playlist: bool) -> Result<Option<Map>> {
@@ -121,18 +126,25 @@ impl Queries for PostgresClient {
         Ok(())
     }
 
-    async fn add_history(&self, player_login: &str, map_uid: &str) -> Result<()> {
+    async fn add_history(
+        &self,
+        player_login: &str,
+        map_uid: &str,
+        last_played: &NaiveDateTime,
+    ) -> Result<()> {
         let conn = self.0.get().await?;
         let stmt = r#"
             INSERT INTO steward.history
-                (player_login, map_uid)
+                (player_login, map_uid, last_played)
             VALUES
-                ($1, $2)
+                ($1, $2, $3)
             ON CONFLICT (player_login, map_uid)
             DO UPDATE SET
-                last_played = CURRENT_TIMESTAMP
+                last_played = excluded.last_played
         "#;
-        let _ = conn.execute(stmt, &[&player_login, &map_uid]).await?;
+        let _ = conn
+            .execute(stmt, &[&player_login, &map_uid, &last_played])
+            .await?;
         Ok(())
     }
 
@@ -313,16 +325,20 @@ impl Queries for PostgresClient {
             .collect())
     }
 
-    async fn player_record(
+    async fn player_records(
         &self,
         map_uid: &str,
-        player_login: &str,
-    ) -> Result<Option<RecordDetailed>> {
+        player_logins: Vec<&str>,
+    ) -> Result<Vec<RecordDetailed>> {
         let conn = self.0.get().await?;
         let stmt = r#"
-            SELECT r.pos, p.login, p.nick_name, r.millis, r.timestamp, s.cp_millis
+            SELECT
+                r.pos, r.millis, r.timestamp,
+                p.login, p.nick_name,
+                s.cp_millis
             FROM (
                 SELECT
+                   map_uid,
                    player_login,
                    millis,
                    timestamp,
@@ -332,20 +348,29 @@ impl Queries for PostgresClient {
                 FROM steward.record
                 WHERE map_uid = $1
             ) r
-            RIGHT JOIN steward.sector s ON r.player_login = s.player_login
-            LEFT JOIN steward.player p ON r.player_login = p.login
-            WHERE map_uid = $1 AND r.player_login = $2
-            ORDER BY s.index ASC
+            NATURAL JOIN (
+                SELECT
+                    map_uid,
+                    player_login,
+                    ARRAY_AGG(cp_millis ORDER BY index ASC) cp_millis
+                FROM steward.sector
+                WHERE map_uid = $1 AND player_login = ANY($2)
+                GROUP BY map_uid, player_login
+            ) s
+            INNER JOIN steward.player p ON r.player_login = p.login
         "#;
-        let rows = conn.query(stmt, &[&map_uid, &player_login]).await?;
-        Ok(rows.first().map(|row| RecordDetailed {
-            map_rank: row.get("pos"),
-            player_login: row.get("login"),
-            player_nick_name: GameString::from(row.get("nick_name")),
-            timestamp: row.get("timestamp"),
-            millis: row.get("millis"),
-            cp_millis: rows.iter().map(|row| row.get("cp_millis")).collect(),
-        }))
+        let rows = conn.query(stmt, &[&map_uid, &player_logins]).await?;
+        Ok(rows
+            .into_iter()
+            .map(|row| RecordDetailed {
+                map_rank: row.get("pos"),
+                player_login: row.get("login"),
+                player_nick_name: GameString::from(row.get("nick_name")),
+                timestamp: row.get("timestamp"),
+                millis: row.get("millis"),
+                cp_millis: row.get::<_, Vec<i32>>("cp_millis"),
+            })
+            .collect())
     }
 
     async fn nb_players_with_record(&self) -> Result<i64> {
@@ -374,11 +399,11 @@ impl Queries for PostgresClient {
         Ok(maps)
     }
 
-    async fn record_preview(&self, record: &RecordEvidence) -> Result<i32> {
+    async fn record_preview(&self, record: &RecordEvidence) -> Result<i64> {
         let conn = self.0.get().await?;
         let stmt = r#"
             SELECT COUNT(*)
-            FROM steward.record
+            FROM steward.record r
             WHERE map_uid = $1 AND r.player_login != $2 AND r.millis < $3
         "#;
         let row = conn
@@ -387,7 +412,7 @@ impl Queries for PostgresClient {
                 &[&record.map_uid, &record.player_login, &record.millis],
             )
             .await?;
-        Ok(1 + row.get::<usize, i32>(0))
+        Ok(1 + row.get::<usize, i64>(0))
     }
 
     async fn upsert_record(&self, rec: &RecordEvidence) -> Result<()> {

@@ -60,7 +60,10 @@ impl Controller {
                 let vote_duration = self.config.vote_duration().await;
                 let _ = tokio::spawn(async move {
                     log::debug!("start vote");
-                    tokio::time::delay_for(vote_duration).await;
+                    tokio::time::delay_for(
+                        vote_duration.to_std().expect("failed to delay vote end"),
+                    )
+                    .await;
                     log::debug!("end vote");
 
                     // Sort the queue, now that all restart votes have been cast.
