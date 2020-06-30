@@ -229,9 +229,11 @@ impl QueueController {
             Some(idx) => idx,
             None => return None,
         };
-
-        let mut queue_state = self.state.write().await;
-        if queue_state.force_queue_front(curr_index) {
+        let needs_sort = {
+            let mut queue_state = self.state.write().await;
+            queue_state.force_queue_front(curr_index)
+        };
+        if needs_sort {
             return self.sort_queue().await;
         }
         None
