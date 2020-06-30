@@ -4,10 +4,9 @@ use std::ops::Deref;
 use std::path::Path;
 use std::sync::Arc;
 
+use async_trait::async_trait;
 use chrono::Utc;
 use tokio::sync::{RwLock, RwLockReadGuard};
-
-use async_trait::async_trait;
 
 use crate::chat::PlaylistCommandError;
 use crate::controller::LiveConfig;
@@ -133,9 +132,10 @@ impl PlaylistController {
     }
 
     /// Set the current playlist index to the one of the next map.
-    pub async fn set_index(&self, next_index: usize) {
+    pub async fn set_index(&self, next_index: usize) -> Map {
         let mut playlist_state = self.state.write().await;
         playlist_state.current_index = Some(next_index);
+        playlist_state.maps[next_index].clone()
     }
 
     /// Add the specified map to the server playlist.

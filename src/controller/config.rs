@@ -1,12 +1,11 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use async_trait::async_trait;
 use chrono::Duration;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tokio::sync::{RwLock, RwLockReadGuard};
-
-use async_trait::async_trait;
 
 use crate::config::Config;
 use crate::event::ConfigDiff;

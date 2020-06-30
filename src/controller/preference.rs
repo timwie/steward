@@ -2,12 +2,11 @@ use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
+use async_trait::async_trait;
 use chrono::{NaiveDateTime, Utc};
 use futures::future::join_all;
 use serde_repr::Serialize_repr;
 use tokio::sync::{RwLock, RwLockReadGuard};
-
-use async_trait::async_trait;
 
 use crate::chat::PlayerMessage;
 use crate::controller::{LiveChat, LivePlayers, LivePlaylist, PlayersState};

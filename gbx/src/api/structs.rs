@@ -1,10 +1,9 @@
 use std::collections::HashMap;
 
+use lazy_static::lazy_static;
 use regex::Regex;
 use serde::export::Formatter;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-
-use lazy_static::lazy_static;
 
 /// Server version information.
 ///

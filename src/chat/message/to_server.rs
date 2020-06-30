@@ -43,8 +43,8 @@ pub enum ServerMessage<'a> {
     /// A map was removed from the playlist.
     RemovedMap { name: &'a str },
 
-    /// Display some info on the current map ahead of a race.
-    CurrentMap { name: &'a str, author: &'a str },
+    /// Announce the next map after the vote.
+    NextMap { name: &'a str, author: &'a str },
 
     /// Tell players to vote if they want a restart.
     VoteNow { duration: Duration, threshold: f32 },
@@ -151,25 +151,22 @@ impl Display for ServerMessage<'_> {
                 name, RESET, NOTICE, author
             ),
 
-            AddedMap { name: display_name } => write!(
+            AddedMap { name } => write!(
                 f,
                 "{}{}{} was added back into the playlist.",
-                display_name, RESET, NOTICE
+                name, RESET, NOTICE
             ),
 
-            RemovedMap { name: display_name } => write!(
+            RemovedMap { name } => write!(
                 f,
                 "{}{}{} was removed from the playlist.",
-                display_name, RESET, NOTICE
+                name, RESET, NOTICE
             ),
 
-            CurrentMap {
-                name: display_name,
-                author,
-            } => write!(
+            NextMap { name, author } => write!(
                 f,
-                "Current map is {}{}{} by {}",
-                display_name, RESET, NOTICE, author
+                "Next map will be {}{}{} by {}",
+                name, RESET, NOTICE, author
             ),
 
             VoteNow { threshold, .. } if *threshold > 1f32 => {

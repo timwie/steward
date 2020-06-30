@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use gbx::CheckpointEvent;
+
 use crate::chat::{AdminCommand, PlayerCommand, SuperAdminCommand};
 use crate::database::{Map, RecordDetailed};
 use crate::server::{GameString, PlayerInfo};
@@ -9,8 +11,9 @@ use crate::widget::Action;
 /// and to make it easier to understand the controller flow.
 #[derive(Debug)]
 pub enum ControllerEvent<'a> {
-    /// Signals that a new map was loaded by the server.
-    BeginMap(Map),
+    /// Signals that the current map will be unloaded, and the next
+    /// will be loaded.
+    ChangeMap,
 
     /// Signals that a new race is about to begin.
     BeginIntro,
@@ -24,9 +27,16 @@ pub enum ControllerEvent<'a> {
     /// the moment they can accelerate.
     BeginRun { player_login: &'a str },
 
+    /// Signals that a player crossed a checkpoint or finish line.
+    ContinueRun(CheckpointEvent),
+
+    /// Signals when a player & server's run times are out of sync. This is likely caused
+    /// by connection issues, but could also be a cheating attempt.
+    DesyncRun { player_login: &'a str },
+
     /// Signals that a player completed a run, and the start of the
     /// run outro for them.
-    EndRun(PbDiff),
+    FinishRun(PbDiff),
 
     /// Signals the start of the vote, which begins when the race is
     /// concluded, and ends at some point before the map is unloaded.
@@ -36,11 +46,12 @@ pub enum ControllerEvent<'a> {
     /// either restart, or will be unloaded.
     EndOutro,
 
+    /// Signals the start of the vote, which coincides with the start
+    /// of the outro.
+    BeginVote,
+
     /// Signals the end of the vote, and that the next map was decided.
     EndVote,
-
-    /// Signals that the current map will be unloaded.
-    EndMap,
 
     /// Signals that the map queue has changed.
     NewQueue(QueueDiff),
