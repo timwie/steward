@@ -246,8 +246,11 @@ impl QueueController {
     /// Other maps that are force-queued have a lower priority for each map
     /// that was force-queued before them.
     pub async fn force_queue(&self, playlist_index: usize) -> Option<QueueDiff> {
-        let mut queue_state = self.state.write().await;
-        if queue_state.force_queue_back(playlist_index) {
+        let needs_sort = {
+            let mut queue_state = self.state.write().await;
+            queue_state.force_queue_back(playlist_index)
+        };
+        if needs_sort {
             return self.sort_queue().await;
         }
         None
