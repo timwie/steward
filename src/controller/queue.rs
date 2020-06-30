@@ -355,8 +355,9 @@ impl QueueController {
 
     /// Tell the server to load the map at the top of the queue next,
     /// then re-sort the queue, so that the next map is no longer at the top.
-    pub async fn pop_front(&self) {
-        {
+    /// Returns the next map.
+    pub async fn pop_front(&self) -> Map {
+        let next_map = {
             let mut queue_state = self.state.write().await;
 
             let maybe_curr_index = self.live_playlist.current_index().await;
@@ -402,11 +403,15 @@ impl QueueController {
                     .await
                     .expect("failed to set next playlist index");
             }
-        }
+
+            self.live_playlist.at_index(next_idx).await.expect("queued bad playlist index")
+        };
 
         // Re-sort the queue without counting restart votes that may not
         // have been cleared yet.
         self.sort_queue2(false).await;
+
+        next_map
     }
 }
 

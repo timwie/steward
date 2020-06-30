@@ -45,6 +45,12 @@ pub trait LivePlaylist: Send + Sync {
     async fn index_of(&self, map_uid: &str) -> Option<usize> {
         self.lock().await.index_of(map_uid)
     }
+
+    /// The map at the given playlist index, or `None` if
+    /// there is no such index.
+    async fn at_index(&self, index: usize) -> Option<Map> {
+        self.lock().await.at_index(index).cloned()
+    }
 }
 
 pub struct PlaylistState {

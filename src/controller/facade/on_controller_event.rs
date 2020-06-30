@@ -27,8 +27,7 @@ impl Controller {
                 self.widget.end_run_outro_for(&player_login).await;
             }
 
-            BeginMap(loaded_map) => {
-                self.records.load_for_map(&loaded_map).await;
+            BeginMap(_) => {
             }
 
             BeginIntro => {
@@ -79,7 +78,8 @@ impl Controller {
                 let queue_preview = self.queue.peek().await;
                 self.widget.end_vote(queue_preview).await;
 
-                self.queue.pop_front().await;
+                let next_map = self.queue.pop_front().await;
+                self.records.load_for_map(&next_map).await;
             }
 
             NewQueue(diff) => {
