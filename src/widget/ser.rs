@@ -1,5 +1,4 @@
-use std::time::SystemTime;
-
+use chrono::{NaiveDateTime, Utc};
 use serde::Serializer;
 
 use crate::controller::QueuePriority;
@@ -12,14 +11,14 @@ where
     s.serialize_str(&p.replace("$o", "").replace("$w", ""))
 }
 
-pub fn format_map_age<S>(x: &SystemTime, s: S) -> Result<S::Ok, S::Error>
+pub fn format_map_age<S>(x: &NaiveDateTime, s: S) -> Result<S::Ok, S::Error>
 where
     S: Serializer,
 {
-    let seconds_since = match x.elapsed() {
-        Ok(duration) => duration.as_secs(),
-        Err(_) => return s.serialize_str(""),
-    };
+    let now = Utc::now().naive_utc();
+    let seconds_since = now.timestamp() - x.timestamp();
+    assert!(seconds_since >= 0);
+
     let days_since = seconds_since / 60 / 60 / 24; // div rounds down
     let weeks_since = days_since / 7;
     let months_since = days_since / 30;
@@ -39,14 +38,14 @@ where
     s.serialize_str(&format!("{} months ago", months_since)) // "2..11 months ago"
 }
 
-pub fn format_record_age<S>(x: &SystemTime, s: S) -> Result<S::Ok, S::Error>
+pub fn format_record_age<S>(x: &NaiveDateTime, s: S) -> Result<S::Ok, S::Error>
 where
     S: Serializer,
 {
     format_map_age(x, s)
 }
 
-pub fn format_last_played<S>(x: &Option<SystemTime>, s: S) -> Result<S::Ok, S::Error>
+pub fn format_last_played<S>(x: &Option<NaiveDateTime>, s: S) -> Result<S::Ok, S::Error>
 where
     S: Serializer,
 {
@@ -54,10 +53,10 @@ where
         Some(x) => x,
         None => return s.serialize_str("Never"),
     };
-    let seconds_since = match x.elapsed() {
-        Ok(duration) => duration.as_secs(),
-        Err(_) => return s.serialize_str(""),
-    };
+    let now = Utc::now().naive_utc();
+    let seconds_since = now.timestamp() - x.timestamp();
+    assert!(seconds_since >= 0);
+
     let days_since = seconds_since / 60 / 60 / 24; // div rounds down
     let weeks_since = days_since / 7;
     let months_since = days_since / 30;

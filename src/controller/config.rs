@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::time::Duration;
 
+use chrono::Duration;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tokio::sync::{RwLock, RwLockReadGuard};
@@ -33,12 +33,12 @@ pub trait LiveConfig: Send + Sync {
 
     /// The time within the outro in which players can vote for a restart.
     async fn vote_duration(&self) -> Duration {
-        Duration::from_secs(self.lock().await.vote_duration_secs() as u64)
+        Duration::seconds(self.lock().await.vote_duration_secs() as i64)
     }
 
     /// The duration of the outro at the end of a map.
     async fn outro_duration(&self) -> Duration {
-        Duration::from_secs(self.lock().await.outro_duration_secs as u64)
+        Duration::seconds(self.lock().await.outro_duration_secs as i64)
     }
 
     /// The `.../UserData/Maps` server directory.

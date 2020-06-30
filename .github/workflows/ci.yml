@@ -23,9 +23,10 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: check
+          args: --bins
 
-  test:
-    name: Test Suite
+  unit-test:
+    name: Unit Tests
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
@@ -42,7 +43,27 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --workspace
+          args: --lib --bin steward --workspace
+
+  integration-test:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+
+      - name: Run cargo test
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --test integration --features "test" -- --test-threads 1
 
   lints:
     name: Lints
@@ -69,4 +90,4 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: clippy
-          args: -- -D warnings
+          args: --lib --bin steward -- -D warnings

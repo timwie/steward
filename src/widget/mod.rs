@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-use include_dir::{Dir, File};
+use include_dir::{include_dir, Dir, File};
 use lazy_static::*;
 use serde::Serialize;
 use tera::Tera;

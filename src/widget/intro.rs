@@ -1,5 +1,4 @@
-use std::time::SystemTime;
-
+use chrono::NaiveDateTime;
 use serde::Serialize;
 
 use crate::controller::ActivePreferenceValue;
@@ -50,7 +49,7 @@ pub struct IntroWidget<'a> {
     /// The most recent time this player has played this map, or `None` if
     /// they have never played it. "Playing" means "finishing" here.
     #[serde(serialize_with = "format_last_played")]
-    pub last_played: Option<SystemTime>,
+    pub last_played: Option<NaiveDateTime>,
 }
 
 impl Widget for IntroWidget<'_> {

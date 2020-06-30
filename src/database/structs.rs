@@ -1,5 +1,4 @@
-use std::time::SystemTime;
-
+use chrono::{NaiveDateTime, Utc};
 use postgres_types::{FromSql, ToSql};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 
@@ -8,7 +7,7 @@ use gbx::MapInfo;
 use crate::server::GameString;
 
 /// Database player that has joined the server at least once.
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct Player {
     /// Player login.
     pub login: String,
@@ -18,13 +17,13 @@ pub struct Player {
 }
 
 /// Stores the most recent time a player has played a specific map.
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct History {
     pub player_login: String,
     pub map_uid: String,
 
     /// The time this player last played this map, or `None` if they have never played it.
-    pub last_played: Option<SystemTime>,
+    pub last_played: Option<NaiveDateTime>,
 
     /// The number of other maps played since `last_played`, which is a value in
     /// `0..nb_total_maps`.
@@ -51,7 +50,7 @@ pub struct Map {
     pub author_millis: i32,
 
     /// The moment this map was added to the database.
-    pub added_since: SystemTime,
+    pub added_since: NaiveDateTime,
 
     /// `True` if the map is in the server's playlist.
     pub in_playlist: bool,
@@ -67,8 +66,8 @@ impl From<MapInfo> for Map {
             file_name: info.file_name,
             name: info.name,
             author_login: info.author_login,
+            added_since: Utc::now().naive_utc(),
             author_millis: info.author_millis,
-            added_since: SystemTime::now(),
             in_playlist: true,
             exchange_id: None,
         }
@@ -111,7 +110,7 @@ pub struct RecordEvidence {
     pub player_login: String,
     pub map_uid: String,
     pub millis: i32,
-    pub timestamp: SystemTime,
+    pub timestamp: NaiveDateTime,
     pub sectors: Vec<RecordSector>,
 
     /// Validation replay file data.
@@ -151,7 +150,7 @@ pub struct RecordSector {
 
 /// Detailed record data, that is only missing speed & distance
 /// for each checkpoint.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct RecordDetailed {
     /// The player's map rank, which is the rank of this record
     /// in the ranking of all records on this map.
@@ -167,7 +166,7 @@ pub struct RecordDetailed {
     pub millis: i32,
 
     /// The moment this record was set.
-    pub timestamp: SystemTime,
+    pub timestamp: NaiveDateTime,
 
     /// The milliseconds at the time of passing each checkpoint -
     /// the finish line being the last.
@@ -192,7 +191,7 @@ pub struct Record {
     pub player_login: String,
     pub player_nick_name: GameString,
     pub millis: i32,
-    pub timestamp: SystemTime,
+    pub timestamp: NaiveDateTime,
 }
 
 impl From<RecordDetailed> for Record {

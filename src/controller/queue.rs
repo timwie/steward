@@ -404,7 +404,10 @@ impl QueueController {
                     .expect("failed to set next playlist index");
             }
 
-            self.live_playlist.at_index(next_idx).await.expect("queued bad playlist index")
+            self.live_playlist
+                .at_index(next_idx)
+                .await
+                .expect("queued bad playlist index")
         };
 
         // Re-sort the queue without counting restart votes that may not

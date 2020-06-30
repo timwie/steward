@@ -1,6 +1,6 @@
 use std::sync::Arc;
-use std::time::Duration;
 
+use chrono::Duration;
 use futures::future::join_all;
 use tokio::sync::RwLock;
 
@@ -303,7 +303,7 @@ impl WidgetController {
     {
         let server = self.server.clone();
         let _ = tokio::spawn(async move {
-            tokio::time::delay_for(delay).await;
+            tokio::time::delay_for(delay.to_std().expect("failed to hide widget with delay")).await;
             let res = server.send_manialink_to(&T::hidden(), for_uid).await;
             check_send_res(res);
         });
@@ -398,7 +398,7 @@ impl WidgetController {
     async fn hide_intro_widgets_for(&self, for_uid: i32) {
         self.hide_for_delayed::<IntroWidget>(
             for_uid,
-            Duration::from_millis(START_HIDE_WIDGET_DELAY_MILLIS),
+            Duration::milliseconds(START_HIDE_WIDGET_DELAY_MILLIS),
         )
         .await;
     }
@@ -444,7 +444,7 @@ impl WidgetController {
         if let Some(uid) = self.live_players.uid(player_login).await {
             self.hide_for_delayed::<RunOutroWidget>(
                 uid,
-                Duration::from_millis(START_HIDE_WIDGET_DELAY_MILLIS),
+                Duration::milliseconds(START_HIDE_WIDGET_DELAY_MILLIS),
             )
             .await;
         }
