@@ -141,16 +141,17 @@ impl ScheduleController {
         let n = TIME_LIMIT_DIVIDER;
         let i = ref_millis * public_config.time_limit_factor as u64;
 
-        let rem = i % n;
-        let limit = if rem > n / 2 {
-            i + n - rem // round up
+        let rem_millis = i % n;
+        let limit_millis = if rem_millis > n / 2 {
+            i + n - rem_millis // round up
         } else {
-            i - rem // round down
+            i - rem_millis // round down
         };
 
-        let limit = min(public_config.time_limit_max_secs as u64, limit);
-        let limit = max(public_config.time_limit_min_secs as u64, limit);
-        Duration::milliseconds(limit as i64)
+        let limit_secs = limit_millis / 1000;
+        let limit_secs = min(public_config.time_limit_max_secs as u64, limit_secs);
+        let limit_secs = max(public_config.time_limit_min_secs as u64, limit_secs);
+        Duration::seconds(limit_secs as i64)
     }
 }
 
