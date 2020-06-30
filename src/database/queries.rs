@@ -94,7 +94,7 @@ pub trait Queries: Send + Sync {
 
     /// Without inserting the given record, return the map rank it would achieve,
     /// if it were inserted.
-    async fn record_preview(&self, record: &RecordEvidence) -> Result<i32>;
+    async fn record_preview(&self, record: &RecordEvidence) -> Result<i64>;
 
     /// Updates the player's personal best on a map.
     ///
@@ -318,7 +318,7 @@ pub mod test {
             unimplemented!()
         }
 
-        async fn record_preview(&self, _record: &RecordEvidence) -> Result<i32> {
+        async fn record_preview(&self, _record: &RecordEvidence) -> Result<i64> {
             unimplemented!()
         }
 

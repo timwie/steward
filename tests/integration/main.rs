@@ -18,7 +18,7 @@ use steward::server::{GameString, PlayerInfo};
 // [ ] maps
 // [ ] playlist
 // [ ] map
-// [x] upsert_map
+// [ ] upsert_map
 //     - insert
 //     - update filename, exchangeid
 //     - update does not set NULL exchangeid
@@ -31,16 +31,16 @@ use steward::server::{GameString, PlayerInfo};
 // [ ] player_record
 // [x] player_records
 // [ ] nb_players_with_record
-// [ ] maps_without_player_record <<<<<<
-// [ ] record_preview <<<<<<<
+// [x] maps_without_player_record
+// [x] record_preview
 // [x] upsert_record
 // [ ] player_preferences
-// [ ] count_map_preferences <<<<<<<
+// [ ] count_map_preferences
 // [ ] upsert_preference
 // [ ] map_rankings
 // [ ] delete_player
 // [ ] delete_map
-// [ ] delete_old_ghosts <<<<<<<<<<<
+// [ ] delete_old_ghosts
 
 /// Spins up a Postgres database in a Docker container.
 async fn clean_db() -> Result<Arc<dyn Database>> {
@@ -453,6 +453,89 @@ async fn test_history_update() -> Result<()> {
     expected.sort_by(|a, b| a.map_uid.cmp(&b.map_uid));
     actual.sort_by(|a, b| a.map_uid.cmp(&b.map_uid));
     assert_eq!(expected, actual);
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_maps_without_player_record() -> Result<()> {
+    let db = clean_db().await?;
+
+    let player1 = player_info("login1", "nickname1");
+    let player2 = player_info("login2", "nickname2");
+    let map1 = map_evidence("uid1", "file1");
+    let map2 = map_evidence("uid2", "file2");
+    let rec1 = record_evidence("login1", "uid1", 10000);
+    db.upsert_player(&player1).await?;
+    db.upsert_player(&player2).await?;
+    db.upsert_map(&map1).await?;
+    db.upsert_map(&map2).await?;
+    db.upsert_record(&rec1).await?;
+
+    let expected = vec!["uid2".to_string()];
+    let actual = db.maps_without_player_record("login1").await?;
+    assert_eq!(expected, actual);
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_record_preview_first() -> Result<()> {
+    let db = clean_db().await?;
+
+    let player1 = player_info("login1", "nickname1");
+    let map1 = map_evidence("uid1", "file1");
+    let rec1 = record_evidence("login1", "uid1", 10000);
+
+    db.upsert_player(&player1).await?;
+    db.upsert_map(&map1).await?;
+
+    let actual = db.record_preview(&rec1).await?;
+    assert_eq!(1, actual);
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_record_preview_top() -> Result<()> {
+    let db = clean_db().await?;
+
+    let player1 = player_info("login1", "nickname1");
+    let player2 = player_info("login2", "nickname2");
+    let map1 = map_evidence("uid1", "file1");
+    let map2 = map_evidence("uid2", "file2");
+    let rec1 = record_evidence("login1", "uid1", 10000);
+    let rec2 = record_evidence("login1", "uid1", 9000);
+    db.upsert_player(&player1).await?;
+    db.upsert_player(&player2).await?;
+    db.upsert_map(&map1).await?;
+    db.upsert_map(&map2).await?;
+    db.upsert_record(&rec1).await?;
+
+    let actual = db.record_preview(&rec2).await?;
+    assert_eq!(1, actual);
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_record_preview() -> Result<()> {
+    let db = clean_db().await?;
+
+    let player1 = player_info("login1", "nickname1");
+    let player2 = player_info("login2", "nickname2");
+    let map1 = map_evidence("uid1", "file1");
+    let map2 = map_evidence("uid2", "file2");
+    let rec1 = record_evidence("login1", "uid1", 10000);
+    let rec2 = record_evidence("login1", "uid1", 11000);
+    db.upsert_player(&player1).await?;
+    db.upsert_player(&player2).await?;
+    db.upsert_map(&map1).await?;
+    db.upsert_map(&map2).await?;
+    db.upsert_record(&rec1).await?;
+
+    let actual = db.record_preview(&rec2).await?;
+    assert_eq!(2, actual);
 
     Ok(())
 }

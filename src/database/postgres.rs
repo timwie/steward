@@ -399,11 +399,11 @@ impl Queries for PostgresClient {
         Ok(maps)
     }
 
-    async fn record_preview(&self, record: &RecordEvidence) -> Result<i32> {
+    async fn record_preview(&self, record: &RecordEvidence) -> Result<i64> {
         let conn = self.0.get().await?;
         let stmt = r#"
             SELECT COUNT(*)
-            FROM steward.record
+            FROM steward.record r
             WHERE map_uid = $1 AND r.player_login != $2 AND r.millis < $3
         "#;
         let row = conn
@@ -412,7 +412,7 @@ impl Queries for PostgresClient {
                 &[&record.map_uid, &record.player_login, &record.millis],
             )
             .await?;
-        Ok(1 + row.get::<usize, i32>(0))
+        Ok(1 + row.get::<usize, i64>(0))
     }
 
     async fn upsert_record(&self, rec: &RecordEvidence) -> Result<()> {
