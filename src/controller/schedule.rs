@@ -2,11 +2,10 @@ use std::cmp::{max, min};
 use std::ops::{Add, Sub};
 use std::sync::Arc;
 
+use async_trait::async_trait;
 use chrono::{Duration, NaiveDateTime, Utc};
 use futures::future::join_all;
 use tokio::sync::RwLock;
-
-use async_trait::async_trait;
 
 use crate::controller::{LiveConfig, LivePlaylist, LiveQueue, LiveRecords, PublicConfig};
 use crate::database::Database;

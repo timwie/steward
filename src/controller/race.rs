@@ -1,9 +1,8 @@
 use std::collections::HashSet;
 use std::sync::Arc;
 
-use tokio::sync::{RwLock, RwLockReadGuard};
-
 use async_trait::async_trait;
+use tokio::sync::{RwLock, RwLockReadGuard};
 
 use crate::controller::LivePlayers;
 use crate::server::{CheckpointEvent, GameString, Scores, Server};

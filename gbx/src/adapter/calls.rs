@@ -5,10 +5,9 @@ use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
+use async_trait::async_trait;
 use serde::Deserialize;
 use serde_bytes::ByteBuf;
-
-use async_trait::async_trait;
 
 use crate::api::*;
 use crate::xml::*;

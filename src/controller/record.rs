@@ -1,11 +1,11 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use async_trait::async_trait;
 use chrono::Utc;
 use futures::future::join_all;
 use tokio::sync::{RwLock, RwLockReadGuard};
 
-use async_trait::async_trait;
 use gbx::PlayerInfo;
 
 use crate::config::{MAX_DISPLAYED_MAP_RANKS, MAX_GHOST_REPLAY_RANK};

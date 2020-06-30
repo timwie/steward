@@ -65,14 +65,6 @@ fn forward_regular_callback(cb_out: &Sender<Callback>, call: Call) -> CallbackTy
                 return success(RaceEnd);
             }
         }
-        "ManiaPlanet.MapListModified" => {
-            if let [Int(curr_idx), Int(next_idx), Bool(_is_list_modified)] = &call.args[..] {
-                return success(PlaylistChanged {
-                    curr_idx: Some(*curr_idx).filter(|i| *i >= 0),
-                    next_idx: *next_idx,
-                });
-            }
-        }
         "ManiaPlanet.PlayerChat" => {
             if let [Int(uid), String(login), String(msg), Bool(_is_registered_cmd)] = &call.args[..]
             {
@@ -120,14 +112,21 @@ fn forward_regular_callback(cb_out: &Sender<Callback>, call: Call) -> CallbackTy
                 });
             }
         }
+        "TrackMania.PlayerIncoherence" => {
+            if let [Int(_uid), String(login)] = &call.args[..] {
+                return success(RunIncoherence {
+                    player_login: login.clone(),
+                });
+            }
+        }
         "ManiaPlanet.BeginMap"
         | "ManiaPlanet.BeginMatch"
         | "ManiaPlanet.EndMap"
+        | "ManiaPlanet.MapListModified"
+        | "ManiaPlanet.PlayerConnect"
         | "ManiaPlanet.StatusChanged"
         | "TrackMania.PlayerCheckpoint"
-        | "TrackMania.PlayerFinish"
-        | "TrackMania.PlayerIncoherence"
-        | "ManiaPlanet.PlayerConnect" => {
+        | "TrackMania.PlayerFinish" => {
             // ignore without logging
             return CallbackType::Unprompted;
         }
@@ -196,8 +195,13 @@ fn forward_script_callback(cb_out: &Sender<Callback>, call: Call) -> CallbackTyp
                 (cb, CallbackType::Unprompted)
             }
             "Trackmania.Event.WayPoint" => {
-                let cb = RunCheckpoint {
-                    event: de!(&str_args[0]),
+                let event: CheckpointEvent = de!(&str_args[0]);
+                let cb = if event.race_time_millis > 0 {
+                    RunCheckpoint { event }
+                } else {
+                    RunIncoherence {
+                        player_login: event.player_login,
+                    }
                 };
                 (cb, CallbackType::Unprompted)
             }

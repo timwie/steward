@@ -1,10 +1,9 @@
 use anyhow::Result;
-
 use async_trait::async_trait;
+use chrono::NaiveDateTime;
 
 use crate::database::structs::*;
 use crate::server::PlayerInfo;
-use chrono::NaiveDateTime;
 
 #[async_trait]
 pub trait Queries: Send + Sync {
@@ -145,9 +144,8 @@ pub mod test {
     use std::collections::{HashMap, HashSet};
     use std::sync::Arc;
 
-    use chrono::Utc;
-
     use async_trait::async_trait;
+    use chrono::Utc;
 
     use crate::database::Database;
     use crate::server::GameString;

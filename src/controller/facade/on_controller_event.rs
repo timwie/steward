@@ -7,7 +7,7 @@ use crate::config::{
 };
 use crate::controller::{Controller, LiveConfig, LivePlayers, LivePlaylist, LiveQueue};
 use crate::event::{
-    Command, ConfigDiff, ControllerEvent, PbDiff, PlayerTransition, PlaylistDiff, ServerRankingDiff,
+    Command, ControllerEvent, PbDiff, PlayerTransition, PlaylistDiff, ServerRankingDiff,
 };
 
 impl Controller {
@@ -23,11 +23,42 @@ impl Controller {
 
         match event {
             BeginRun { player_login } => {
+                // If this is the first time a player is at the start line,
+                // their intro has just ended.
+                let is_player_intro_end = self.race.add_contestant(&player_login).await;
+                if is_player_intro_end {
+                    let ev = ControllerEvent::EndIntro {
+                        player_login: &player_login,
+                    };
+                    self.on_controller_event(ev).await;
+                }
+
                 self.records.reset_run(&player_login).await;
                 self.widget.end_run_outro_for(&player_login).await;
             }
 
-            BeginMap(_) => {}
+            ContinueRun(event) => {
+                self.records.update_run(&event).await;
+
+                if !event.is_finish {
+                    return;
+                }
+
+                self.race.update(&event).await;
+
+                // Storing records involves file IO; run in separate task.
+                let controller = self.clone(); // 'self' with 'static lifetime
+                let _ = tokio::spawn(async move {
+                    if let Some(pb_diff) = controller.records.end_run(&event).await {
+                        let ev = ControllerEvent::FinishRun(pb_diff);
+                        controller.on_controller_event(ev).await;
+                    }
+                });
+            }
+
+            DesyncRun { player_login } => {
+                self.records.reset_run(&player_login).await;
+            }
 
             BeginIntro => {
                 self.race.reset().await;
@@ -41,7 +72,7 @@ impl Controller {
                 self.widget.end_intro_for(&player_login).await;
             }
 
-            EndRun(pb_diff) => {
+            FinishRun(pb_diff) => {
                 self.widget.begin_run_outro_for(&pb_diff).await;
                 self.widget.refresh_personal_best(&pb_diff).await;
 
@@ -53,32 +84,78 @@ impl Controller {
             BeginOutro => {
                 self.widget.begin_outro_and_vote().await;
                 let _ = self.race.reset().await;
+
+                // Spawn a task to re-calculate the server ranking,
+                // which could be expensive, depending on how we do it.
+                let controller = self.clone(); // 'self' with 'static lifetime
+                let _ = tokio::spawn(async move {
+                    let ranking_change = controller.ranking.update().await;
+                    let new_ranking_ev = ControllerEvent::NewServerRanking(ranking_change);
+                    controller.on_controller_event(new_ranking_ev).await;
+                });
+
+                let end_vote_ev = ControllerEvent::BeginVote;
+                self.on_controller_event(end_vote_ev).await;
             }
 
             EndOutro => {
                 self.widget.end_outro().await;
             }
 
-            EndMap => {
+            ChangeMap => {
                 // Update the current map
-                let next_index = self.server.playlist_next_index().await;
-                self.playlist.set_index(next_index).await;
+                let new_playlist_index = self
+                    .server
+                    .playlist_current_index()
+                    .await
+                    .expect("server loaded non-playlist map");
+                let next_map = self.playlist.set_index(new_playlist_index).await;
 
                 // Re-sort the queue: the current map will move to the back.
                 if let Some(diff) = self.queue.sort_queue().await {
                     let ev = NewQueue(diff);
                     self.on_controller_event(ev).await;
                 }
+
+                // Load data for next map
+                self.records.load_for_map(&next_map).await;
+            }
+
+            BeginVote => {
+                // Delay for the duration of the vote.
+                // Spawn a task to not block the callback loop.
+                let controller = self.clone(); // 'self' with 'static lifetime
+                let vote_duration = self.config.vote_duration().await;
+                let _ = tokio::spawn(async move {
+                    tokio::time::delay_for(
+                        vote_duration.to_std().expect("failed to delay vote end"),
+                    )
+                    .await;
+                    let end_vote_ev = ControllerEvent::EndVote;
+                    controller.on_controller_event(end_vote_ev).await;
+                });
             }
 
             EndVote => {
-                self.prefs.reset_restart_votes().await;
+                // Sort the queue, now that all restart votes have been cast.
+                // The next map is now at the top of the queue.
+                if let Some(diff) = self.queue.sort_queue().await {
+                    let ev = ControllerEvent::NewQueue(diff);
+                    self.on_controller_event(ev).await;
+                }
 
                 let queue_preview = self.queue.peek().await;
                 self.widget.end_vote(queue_preview).await;
 
                 let next_map = self.queue.pop_front().await;
-                self.records.load_for_map(&next_map).await;
+
+                self.prefs.reset_restart_votes().await;
+
+                let msg = ServerMessage::NextMap {
+                    name: &next_map.name.formatted,
+                    author: &next_map.author_login,
+                };
+                self.chat.announce(msg).await;
             }
 
             NewQueue(diff) => {
@@ -136,31 +213,6 @@ impl Controller {
         }
     }
 
-    async fn on_config_change(&self, from_login: &str, diff: ConfigDiff) {
-        use ConfigDiff::*;
-
-        let from_nick_name = match self.players.nick_name(from_login).await {
-            Some(name) => name,
-            None => return,
-        };
-
-        match diff {
-            NewTimeLimit { .. } => {
-                self.schedule.set_time_limit().await;
-                self.widget.refresh_schedule().await;
-
-                self.chat
-                    .announce(ServerMessage::TimeLimitChanged {
-                        admin_name: &from_nick_name.formatted,
-                    })
-                    .await;
-            }
-            NewOutroDuration { .. } => {
-                self.widget.refresh_schedule().await;
-            }
-        }
-    }
-
     #[allow(clippy::needless_lifetimes)]
     async fn message_from_event<'a>(
         &self,
@@ -184,11 +236,6 @@ impl Controller {
                 }
             }
 
-            BeginMap(loaded_map) => Some(CurrentMap {
-                name: &loaded_map.name.formatted,
-                author: &loaded_map.author_login,
-            }),
-
             BeginOutro => {
                 let vote_duration = self.config.vote_duration().await;
                 let min_restart_vote_ratio = self.queue.lock().await.min_restart_vote_ratio;
@@ -198,7 +245,7 @@ impl Controller {
                 })
             }
 
-            EndRun(PbDiff {
+            FinishRun(PbDiff {
                 new_pos,
                 pos_gained,
                 new_record: Some(new_record),
@@ -209,7 +256,7 @@ impl Controller {
                 millis: new_record.millis as usize,
             }),
 
-            EndRun(PbDiff {
+            FinishRun(PbDiff {
                 new_pos,
                 pos_gained,
                 new_record: Some(new_record),

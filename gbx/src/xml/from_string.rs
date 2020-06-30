@@ -1,8 +1,7 @@
 use std::collections::BTreeMap;
 
-use quick_xml::{events::Event, Reader};
-
 use anyhow::{anyhow, Context, Result};
+use quick_xml::{events::Event, Reader};
 
 use crate::xml::{Call, Fault, Response, Value};
 

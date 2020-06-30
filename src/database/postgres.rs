@@ -3,15 +3,14 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use anyhow::Result;
-use tokio_postgres::Row;
-
 use async_trait::async_trait;
+use chrono::NaiveDateTime;
 use include_dir::{include_dir, Dir};
+use tokio_postgres::Row;
 
 use crate::database::queries::Queries;
 use crate::database::structs::*;
 use crate::server::{GameString, PlayerInfo};
-use chrono::NaiveDateTime;
 
 /// Connect to the Postgres database and open a connection pool.
 pub async fn db_connect(conn: &str) -> Arc<dyn Queries> {

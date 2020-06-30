@@ -1,9 +1,8 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
-use tokio::sync::{RwLock, RwLockReadGuard};
-
 use async_trait::async_trait;
+use tokio::sync::{RwLock, RwLockReadGuard};
 
 use crate::database::Database;
 use crate::event::{PlayerDiff, PlayerTransition};
@@ -196,17 +195,29 @@ impl PlayerController {
         let mut players_state = self.state.write().await;
         let uid = info.uid;
 
-        // If player connected
-        if !players_state.uid_to_info.contains_key(&uid) {
-            self.db
-                .upsert_player(&info)
-                .await
-                .expect("failed to upsert player data");
+        let (is_new, has_new_nick_name) = {
+            let maybe_old_info = players_state.uid_to_info.get(&uid);
+            let is_new = maybe_old_info.is_none();
+            let has_new_nick_name = maybe_old_info
+                .map(|old_info| info.nick_name != old_info.nick_name)
+                .unwrap_or(true);
+            (is_new, has_new_nick_name)
+        };
 
+        // If player connected
+        if is_new {
             let _ = players_state
                 .login_to_uid
                 .insert(info.login.to_string(), info.uid);
             let _ = players_state.uid_to_info.insert(info.uid, info.clone());
+        }
+
+        // Update persisted nick name
+        if has_new_nick_name {
+            self.db
+                .upsert_player(&info)
+                .await
+                .expect("failed to upsert player data");
         }
 
         let transition = match info.slot() {

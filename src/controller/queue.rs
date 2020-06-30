@@ -2,9 +2,8 @@ use std::cmp::Ordering;
 use std::collections::VecDeque;
 use std::sync::Arc;
 
-use tokio::sync::{RwLock, RwLockReadGuard};
-
 use async_trait::async_trait;
+use tokio::sync::{RwLock, RwLockReadGuard};
 
 use crate::config::{
     DEFAULT_MIN_RESTART_VOTE_RATIO, MAX_DISPLAYED_IN_QUEUE, MIN_RESTART_VOTE_RATIO_STEP,
@@ -260,10 +259,6 @@ impl QueueController {
     ///   since last playing the former
     /// - the number of players voting for a restart
     pub async fn sort_queue(&self) -> Option<QueueDiff> {
-        self.sort_queue2(true).await
-    }
-
-    async fn sort_queue2(&self, is_vote_active: bool) -> Option<QueueDiff> {
         let mut queue_state = self.state.write().await;
         let preferences_state = self.live_prefs.lock().await;
         let playlist_state = self.live_playlist.lock().await;
@@ -273,7 +268,7 @@ impl QueueController {
 
         let maybe_curr_index = playlist_state.current_index;
 
-        let voted_restart = is_vote_active && {
+        let voted_restart = {
             let nb_for_restart: Vec<&i32> = uid_playing.intersection(&active_votes).collect();
             let restart_vote_ratio = if nb_for_restart.is_empty() {
                 0f32
@@ -356,65 +351,56 @@ impl QueueController {
     }
 
     /// Tell the server to load the map at the top of the queue next,
-    /// then re-sort the queue, so that the next map is no longer at the top.
-    /// Returns the next map.
+    /// and returns it. This does *not* re-sort the queue.
     pub async fn pop_front(&self) -> Map {
-        let next_map = {
-            let mut queue_state = self.state.write().await;
+        let mut queue_state = self.state.write().await;
 
-            let maybe_curr_index = self.live_playlist.current_index().await;
-            let head = queue_state.entries.first();
-            let next_idx = head
-                .map(|entry| entry.playlist_idx)
-                .expect("queue is empty");
-            let is_restart = Some(next_idx) == maybe_curr_index;
+        let maybe_curr_index = self.live_playlist.current_index().await;
+        let head = queue_state.entries.first();
+        let next_idx = head
+            .map(|entry| entry.playlist_idx)
+            .expect("queue is empty");
+        let is_restart = Some(next_idx) == maybe_curr_index;
 
-            // Every map was skipped once more, except for the current map, which
-            // was skipped zero times.
-            queue_state.times_skipped.iter_mut().for_each(|n| *n += 1);
-            if let Some(curr_index) = maybe_curr_index {
-                if let Some(n) = queue_state.times_skipped.get_mut(curr_index) {
-                    *n = 0;
-                }
+        // Every map was skipped once more, except for the current map, which
+        // was skipped zero times.
+        queue_state.times_skipped.iter_mut().for_each(|n| *n += 1);
+        if let Some(curr_index) = maybe_curr_index {
+            if let Some(n) = queue_state.times_skipped.get_mut(curr_index) {
+                *n = 0;
             }
+        }
 
-            // If restart, increase the needed threshold to make another restart less
-            // likely. Otherwise, reset it for the next map.
-            if is_restart {
-                queue_state.min_restart_vote_ratio += MIN_RESTART_VOTE_RATIO_STEP;
-                if queue_state.min_restart_vote_ratio > 1.0 {
-                    queue_state.min_restart_vote_ratio = 1.0;
-                }
-            } else {
-                queue_state.min_restart_vote_ratio = DEFAULT_MIN_RESTART_VOTE_RATIO;
+        // If restart, increase the needed threshold to make another restart less
+        // likely. Otherwise, reset it for the next map.
+        if is_restart {
+            queue_state.min_restart_vote_ratio += MIN_RESTART_VOTE_RATIO_STEP;
+            if queue_state.min_restart_vote_ratio > 1.0 {
+                queue_state.min_restart_vote_ratio = 1.0;
             }
+        } else {
+            queue_state.min_restart_vote_ratio = DEFAULT_MIN_RESTART_VOTE_RATIO;
+        }
 
-            // If the next map was force-queued, remove it from the force-queue.
-            if Some(&next_idx) == queue_state.force_queue.front() {
-                let _ = queue_state.force_queue.pop_front();
-            }
+        // If the next map was force-queued, remove it from the force-queue.
+        if Some(&next_idx) == queue_state.force_queue.front() {
+            let _ = queue_state.force_queue.pop_front();
+        }
 
-            // Tell server the next map.
-            if is_restart {
-                self.server.restart_map().await;
-            } else {
-                self.server
-                    .playlist_change_next(next_idx as i32)
-                    .await
-                    .expect("failed to set next playlist index");
-            }
-
-            self.live_playlist
-                .at_index(next_idx)
+        // Tell server the next map.
+        if is_restart {
+            self.server.restart_map().await;
+        } else {
+            self.server
+                .playlist_change_next(next_idx as i32)
                 .await
-                .expect("queued bad playlist index")
-        };
+                .expect("failed to set next playlist index");
+        }
 
-        // Re-sort the queue without counting restart votes that may not
-        // have been cleared yet.
-        self.sort_queue2(false).await;
-
-        next_map
+        self.live_playlist
+            .at_index(next_idx)
+            .await
+            .expect("queued bad playlist index")
     }
 }
 

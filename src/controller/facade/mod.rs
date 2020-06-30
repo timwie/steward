@@ -7,6 +7,7 @@ use crate::server::Server;
 
 mod on_action;
 mod on_command;
+mod on_config_change;
 mod on_controller_event;
 mod on_server_event;
 

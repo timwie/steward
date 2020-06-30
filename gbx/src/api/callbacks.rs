@@ -41,17 +41,24 @@ pub enum Callback {
     /// Can also be triggered on demand with `Calls::request_scores`
     MapScores { scores: Scores },
 
-    /// Sent when the countdown is over, and the player
-    /// can accelerate.
+    /// Sent when the countdown is over, and the player can accelerate.
     ///
     /// Triggered by `Trackmania.Event.StartLine`
     RunStartline { player_login: String },
 
-    /// Sent when a player crosses a checkpoint,
-    /// or the finish line.
+    /// Sent when a player crosses a checkpoint, or the finish line.
     ///
     /// Triggered by `Trackmania.Event.WayPoint`
     RunCheckpoint { event: CheckpointEvent },
+
+    /// Sent when client & server run times are out of sync. This is likely caused
+    /// by connection issues, but could also be a cheating attempt.
+    ///
+    /// Triggered by `TrackMania.PlayerIncoherence`
+    ///
+    /// Can also be triggered by `Trackmania.Event.WayPoint`, when `race_time_millis`
+    /// is set to zero.
+    RunIncoherence { player_login: String },
 
     /// Sent when a player writes something in the chat.
     ///
@@ -72,11 +79,5 @@ pub enum Callback {
         from_uid: i32,
         from_login: String,
         answer: PlayerAnswer,
-    },
-
-    /// Sent when either the playlist or playlist indexes changed.
-    PlaylistChanged {
-        curr_idx: Option<i32>,
-        next_idx: i32,
     },
 }
