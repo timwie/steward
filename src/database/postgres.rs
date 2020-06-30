@@ -391,21 +391,6 @@ impl Queries for PostgresClient {
         Ok(maps)
     }
 
-    async fn players_without_map_record(&self, map_uid: &str) -> Result<Vec<String>> {
-        let conn = self.0.get().await?;
-        let stmt = r#"
-            SELECT p.login
-            FROM steward.player p
-            LEFT JOIN (
-                SELECT player_login FROM steward.record WHERE map_uid = $1
-            ) r
-            ON p.login = r.player_login
-            WHERE r.player_login IS NULL
-        "#;
-        let rows = conn.query(stmt, &[&map_uid]).await?;
-        Ok(rows.iter().map(|row| row.get(0)).collect())
-    }
-
     async fn record_preview(&self, record: &RecordEvidence) -> Result<i32> {
         let conn = self.0.get().await?;
         let stmt = r#"
@@ -499,17 +484,6 @@ impl Queries for PostgresClient {
             WHERE player_login = $1 AND value IS NOT NULL
         "#;
         let rows = conn.query(stmt, &[&player_login]).await?;
-        let prefs = rows.into_iter().map(Preference::from).collect();
-        Ok(prefs)
-    }
-
-    async fn map_preferences(&self, map_uid: &str) -> Result<Vec<Preference>> {
-        let conn = self.0.get().await?;
-        let stmt = r#"
-            SELECT * FROM steward.preference
-            WHERE map_uid = $1 AND value IS NOT NULL
-        "#;
-        let rows = conn.query(stmt, &[&map_uid]).await?;
         let prefs = rows.into_iter().map(Preference::from).collect();
         Ok(prefs)
     }

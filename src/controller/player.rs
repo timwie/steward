@@ -6,8 +6,8 @@ use tokio::sync::{RwLock, RwLockReadGuard};
 use async_trait::async_trait;
 
 use crate::database::Database;
-use crate::event::PlayerDiff;
-use crate::server::{GameString, PlayerInfo, PlayerSlot};
+use crate::event::{PlayerDiff, PlayerTransition};
+use crate::server::{GameString, PlayerInfo, PlayerSlot, Server};
 
 /// Use to lookup information of connected players.
 #[async_trait]
@@ -131,10 +131,31 @@ impl PlayersState {
             .collect()
     }
 
+    /// Return the login of the player with the specified UID, or `None` if no
+    /// player with that UID is connected.
     pub fn login(&self, player_uid: i32) -> Option<&str> {
         self.uid_to_info
             .get(&player_uid)
             .map(|info| info.login.as_str())
+    }
+
+    pub fn replay_diffs(&self) -> Vec<PlayerDiff> {
+        let players = self.playing.iter().map(|uid| PlayerDiff {
+            transition: PlayerTransition::AddPlayer,
+            info: self.uid_to_info[uid].clone(),
+        });
+
+        let spectators = self.spectating.iter().map(|uid| PlayerDiff {
+            transition: PlayerTransition::AddSpectator,
+            info: self.uid_to_info[uid].clone(),
+        });
+
+        let pure_spectators = self.pure_spectating.iter().map(|uid| PlayerDiff {
+            transition: PlayerTransition::AddPureSpectator,
+            info: self.uid_to_info[uid].clone(),
+        });
+
+        players.chain(spectators).chain(pure_spectators).collect()
     }
 }
 
@@ -145,16 +166,23 @@ pub struct PlayerController {
 }
 
 impl PlayerController {
-    pub fn init(db: &Arc<dyn Database>) -> Self {
-        PlayerController {
+    pub async fn init(server: &Arc<dyn Server>, db: &Arc<dyn Database>) -> Self {
+        let controller = PlayerController {
             state: Arc::new(RwLock::new(PlayersState::init())),
             db: db.clone(),
+        };
+
+        let init_players = server.players().await;
+        for info in init_players {
+            controller.update_player(info).await;
         }
+
+        controller
     }
 
     /// Update a player's information.
     pub async fn update_player(&self, info: PlayerInfo) -> Option<PlayerDiff> {
-        use PlayerDiff::*;
+        use PlayerTransition::*;
 
         if !info.is_player() {
             return None;
@@ -165,79 +193,89 @@ impl PlayerController {
             return self.remove_player(&info.login).await;
         }
 
-        let mut state = self.state.write().await;
+        let mut players_state = self.state.write().await;
         let uid = info.uid;
 
         // If player connected
-        if !state.uid_to_info.contains_key(&uid) {
+        if !players_state.uid_to_info.contains_key(&uid) {
             self.db
                 .upsert_player(&info)
                 .await
                 .expect("failed to upsert player data");
 
-            let _ = state.login_to_uid.insert(info.login.to_string(), info.uid);
-            let _ = state.uid_to_info.insert(info.uid, info.clone());
+            let _ = players_state
+                .login_to_uid
+                .insert(info.login.to_string(), info.uid);
+            let _ = players_state.uid_to_info.insert(info.uid, info.clone());
         }
 
-        match info.slot() {
-            PlayerSlot::None => None,
+        let transition = match info.slot() {
+            PlayerSlot::None => return None,
             PlayerSlot::Player => {
-                if !state.playing.insert(uid) {
-                    None
-                } else if state.spectating.remove(&uid) || state.pure_spectating.remove(&uid) {
-                    Some(MoveToPlayer(info))
+                if !players_state.playing.insert(uid) {
+                    return None;
+                } else if players_state.spectating.remove(&uid)
+                    || players_state.pure_spectating.remove(&uid)
+                {
+                    MoveToPlayer
                 } else {
-                    Some(AddPlayer(info))
+                    AddPlayer
                 }
             }
             PlayerSlot::PlayerSpectator => {
-                if !state.spectating.insert(uid) {
-                    None
-                } else if state.playing.remove(&uid) || state.pure_spectating.remove(&uid) {
-                    Some(MoveToSpectator(info))
+                if !players_state.spectating.insert(uid) {
+                    return None;
+                } else if players_state.playing.remove(&uid)
+                    || players_state.pure_spectating.remove(&uid)
+                {
+                    MoveToSpectator
                 } else {
-                    Some(AddSpectator(info))
+                    AddSpectator
                 }
             }
             PlayerSlot::PureSpectator => {
-                if !state.pure_spectating.insert(uid) {
-                    None
-                } else if state.playing.remove(&uid) || state.spectating.remove(&uid) {
-                    Some(MoveToPureSpectator(info))
+                if !players_state.pure_spectating.insert(uid) {
+                    return None;
+                } else if players_state.playing.remove(&uid)
+                    || players_state.spectating.remove(&uid)
+                {
+                    MoveToPureSpectator
                 } else {
-                    Some(AddPureSpectator(info))
+                    AddPureSpectator
                 }
             }
-        }
+        };
+
+        Some(PlayerDiff { transition, info })
     }
 
     /// Remove a player's information.
     pub async fn remove_player(&self, login: &str) -> Option<PlayerDiff> {
-        use PlayerDiff::*;
+        use PlayerTransition::*;
 
-        let mut state = self.state.write().await;
+        let mut players_state = self.state.write().await;
 
-        let uid = match state.login_to_uid.remove(&login.to_string()) {
+        let uid = match players_state.login_to_uid.remove(&login.to_string()) {
             Some(uid) => uid,
             None => return None,
         };
 
-        let info = match state.uid_to_info.remove(&uid) {
+        let info = match players_state.uid_to_info.remove(&uid) {
             Some(info) => info,
             None => return None,
         };
 
-        if state.playing.remove(&uid) {
-            return Some(RemovePlayer(info));
-        }
-        if state.spectating.remove(&uid) {
-            return Some(RemoveSpectator(info));
-        }
-        if state.pure_spectating.remove(&uid) {
-            return Some(RemovePureSpectator(info));
-        }
+        let transition = if players_state.playing.remove(&uid) {
+            RemovePlayer
+        } else if players_state.spectating.remove(&uid) {
+            RemoveSpectator
+        } else if players_state.pure_spectating.remove(&uid) {
+            RemovePureSpectator
+        } else {
+            return None;
+        };
 
-        None
+        Some(PlayerDiff { info, transition })
     }
 }
 

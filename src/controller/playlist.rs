@@ -10,7 +10,7 @@ use tokio::sync::{RwLock, RwLockReadGuard};
 use async_trait::async_trait;
 
 use crate::chat::PlaylistCommandError;
-use crate::controller::LiveSettings;
+use crate::controller::LiveConfig;
 use crate::database::{Database, Map, MapEvidence};
 use crate::event::PlaylistDiff;
 use crate::network::{exchange_map, ExchangeError};
@@ -24,12 +24,7 @@ pub trait LivePlaylist: Send + Sync {
 
     /// The playlist index of the current map.
     async fn current_index(&self) -> Option<usize> {
-        self.lock().await.curr_index
-    }
-
-    /// The number of maps in the playlist.
-    async fn nb_maps(&self) -> usize {
-        self.lock().await.playlist.len()
+        self.lock().await.current_index
     }
 
     /// The map that is currently being played.
@@ -50,38 +45,34 @@ pub trait LivePlaylist: Send + Sync {
     async fn index_of(&self, map_uid: &str) -> Option<usize> {
         self.lock().await.index_of(map_uid)
     }
+
+    /// The map at the given playlist index, or `None` if
+    /// there is no such index.
+    async fn at_index(&self, index: usize) -> Option<Map> {
+        self.lock().await.at_index(index).cloned()
+    }
 }
 
 pub struct PlaylistState {
     /// All maps in the playlist.
-    playlist: Vec<Map>,
+    pub maps: Vec<Map>,
 
     /// The playlist index of the current map, or `None` if the current map
     /// is not part of the playlist anymore.
-    curr_index: Option<usize>,
+    pub current_index: Option<usize>,
 }
 
 impl PlaylistState {
-    /// All maps in the playlist.
-    pub fn maps(&self) -> &Vec<Map> {
-        &self.playlist
-    }
-
-    /// The playlist index of the current map.
-    pub fn current_index(&self) -> Option<usize> {
-        self.curr_index
-    }
-
     /// The map at the given playlist index, or `None` if
     /// there is no such index.
     pub fn at_index(&self, index: usize) -> Option<&Map> {
-        self.playlist.get(index)
+        self.maps.get(index)
     }
 
     /// The playlist index of the specified map, or `None` if that
     /// map is not in the playlist.
     pub fn index_of(&self, map_uid: &str) -> Option<usize> {
-        self.playlist
+        self.maps
             .iter()
             .enumerate()
             .find(|(_, m)| m.uid == map_uid)
@@ -90,7 +81,7 @@ impl PlaylistState {
 
     /// The UID of the map that is currently being played.
     pub fn current_map(&self) -> Option<&Map> {
-        self.curr_index.and_then(|idx| self.playlist.get(idx))
+        self.current_index.and_then(|idx| self.maps.get(idx))
     }
 }
 
@@ -99,14 +90,14 @@ pub struct PlaylistController {
     state: Arc<RwLock<PlaylistState>>,
     server: Arc<dyn Server>,
     db: Arc<dyn Database>,
-    live_settings: Arc<dyn LiveSettings>,
+    live_config: Arc<dyn LiveConfig>,
 }
 
 impl PlaylistController {
     pub async fn init(
         server: &Arc<dyn Server>,
         db: &Arc<dyn Database>,
-        live_settings: &Arc<dyn LiveSettings>,
+        live_config: &Arc<dyn LiveConfig>,
     ) -> Self {
         let playlist = db
             .playlist()
@@ -129,29 +120,29 @@ impl PlaylistController {
         }
 
         let state = PlaylistState {
-            playlist,
-            curr_index,
+            maps: playlist,
+            current_index: curr_index,
         };
 
         PlaylistController {
             state: Arc::new(RwLock::new(state)),
             server: server.clone(),
             db: db.clone(),
-            live_settings: live_settings.clone(),
+            live_config: live_config.clone(),
         }
     }
 
     /// Set the current playlist index to the one of the next map.
     pub async fn set_index(&self, next_index: usize) {
-        let mut state = self.state.write().await;
-        state.curr_index = Some(next_index);
+        let mut playlist_state = self.state.write().await;
+        playlist_state.current_index = Some(next_index);
     }
 
     /// Add the specified map to the server playlist.
     pub async fn add(&self, map_uid: &str) -> Result<PlaylistDiff, PlaylistCommandError> {
-        let mut state = self.state.write().await;
+        let mut playlist_state = self.state.write().await;
 
-        if state.index_of(map_uid).is_some() {
+        if playlist_state.index_of(map_uid).is_some() {
             return Err(PlaylistCommandError::MapAlreadyAdded);
         }
 
@@ -174,7 +165,7 @@ impl PlaylistController {
             .expect("tried to add duplicate map to playlist");
 
         // 3. add to controller playlist
-        state.playlist.push(map.clone());
+        playlist_state.maps.push(map.clone());
 
         log::info!(
             "added '{}' ({}) to the playlist",
@@ -186,15 +177,15 @@ impl PlaylistController {
 
     /// Remove the specified map from the server playlist.
     pub async fn remove(&self, map_uid: &str) -> Result<PlaylistDiff, PlaylistCommandError> {
-        let mut state = self.state.write().await;
+        let mut playlist_state = self.state.write().await;
 
-        let can_disable = state.playlist.iter().any(|map| map.uid != map_uid);
+        let can_disable = playlist_state.maps.iter().any(|map| map.uid != map_uid);
 
         if !can_disable {
             return Err(PlaylistCommandError::CannotDisableAllMaps);
         }
 
-        let map_index = match state.index_of(map_uid) {
+        let map_index = match playlist_state.index_of(map_uid) {
             Some(index) => index,
             None => return Err(PlaylistCommandError::MapAlreadyRemoved),
         };
@@ -218,10 +209,10 @@ impl PlaylistController {
             .expect("cannot remove that map from playlist");
 
         // 3. remove from controller playlist
-        if state.curr_index == Some(map_index) {
-            state.curr_index = None;
+        if playlist_state.current_index == Some(map_index) {
+            playlist_state.current_index = None;
         }
-        state.playlist.remove(map_index);
+        playlist_state.maps.remove(map_index);
 
         log::info!(
             "remove '{}' ({}) from the playlist",
@@ -256,7 +247,7 @@ impl PlaylistController {
             return Err(PlaylistCommandError::MapAlreadyImported);
         }
 
-        let maps_dir = self.live_settings.maps_dir().await;
+        let maps_dir = self.live_config.maps_dir().await;
         let file_name = format!(
             "{}.{}.Map.gbx",
             &import_map.metadata.name_plain.trim(),
@@ -305,7 +296,8 @@ impl PlaylistController {
             .expect("failed to insert map into database");
 
         // 3. add to controller playlist
-        self.state.write().await.playlist.push(db_map.clone());
+        let mut playlist_state = self.state.write().await;
+        playlist_state.maps.push(db_map.clone());
 
         log::info!(
             "imported map '{}' ({}) into the playlist",

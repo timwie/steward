@@ -2,14 +2,16 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use chrono::Utc;
+use futures::future::join_all;
 use tokio::sync::{RwLock, RwLockReadGuard};
 
 use async_trait::async_trait;
+use gbx::PlayerInfo;
 
 use crate::config::{MAX_DISPLAYED_MAP_RANKS, MAX_GHOST_REPLAY_RANK};
 use crate::controller::{LivePlayers, LivePlaylist};
 use crate::database::{Database, Map, Record, RecordDetailed, RecordEvidence, RecordSector};
-use crate::event::{PbDiff, PlayerDiff};
+use crate::event::{PbDiff, PlayerDiff, PlayerTransition};
 use crate::server::{CheckpointEvent, Server};
 
 /// Shared component that allows to look up records
@@ -17,36 +19,21 @@ use crate::server::{CheckpointEvent, Server};
 #[async_trait]
 pub trait LiveRecords: Send + Sync {
     /// While holding this guard, the state is read-only, and can be referenced.
-    async fn lock(&self) -> RwLockReadGuard<'_, RecordState>;
-
-    /// The number of players that have set a record on the
-    /// current map.
-    async fn nb_records(&self) -> usize {
-        self.lock().await.nb_records()
-    }
-
-    /// Returns the map rank of the specified player, which is the
-    /// rank of that player's personal best in the ranking of all
-    /// records on the current map. Returns `None` if that player
-    /// has not set a record.
-    async fn map_rank(&self, player_uid: i32) -> Option<usize> {
-        self.lock()
-            .await
-            .pb(player_uid)
-            .map(|rec| rec.map_rank as usize)
-    }
+    async fn lock(&self) -> RwLockReadGuard<'_, RecordsState>;
 }
 
-pub struct RecordState {
+pub struct RecordsState {
     /// The number of players that have set a record on the current map.
-    nb_records: usize,
+    pub nb_records: usize,
 
-    /// A detailed copy of the top 1 record, or `None` if no player
+    /// The top record on the current map, or `None` if no player
     /// has set a record on the current map.
-    top_record: Option<RecordDetailed>,
+    pub top_record: Option<RecordDetailed>,
 
-    /// A limited, ranked list of the top records on the current map.
-    top_records: Vec<Record>,
+    /// A number of top records on the current map. The number is determined
+    /// by how many records we want to display in-game. The vector is sorted
+    /// from better to worse.
+    pub top_records: Vec<Record>,
 
     /// Maps player UID to their personal best on the current map.
     pbs: HashMap<i32, RecordDetailed>,
@@ -55,9 +42,9 @@ pub struct RecordState {
     run_sectors: HashMap<i32, Vec<RecordSector>>,
 }
 
-impl RecordState {
+impl RecordsState {
     fn init() -> Self {
-        RecordState {
+        RecordsState {
             nb_records: 0,
             top_record: None,
             top_records: vec![],
@@ -77,29 +64,10 @@ impl RecordState {
         self.pbs.values()
     }
 
-    /// Returns a number of top records on the current map.
-    /// The number is determined by how many records we want
-    /// to display in-game. The vector is sorted from better
-    /// to worse.
-    pub fn top_records(&self) -> &Vec<Record> {
-        &self.top_records
-    }
-
-    /// Returns the top record on the current map.
-    pub fn top_record(&self) -> &Option<RecordDetailed> {
-        &self.top_record
-    }
-
-    /// The number of players that have set a record on the
-    /// current map.
-    pub fn nb_records(&self) -> usize {
-        self.nb_records
-    }
-
     /// Without inserting the given record, return the map rank it would achieve,
     /// if it were inserted. Returns `None` if the record would not enter the
     /// top records that are cached in this state.
-    pub fn pos_preview(&self, rec: &RecordEvidence) -> Option<usize> {
+    fn pos_preview(&self, rec: &RecordEvidence) -> Option<usize> {
         if self.top_records.is_empty() {
             Some(1)
         } else {
@@ -167,7 +135,7 @@ pub struct RecordController {
     db: Arc<dyn Database>,
     live_playlist: Arc<dyn LivePlaylist>,
     live_players: Arc<dyn LivePlayers>,
-    state: Arc<RwLock<RecordState>>,
+    state: Arc<RwLock<RecordsState>>,
 }
 
 impl RecordController {
@@ -182,42 +150,57 @@ impl RecordController {
             db: db.clone(),
             live_playlist: live_playlist.clone(),
             live_players: live_players.clone(),
-            state: Arc::new(RwLock::new(RecordState::init())),
+            state: Arc::new(RwLock::new(RecordsState::init())),
         };
 
         if let Some(map) = live_playlist.current_map().await {
             controller.load_for_map(&map).await;
+
+            join_all(
+                live_players
+                    .lock()
+                    .await
+                    .info_all()
+                    .iter()
+                    .map(|info| controller.load_for_player(&map.uid, &info)),
+            )
+            .await;
         }
 
         controller
     }
 
     /// Load a player's personal best when they join, or unload it when they leave.
-    pub async fn load_for_player(&self, ev: &PlayerDiff) {
-        use PlayerDiff::*;
+    pub async fn update_for_player(&self, diff: &PlayerDiff) {
+        use PlayerTransition::*;
 
         let map_uid = match self.live_playlist.current_map_uid().await {
             Some(uid) => uid,
             None => return,
         };
 
-        match ev {
-            AddPlayer(info) | AddSpectator(info) | AddPureSpectator(info) => {
-                let pb = self
-                    .db
-                    .player_record(&map_uid, &info.login)
-                    .await
-                    .expect("failed to load player PB");
-                if let Some(pb) = pb {
-                    self.state.write().await.pbs.insert(info.uid, pb);
-                }
+        match diff.transition {
+            AddPlayer | AddSpectator | AddPureSpectator => {
+                self.load_for_player(&map_uid, &diff.info).await;
             }
-            RemovePlayer(info) | RemoveSpectator(info) | RemovePureSpectator(info) => {
-                let mut state = self.state.write().await;
-                state.pbs.remove(&info.uid);
-                state.run_sectors.remove(&info.uid);
+            RemovePlayer | RemoveSpectator | RemovePureSpectator => {
+                let mut records_state = self.state.write().await;
+                records_state.pbs.remove(&diff.info.uid);
+                records_state.run_sectors.remove(&diff.info.uid);
             }
             _ => {}
+        }
+    }
+
+    async fn load_for_player(&self, map_uid: &str, info: &PlayerInfo) {
+        let pb = self
+            .db
+            .player_record(&map_uid, &info.login)
+            .await
+            .expect("failed to load player PB");
+        if let Some(pb) = pb {
+            let mut records_state = self.state.write().await;
+            records_state.pbs.insert(info.uid, pb);
         }
     }
 
@@ -241,15 +224,15 @@ impl RecordController {
             .await
             .expect("failed to load map records");
 
-        let mut state = self.state.write().await;
-        state.run_sectors.clear();
-        state.top_record = top1;
-        state.top_records = top_records;
-        state.nb_records = nb_records;
-        state.pbs.clear();
+        let mut records_state = self.state.write().await;
+        records_state.run_sectors.clear();
+        records_state.top_record = top1;
+        records_state.top_records = top_records;
+        records_state.nb_records = nb_records;
+        records_state.pbs.clear();
 
-        let live_players = self.live_players.lock().await;
-        let all_logins = live_players
+        let players_state = self.live_players.lock().await;
+        let all_logins = players_state
             .info_all()
             .iter()
             .map(|info| info.login.as_str())
@@ -261,8 +244,8 @@ impl RecordController {
             .expect("failed to load player PBs");
 
         for pb in pbs {
-            if let Some(uid) = live_players.uid(&pb.player_login) {
-                state.pbs.insert(*uid, pb);
+            if let Some(uid) = players_state.uid(&pb.player_login) {
+                records_state.pbs.insert(*uid, pb);
             }
         }
     }
@@ -270,8 +253,8 @@ impl RecordController {
     /// Add new sector data for a player's current run.
     pub async fn update_run(&self, ev: &CheckpointEvent) {
         if let Some(player_info) = self.live_players.info(&ev.player_login).await {
-            let mut state = self.state.write().await;
-            state
+            let mut records_state = self.state.write().await;
+            records_state
                 .run_sectors
                 .entry(player_info.uid)
                 .or_insert_with(Vec::new)
@@ -307,9 +290,9 @@ impl RecordController {
             None => return None,
         };
 
-        let mut state = self.state.write().await;
+        let mut records_state = self.state.write().await;
 
-        let prev_pb = state.pb(player.uid);
+        let prev_pb = records_state.pb(player.uid);
         let prev_pb_pos = prev_pb.map(|rec| rec.map_rank as usize);
         let prev_pb_diff = prev_pb.map(|rec| finish_ev.race_time_millis - rec.millis);
 
@@ -334,7 +317,7 @@ impl RecordController {
             }
         };
 
-        let sectors = state
+        let sectors = records_state
             .run_sectors
             .remove(&player.uid)
             .expect("no sector data");
@@ -353,7 +336,7 @@ impl RecordController {
         // We already know the rank of the new record if it is better
         // than at least one of the cached records. Otherwise,
         // we have to look it up in the database.
-        let new_pos: usize = match state.pos_preview(&evidence) {
+        let new_pos: usize = match records_state.pos_preview(&evidence) {
             Some(pos) => pos,
             None => self
                 .db
@@ -389,12 +372,12 @@ impl RecordController {
         };
 
         // Remember record in the cache.
-        state.upsert_record(player.uid, &record);
+        records_state.upsert_record(player.uid, &record);
 
         let pos_gained = match prev_pb_pos {
             Some(p) => p - new_pos,
-            None if state.nb_records == 1 => 1,
-            None => state.nb_records - new_pos,
+            None if records_state.nb_records == 1 => 1,
+            None => records_state.nb_records - new_pos,
         };
 
         Some(PbDiff {
@@ -411,14 +394,15 @@ impl RecordController {
     /// respawn.
     pub async fn reset_run(&self, player_login: &str) {
         if let Some(player_uid) = self.live_players.uid(player_login).await {
-            self.state.write().await.run_sectors.remove(&player_uid);
+            let mut records_state = self.state.write().await;
+            records_state.run_sectors.remove(&player_uid);
         }
     }
 }
 
 #[async_trait]
 impl LiveRecords for RecordController {
-    async fn lock(&self) -> RwLockReadGuard<'_, RecordState> {
+    async fn lock(&self) -> RwLockReadGuard<'_, RecordsState> {
         self.state.read().await
     }
 }

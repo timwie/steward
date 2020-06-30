@@ -86,9 +86,6 @@ pub trait Queries: Send + Sync {
     /// List all map UIDs that the specified player has not completed a run on.
     async fn maps_without_player_record(&self, player_login: &str) -> Result<Vec<String>>;
 
-    /// List UIDs of all players that have *not* completed a run on the specified map.
-    async fn players_without_map_record(&self, map_uid: &str) -> Result<Vec<String>>;
-
     /// Without inserting the given record, return the map rank it would achieve,
     /// if it were inserted.
     async fn record_preview(&self, record: &RecordEvidence) -> Result<i32>;
@@ -102,9 +99,6 @@ pub trait Queries: Send + Sync {
 
     /// List all preferences that the specified player has set.
     async fn player_preferences(&self, player_login: &str) -> Result<Vec<Preference>>;
-
-    /// List preferences set by any player, for the specified map.
-    async fn map_preferences(&self, map_uid: &str) -> Result<Vec<Preference>>;
 
     /// Count the number of times each preference was set by any player, for the specified map.
     async fn count_map_preferences(&self, map_uid: &str) -> Result<Vec<(PreferenceValue, i64)>>;
@@ -312,10 +306,6 @@ pub mod test {
             unimplemented!()
         }
 
-        async fn players_without_map_record(&self, _map_uid: &str) -> Result<Vec<String>> {
-            unimplemented!()
-        }
-
         async fn record_preview(&self, _record: &RecordEvidence) -> Result<i32> {
             unimplemented!()
         }
@@ -325,10 +315,6 @@ pub mod test {
         }
 
         async fn player_preferences(&self, _player_login: &str) -> Result<Vec<Preference>> {
-            unimplemented!()
-        }
-
-        async fn map_preferences(&self, _map_uid: &str) -> Result<Vec<Preference>> {
             unimplemented!()
         }
 

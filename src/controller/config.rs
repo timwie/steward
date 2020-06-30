@@ -12,33 +12,33 @@ use crate::config::Config;
 use crate::event::ConfigDiff;
 use crate::server::Server;
 
-/// Use to look up controller, server and mode settings.
+/// Use to look up controller and server configs.
 #[async_trait]
-pub trait LiveSettings: Send + Sync {
+pub trait LiveConfig: Send + Sync {
     /// While holding this guard, the state is read-only, and can be referenced.
-    async fn lock_config(&self) -> RwLockReadGuard<'_, Config>;
+    async fn lock(&self) -> RwLockReadGuard<'_, Config>;
 
     /// Returns `True` if the given login belongs to a super admin.
     async fn is_super_admin(&self, login: &str) -> bool {
-        let cfg = self.lock_config().await;
-        cfg.super_admin_whitelist.contains(&login.to_string())
+        let config = self.lock().await;
+        config.super_admin_whitelist.contains(&login.to_string())
     }
 
     /// Returns `True` if the given login belongs to an admin or super admin.
     async fn is_admin(&self, login: &str) -> bool {
-        let cfg = self.lock_config().await;
-        cfg.admin_whitelist.contains(&login.to_string())
-            || cfg.super_admin_whitelist.contains(&login.to_string())
+        let config = self.lock().await;
+        config.admin_whitelist.contains(&login.to_string())
+            || config.super_admin_whitelist.contains(&login.to_string())
     }
 
     /// The time within the outro in which players can vote for a restart.
     async fn vote_duration(&self) -> Duration {
-        Duration::seconds(self.lock_config().await.vote_duration_secs() as i64)
+        Duration::seconds(self.lock().await.vote_duration_secs() as i64)
     }
 
     /// The duration of the outro at the end of a map.
     async fn outro_duration(&self) -> Duration {
-        Duration::seconds(self.lock_config().await.outro_duration_secs as i64)
+        Duration::seconds(self.lock().await.outro_duration_secs as i64)
     }
 
     /// The `.../UserData/Maps` server directory.
@@ -46,17 +46,17 @@ pub trait LiveSettings: Send + Sync {
 }
 
 #[derive(Clone)]
-pub struct SettingsController {
+pub struct ConfigController {
+    state: Arc<RwLock<Config>>,
     server: Arc<dyn Server>,
-    config: Arc<RwLock<Config>>,
 }
 
-impl SettingsController {
+impl ConfigController {
     pub async fn init(server: &Arc<dyn Server>, config: Config) -> Self {
         set_mode_options(server, &config).await;
-        SettingsController {
+        ConfigController {
+            state: Arc::new(RwLock::new(config)),
             server: server.clone(),
-            config: Arc::new(RwLock::new(config)),
         }
     }
 
@@ -65,7 +65,7 @@ impl SettingsController {
         use ConfigDiff::*;
 
         let mut diffs = Vec::new();
-        let mut cfg = self.config.write().await;
+        let mut cfg = self.state.write().await;
 
         if cfg.outro_duration_secs != new_cfg.outro_duration_secs {
             diffs.push(NewOutroDuration {
@@ -76,19 +76,19 @@ impl SettingsController {
             set_mode_options(&self.server, &cfg).await;
         }
 
-        if cfg.timelimit_factor != new_cfg.timelimit_factor
-            || cfg.timelimit_max_secs != new_cfg.timelimit_max_secs
-            || cfg.timelimit_min_secs != new_cfg.timelimit_min_secs
+        if cfg.time_limit_factor != new_cfg.time_limit_factor
+            || cfg.time_limit_max_secs != new_cfg.time_limit_max_secs
+            || cfg.time_limit_min_secs != new_cfg.time_limit_min_secs
         {
             diffs.push(NewTimeLimit {
-                timelimit_factor: new_cfg.timelimit_factor,
-                timelimit_max_secs: new_cfg.timelimit_max_secs,
-                timelimit_min_secs: new_cfg.timelimit_min_secs,
+                time_limit_factor: new_cfg.time_limit_factor,
+                time_limit_max_secs: new_cfg.time_limit_max_secs,
+                time_limit_min_secs: new_cfg.time_limit_min_secs,
             });
 
-            cfg.timelimit_factor = new_cfg.timelimit_factor;
-            cfg.timelimit_max_secs = new_cfg.timelimit_max_secs;
-            cfg.timelimit_min_secs = new_cfg.timelimit_min_secs;
+            cfg.time_limit_factor = new_cfg.time_limit_factor;
+            cfg.time_limit_max_secs = new_cfg.time_limit_max_secs;
+            cfg.time_limit_min_secs = new_cfg.time_limit_min_secs;
         }
 
         if !diffs.is_empty() {
@@ -100,13 +100,8 @@ impl SettingsController {
 
     /// Returns a public subset of the controller config, omitting credentials etc.
     pub async fn public_config(&self) -> PublicConfig {
-        let cfg = self.config.read().await;
-        PublicConfig {
-            timelimit_factor: cfg.timelimit_factor,
-            timelimit_max_secs: cfg.timelimit_max_secs,
-            timelimit_min_secs: cfg.timelimit_min_secs,
-            outro_duration_secs: cfg.outro_duration_secs,
-        }
+        let config = self.state.read().await;
+        config.public()
     }
 }
 
@@ -117,9 +112,9 @@ async fn set_mode_options(server: &Arc<dyn Server>, config: &Config) {
 }
 
 #[async_trait]
-impl LiveSettings for SettingsController {
-    async fn lock_config(&self) -> RwLockReadGuard<'_, Config> {
-        self.config.read().await
+impl LiveConfig for ConfigController {
+    async fn lock(&self) -> RwLockReadGuard<'_, Config> {
+        self.state.read().await
     }
 
     async fn maps_dir(&self) -> PathBuf {
@@ -131,10 +126,21 @@ impl LiveSettings for SettingsController {
 /// that is ready to be displayed and edited in-game.
 #[derive(Deserialize, Serialize)]
 pub struct PublicConfig {
-    pub timelimit_factor: u32,
-    pub timelimit_max_secs: u32,
-    pub timelimit_min_secs: u32,
+    pub time_limit_factor: u32,
+    pub time_limit_max_secs: u32,
+    pub time_limit_min_secs: u32,
     pub outro_duration_secs: u32,
+}
+
+impl Config {
+    pub fn public(&self) -> PublicConfig {
+        PublicConfig {
+            time_limit_factor: self.time_limit_factor,
+            time_limit_max_secs: self.time_limit_max_secs,
+            time_limit_min_secs: self.time_limit_min_secs,
+            outro_duration_secs: self.outro_duration_secs,
+        }
+    }
 }
 
 impl PublicConfig {
@@ -147,13 +153,13 @@ impl PublicConfig {
 
         let cfg: PublicConfig = toml::from_str(serialized)?;
 
-        if cfg.timelimit_factor == 0 {
+        if cfg.time_limit_factor == 0 {
             return Err(TimeLimitFactorCannotBeZero);
         }
-        if cfg.timelimit_max_secs == 0 {
+        if cfg.time_limit_max_secs == 0 {
             return Err(TimeLimitMaxCannotBeZero);
         }
-        if cfg.timelimit_min_secs >= cfg.timelimit_max_secs {
+        if cfg.time_limit_min_secs >= cfg.time_limit_max_secs {
             return Err(TimeLimitMinGreaterThanMax);
         }
 
@@ -167,12 +173,12 @@ pub enum PublicConfigError {
     #[error("Not a valid config")]
     ParseError(#[from] toml::de::Error),
 
-    #[error("timelimit_factor must be greater than zero")]
+    #[error("time_limit_factor must be greater than zero")]
     TimeLimitFactorCannotBeZero,
 
-    #[error("timelimit_max_secs must be greater than zero")]
+    #[error("time_limit_max_secs must be greater than zero")]
     TimeLimitMaxCannotBeZero,
 
-    #[error("timelimit_max_secs must be greater than timelimit_min_secs")]
+    #[error("time_limit_max_secs must be greater than time_limit_min_secs")]
     TimeLimitMinGreaterThanMax,
 }
