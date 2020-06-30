@@ -505,7 +505,7 @@ async fn test_record_preview_top() -> Result<()> {
     let map1 = map_evidence("uid1", "file1");
     let map2 = map_evidence("uid2", "file2");
     let rec1 = record_evidence("login1", "uid1", 10000);
-    let rec2 = record_evidence("login1", "uid1", 9000);
+    let rec2 = record_evidence("login2", "uid1", 9000);
     db.upsert_player(&player1).await?;
     db.upsert_player(&player2).await?;
     db.upsert_map(&map1).await?;
@@ -527,7 +527,7 @@ async fn test_record_preview() -> Result<()> {
     let map1 = map_evidence("uid1", "file1");
     let map2 = map_evidence("uid2", "file2");
     let rec1 = record_evidence("login1", "uid1", 10000);
-    let rec2 = record_evidence("login1", "uid1", 11000);
+    let rec2 = record_evidence("login2", "uid1", 11000);
     db.upsert_player(&player1).await?;
     db.upsert_player(&player2).await?;
     db.upsert_map(&map1).await?;
