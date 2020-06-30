@@ -1,9 +1,10 @@
 use std::sync::Arc;
 
 use anyhow::Result;
-use chrono::{NaiveDateTime, SubsecRound, Utc};
+use chrono::{Duration, NaiveDateTime, SubsecRound, Utc};
 use testcontainers::*;
 
+use std::ops::Sub;
 use steward::database::*;
 use steward::server::{GameString, PlayerInfo};
 
@@ -78,7 +79,6 @@ async fn clean_db() -> Result<Arc<dyn Database>> {
     Ok(arc)
 }
 
-#[ignore]
 #[tokio::test]
 async fn test_player_insert() -> Result<()> {
     let db = clean_db().await?;
@@ -95,7 +95,6 @@ async fn test_player_insert() -> Result<()> {
     Ok(())
 }
 
-#[ignore]
 #[tokio::test]
 async fn test_player_update() -> Result<()> {
     let db = clean_db().await?;
@@ -114,7 +113,6 @@ async fn test_player_update() -> Result<()> {
     Ok(())
 }
 
-#[ignore]
 #[tokio::test]
 async fn test_nb_records_zero() -> Result<()> {
     let db = clean_db().await?;
@@ -127,7 +125,6 @@ async fn test_nb_records_zero() -> Result<()> {
     Ok(())
 }
 
-#[ignore]
 #[tokio::test]
 async fn test_nb_records_one() -> Result<()> {
     let db = clean_db().await?;
@@ -144,7 +141,6 @@ async fn test_nb_records_one() -> Result<()> {
     Ok(())
 }
 
-#[ignore]
 #[tokio::test]
 async fn test_nb_records_multiple_maps() -> Result<()> {
     let db = clean_db().await?;
@@ -170,7 +166,6 @@ async fn test_nb_records_multiple_maps() -> Result<()> {
     Ok(())
 }
 
-#[ignore]
 #[tokio::test]
 async fn test_nb_records_one_per_player() -> Result<()> {
     let db = clean_db().await?;
@@ -189,7 +184,6 @@ async fn test_nb_records_one_per_player() -> Result<()> {
     Ok(())
 }
 
-#[ignore]
 #[tokio::test]
 async fn test_player_record_some() -> Result<()> {
     let db = clean_db().await?;
@@ -210,7 +204,6 @@ async fn test_player_record_some() -> Result<()> {
     Ok(())
 }
 
-#[ignore]
 #[tokio::test]
 async fn test_player_records_single() -> Result<()> {
     let db = clean_db().await?;
@@ -231,7 +224,6 @@ async fn test_player_records_single() -> Result<()> {
     Ok(())
 }
 
-#[ignore]
 #[tokio::test]
 async fn test_player_records_multiple_players() -> Result<()> {
     let db = clean_db().await?;
@@ -257,7 +249,6 @@ async fn test_player_records_multiple_players() -> Result<()> {
     Ok(())
 }
 
-#[ignore]
 #[tokio::test]
 async fn test_player_records_multiple_maps() -> Result<()> {
     let db = clean_db().await?;
@@ -284,7 +275,6 @@ async fn test_player_records_multiple_maps() -> Result<()> {
     Ok(())
 }
 
-#[ignore]
 #[tokio::test]
 async fn test_history_played_none() -> Result<()> {
     let db = clean_db().await?;
@@ -302,14 +292,14 @@ async fn test_history_played_none() -> Result<()> {
             player_login: "login1".to_string(),
             map_uid: "uid1".to_string(),
             last_played: None,
-            nb_maps_since: 0
+            nb_maps_since: 0,
         },
         History {
             player_login: "login1".to_string(),
             map_uid: "uid2".to_string(),
             last_played: None,
-            nb_maps_since: 0
-        }
+            nb_maps_since: 0,
+        },
     ];
 
     let mut actual = db.history("login1").await?;
@@ -330,7 +320,7 @@ async fn test_history_played_some() -> Result<()> {
     let map2 = map_evidence("uid2", "file2");
     let map3 = map_evidence("uid3", "file3");
     let map4 = map_evidence("uid4", "file4");
-    let map1_last_played = now();
+    let map1_last_played = now().sub(Duration::seconds(1));
     let map2_last_played = now();
 
     db.upsert_player(&player1).await?;
@@ -339,34 +329,36 @@ async fn test_history_played_some() -> Result<()> {
     db.upsert_map(&map3).await?;
     db.upsert_map(&map4).await?;
 
-    db.add_history(&player1.login, &map1.metadata.uid, &map1_last_played).await?;
-    db.add_history(&player1.login, &map2.metadata.uid, &map2_last_played).await?;
+    db.add_history(&player1.login, &map1.metadata.uid, &map1_last_played)
+        .await?;
+    db.add_history(&player1.login, &map2.metadata.uid, &map2_last_played)
+        .await?;
 
     let mut expected = vec![
         History {
             player_login: "login1".to_string(),
             map_uid: "uid1".to_string(),
             last_played: Some(map1_last_played),
-            nb_maps_since: 1
+            nb_maps_since: 1,
         },
         History {
             player_login: "login1".to_string(),
             map_uid: "uid2".to_string(),
             last_played: Some(map2_last_played),
-            nb_maps_since: 0
+            nb_maps_since: 0,
         },
         History {
             player_login: "login1".to_string(),
             map_uid: "uid3".to_string(),
             last_played: None,
-            nb_maps_since: 2
+            nb_maps_since: 2,
         },
         History {
             player_login: "login1".to_string(),
             map_uid: "uid4".to_string(),
             last_played: None,
-            nb_maps_since: 2
-        }
+            nb_maps_since: 2,
+        },
     ];
 
     let mut actual = db.history("login1").await?;
@@ -378,7 +370,6 @@ async fn test_history_played_some() -> Result<()> {
     Ok(())
 }
 
-
 #[tokio::test]
 async fn test_history_played_all() -> Result<()> {
     let db = clean_db().await?;
@@ -387,8 +378,8 @@ async fn test_history_played_all() -> Result<()> {
     let map1 = map_evidence("uid1", "file1");
     let map2 = map_evidence("uid2", "file2");
     let map3 = map_evidence("uid3", "file3");
-    let map1_last_played = now();
-    let map2_last_played = now();
+    let map1_last_played = now().sub(Duration::seconds(2));
+    let map2_last_played = now().sub(Duration::seconds(1));
     let map3_last_played = now();
 
     db.upsert_player(&player1).await?;
@@ -396,29 +387,32 @@ async fn test_history_played_all() -> Result<()> {
     db.upsert_map(&map2).await?;
     db.upsert_map(&map3).await?;
 
-    db.add_history(&player1.login, &map1.metadata.uid, &map1_last_played).await?;
-    db.add_history(&player1.login, &map2.metadata.uid, &map2_last_played).await?;
-    db.add_history(&player1.login, &map3.metadata.uid, &map3_last_played).await?;
+    db.add_history(&player1.login, &map1.metadata.uid, &map1_last_played)
+        .await?;
+    db.add_history(&player1.login, &map2.metadata.uid, &map2_last_played)
+        .await?;
+    db.add_history(&player1.login, &map3.metadata.uid, &map3_last_played)
+        .await?;
 
     let mut expected = vec![
         History {
             player_login: "login1".to_string(),
             map_uid: "uid1".to_string(),
             last_played: Some(map1_last_played),
-            nb_maps_since: 2
+            nb_maps_since: 2,
         },
         History {
             player_login: "login1".to_string(),
             map_uid: "uid2".to_string(),
             last_played: Some(map2_last_played),
-            nb_maps_since: 1
+            nb_maps_since: 1,
         },
         History {
             player_login: "login1".to_string(),
             map_uid: "uid3".to_string(),
             last_played: Some(map3_last_played),
-            nb_maps_since: 0
-        }
+            nb_maps_since: 0,
+        },
     ];
 
     let mut actual = db.history("login1").await?;
@@ -436,23 +430,23 @@ async fn test_history_update() -> Result<()> {
 
     let player1 = player_info("login1", "nickname1");
     let map1 = map_evidence("uid1", "file1");
-    let map1_last_played = now();
+    let map1_last_played = now().sub(Duration::seconds(1));
 
     db.upsert_player(&player1).await?;
     db.upsert_map(&map1).await?;
 
-    db.add_history(&player1.login, &map1.metadata.uid, &map1_last_played).await?;
+    db.add_history(&player1.login, &map1.metadata.uid, &map1_last_played)
+        .await?;
     let map1_last_played = now();
-    db.add_history(&player1.login, &map1.metadata.uid, &map1_last_played).await?;
+    db.add_history(&player1.login, &map1.metadata.uid, &map1_last_played)
+        .await?;
 
-    let mut expected = vec![
-        History {
-            player_login: "login1".to_string(),
-            map_uid: "uid1".to_string(),
-            last_played: Some(map1_last_played),
-            nb_maps_since: 0
-        }
-    ];
+    let mut expected = vec![History {
+        player_login: "login1".to_string(),
+        map_uid: "uid1".to_string(),
+        last_played: Some(map1_last_played),
+        nb_maps_since: 0,
+    }];
 
     let mut actual = db.history("login1").await?;
 

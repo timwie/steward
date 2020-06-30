@@ -126,7 +126,12 @@ impl Queries for PostgresClient {
         Ok(())
     }
 
-    async fn add_history(&self, player_login: &str, map_uid: &str, last_played: &NaiveDateTime) -> Result<()> {
+    async fn add_history(
+        &self,
+        player_login: &str,
+        map_uid: &str,
+        last_played: &NaiveDateTime,
+    ) -> Result<()> {
         let conn = self.0.get().await?;
         let stmt = r#"
             INSERT INTO steward.history
@@ -137,7 +142,9 @@ impl Queries for PostgresClient {
             DO UPDATE SET
                 last_played = excluded.last_played
         "#;
-        let _ = conn.execute(stmt, &[&player_login, &map_uid, &last_played]).await?;
+        let _ = conn
+            .execute(stmt, &[&player_login, &map_uid, &last_played])
+            .await?;
         Ok(())
     }
 

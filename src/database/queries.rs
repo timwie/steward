@@ -20,7 +20,12 @@ pub trait Queries: Send + Sync {
 
     /// Update a player's history, setting *now* as the time they most recently
     /// played the specified map.
-    async fn add_history(&self, player_login: &str, map_uid: &str, last_played: &NaiveDateTime) -> Result<()>;
+    async fn add_history(
+        &self,
+        player_login: &str,
+        map_uid: &str,
+        last_played: &NaiveDateTime,
+    ) -> Result<()>;
 
     /// Returns the player's history for each map currently in the playlist.
     async fn history(&self, player_login: &str) -> Result<Vec<History>>;
@@ -234,9 +239,15 @@ pub mod test {
             unimplemented!()
         }
 
-        async fn add_history(&self, _player_login: &str, _map_uid: &str) -> Result<()> {
+        async fn add_history(
+            &self,
+            _player_login: &str,
+            _map_uid: &str,
+            _last_played: &NaiveDateTime,
+        ) -> Result<()> {
             unimplemented!()
         }
+
         async fn history(&self, _player_login: &str) -> Result<Vec<History>> {
             unimplemented!()
         }
