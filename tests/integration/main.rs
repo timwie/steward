@@ -7,6 +7,40 @@ use testcontainers::*;
 use steward::database::*;
 use steward::server::{GameString, PlayerInfo};
 
+// TODO add database tests
+// [x] migrate
+// [x] player
+// [x] upsert_player
+// [x] add_history
+// [x] history
+// [ ] map_files
+// [ ] maps
+// [ ] playlist
+// [ ] map
+// [x] upsert_map
+//     - insert
+//     - update filename, exchangeid
+//     - update does not set NULL exchangeid
+//     => assert with .map, .maps, .map_files, .playlist
+// [ ] playlist_add
+// [ ] playlist_remove
+// [x] nb_records
+// [ ] top_record
+// [ ] top_records
+// [ ] player_record
+// [x] player_records
+// [ ] nb_players_with_record
+// [ ] maps_without_player_record <<<<<<
+// [ ] record_preview <<<<<<<
+// [x] upsert_record
+// [ ] player_preferences
+// [ ] count_map_preferences <<<<<<<
+// [ ] upsert_preference
+// [ ] map_rankings
+// [ ] delete_player
+// [ ] delete_map
+// [ ] delete_old_ghosts <<<<<<<<<<<
+
 /// Spins up a Postgres database in a Docker container.
 async fn clean_db() -> Result<Arc<dyn Database>> {
     let docker = clients::Cli::default();
@@ -44,6 +78,7 @@ async fn clean_db() -> Result<Arc<dyn Database>> {
     Ok(arc)
 }
 
+#[ignore]
 #[tokio::test]
 async fn test_player_insert() -> Result<()> {
     let db = clean_db().await?;
@@ -60,6 +95,7 @@ async fn test_player_insert() -> Result<()> {
     Ok(())
 }
 
+#[ignore]
 #[tokio::test]
 async fn test_player_update() -> Result<()> {
     let db = clean_db().await?;
@@ -78,6 +114,7 @@ async fn test_player_update() -> Result<()> {
     Ok(())
 }
 
+#[ignore]
 #[tokio::test]
 async fn test_nb_records_zero() -> Result<()> {
     let db = clean_db().await?;
@@ -90,6 +127,7 @@ async fn test_nb_records_zero() -> Result<()> {
     Ok(())
 }
 
+#[ignore]
 #[tokio::test]
 async fn test_nb_records_one() -> Result<()> {
     let db = clean_db().await?;
@@ -106,6 +144,7 @@ async fn test_nb_records_one() -> Result<()> {
     Ok(())
 }
 
+#[ignore]
 #[tokio::test]
 async fn test_nb_records_multiple_maps() -> Result<()> {
     let db = clean_db().await?;
@@ -131,6 +170,7 @@ async fn test_nb_records_multiple_maps() -> Result<()> {
     Ok(())
 }
 
+#[ignore]
 #[tokio::test]
 async fn test_nb_records_one_per_player() -> Result<()> {
     let db = clean_db().await?;
@@ -149,34 +189,7 @@ async fn test_nb_records_one_per_player() -> Result<()> {
     Ok(())
 }
 
-// TODO test .upsert_map insert
-// TODO test .upsert_map update filename, exchangeid
-// TODO test .upsert_map update does not set NULL exchangeid
-// => assert with .map, .maps, .map_files, .playlist
-
-// TODO test .playlist_add & .playlist_remove
-// => assert with .playlist
-
-// TODO test .top_record
-// TODO test .top_records
-// TODO test .nb_players_with_record
-// TODO test .maps_without_player_record
-// TODO test .players_without_map_record
-// TODO test .record_preview
-// TODO test .map_rankings
-
-// TODO test .player_preferences
-// TODO test .map_preferences
-// TODO test .count_map_preferences
-// TODO test .upsert_preference
-
-// TODO test delete_player
-// TODO test delete_map
-// TODO test delete_old_ghosts
-
-// TODO test add_history
-// TODO test history
-
+#[ignore]
 #[tokio::test]
 async fn test_player_record_some() -> Result<()> {
     let db = clean_db().await?;
@@ -197,6 +210,7 @@ async fn test_player_record_some() -> Result<()> {
     Ok(())
 }
 
+#[ignore]
 #[tokio::test]
 async fn test_player_records_single() -> Result<()> {
     let db = clean_db().await?;
@@ -217,6 +231,7 @@ async fn test_player_records_single() -> Result<()> {
     Ok(())
 }
 
+#[ignore]
 #[tokio::test]
 async fn test_player_records_multiple_players() -> Result<()> {
     let db = clean_db().await?;
@@ -242,6 +257,7 @@ async fn test_player_records_multiple_players() -> Result<()> {
     Ok(())
 }
 
+#[ignore]
 #[tokio::test]
 async fn test_player_records_multiple_maps() -> Result<()> {
     let db = clean_db().await?;
@@ -263,6 +279,185 @@ async fn test_player_records_multiple_maps() -> Result<()> {
     let expected = vec![expected];
 
     let actual = db.player_records("uid1", vec!["login1", "login2"]).await?;
+    assert_eq!(expected, actual);
+
+    Ok(())
+}
+
+#[ignore]
+#[tokio::test]
+async fn test_history_played_none() -> Result<()> {
+    let db = clean_db().await?;
+
+    let player1 = player_info("login1", "nickname1");
+    let map1 = map_evidence("uid1", "file1");
+    let map2 = map_evidence("uid2", "file2");
+
+    db.upsert_player(&player1).await?;
+    db.upsert_map(&map1).await?;
+    db.upsert_map(&map2).await?;
+
+    let mut expected = vec![
+        History {
+            player_login: "login1".to_string(),
+            map_uid: "uid1".to_string(),
+            last_played: None,
+            nb_maps_since: 0
+        },
+        History {
+            player_login: "login1".to_string(),
+            map_uid: "uid2".to_string(),
+            last_played: None,
+            nb_maps_since: 0
+        }
+    ];
+
+    let mut actual = db.history("login1").await?;
+
+    expected.sort_by(|a, b| a.map_uid.cmp(&b.map_uid));
+    actual.sort_by(|a, b| a.map_uid.cmp(&b.map_uid));
+    assert_eq!(expected, actual);
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_history_played_some() -> Result<()> {
+    let db = clean_db().await?;
+
+    let player1 = player_info("login1", "nickname1");
+    let map1 = map_evidence("uid1", "file1");
+    let map2 = map_evidence("uid2", "file2");
+    let map3 = map_evidence("uid3", "file3");
+    let map4 = map_evidence("uid4", "file4");
+    let map1_last_played = now();
+    let map2_last_played = now();
+
+    db.upsert_player(&player1).await?;
+    db.upsert_map(&map1).await?;
+    db.upsert_map(&map2).await?;
+    db.upsert_map(&map3).await?;
+    db.upsert_map(&map4).await?;
+
+    db.add_history(&player1.login, &map1.metadata.uid, &map1_last_played).await?;
+    db.add_history(&player1.login, &map2.metadata.uid, &map2_last_played).await?;
+
+    let mut expected = vec![
+        History {
+            player_login: "login1".to_string(),
+            map_uid: "uid1".to_string(),
+            last_played: Some(map1_last_played),
+            nb_maps_since: 1
+        },
+        History {
+            player_login: "login1".to_string(),
+            map_uid: "uid2".to_string(),
+            last_played: Some(map2_last_played),
+            nb_maps_since: 0
+        },
+        History {
+            player_login: "login1".to_string(),
+            map_uid: "uid3".to_string(),
+            last_played: None,
+            nb_maps_since: 2
+        },
+        History {
+            player_login: "login1".to_string(),
+            map_uid: "uid4".to_string(),
+            last_played: None,
+            nb_maps_since: 2
+        }
+    ];
+
+    let mut actual = db.history("login1").await?;
+
+    expected.sort_by(|a, b| a.map_uid.cmp(&b.map_uid));
+    actual.sort_by(|a, b| a.map_uid.cmp(&b.map_uid));
+    assert_eq!(expected, actual);
+
+    Ok(())
+}
+
+
+#[tokio::test]
+async fn test_history_played_all() -> Result<()> {
+    let db = clean_db().await?;
+
+    let player1 = player_info("login1", "nickname1");
+    let map1 = map_evidence("uid1", "file1");
+    let map2 = map_evidence("uid2", "file2");
+    let map3 = map_evidence("uid3", "file3");
+    let map1_last_played = now();
+    let map2_last_played = now();
+    let map3_last_played = now();
+
+    db.upsert_player(&player1).await?;
+    db.upsert_map(&map1).await?;
+    db.upsert_map(&map2).await?;
+    db.upsert_map(&map3).await?;
+
+    db.add_history(&player1.login, &map1.metadata.uid, &map1_last_played).await?;
+    db.add_history(&player1.login, &map2.metadata.uid, &map2_last_played).await?;
+    db.add_history(&player1.login, &map3.metadata.uid, &map3_last_played).await?;
+
+    let mut expected = vec![
+        History {
+            player_login: "login1".to_string(),
+            map_uid: "uid1".to_string(),
+            last_played: Some(map1_last_played),
+            nb_maps_since: 2
+        },
+        History {
+            player_login: "login1".to_string(),
+            map_uid: "uid2".to_string(),
+            last_played: Some(map2_last_played),
+            nb_maps_since: 1
+        },
+        History {
+            player_login: "login1".to_string(),
+            map_uid: "uid3".to_string(),
+            last_played: Some(map3_last_played),
+            nb_maps_since: 0
+        }
+    ];
+
+    let mut actual = db.history("login1").await?;
+
+    expected.sort_by(|a, b| a.map_uid.cmp(&b.map_uid));
+    actual.sort_by(|a, b| a.map_uid.cmp(&b.map_uid));
+    assert_eq!(expected, actual);
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_history_update() -> Result<()> {
+    let db = clean_db().await?;
+
+    let player1 = player_info("login1", "nickname1");
+    let map1 = map_evidence("uid1", "file1");
+    let map1_last_played = now();
+
+    db.upsert_player(&player1).await?;
+    db.upsert_map(&map1).await?;
+
+    db.add_history(&player1.login, &map1.metadata.uid, &map1_last_played).await?;
+    let map1_last_played = now();
+    db.add_history(&player1.login, &map1.metadata.uid, &map1_last_played).await?;
+
+    let mut expected = vec![
+        History {
+            player_login: "login1".to_string(),
+            map_uid: "uid1".to_string(),
+            last_played: Some(map1_last_played),
+            nb_maps_since: 0
+        }
+    ];
+
+    let mut actual = db.history("login1").await?;
+
+    expected.sort_by(|a, b| a.map_uid.cmp(&b.map_uid));
+    actual.sort_by(|a, b| a.map_uid.cmp(&b.map_uid));
     assert_eq!(expected, actual);
 
     Ok(())

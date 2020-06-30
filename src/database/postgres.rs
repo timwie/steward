@@ -11,6 +11,7 @@ use include_dir::{include_dir, Dir};
 use crate::database::queries::Queries;
 use crate::database::structs::*;
 use crate::server::{GameString, PlayerInfo};
+use chrono::NaiveDateTime;
 
 /// Connect to the Postgres database and open a connection pool.
 pub async fn db_connect(conn: &str) -> Arc<dyn Queries> {
@@ -125,18 +126,18 @@ impl Queries for PostgresClient {
         Ok(())
     }
 
-    async fn add_history(&self, player_login: &str, map_uid: &str) -> Result<()> {
+    async fn add_history(&self, player_login: &str, map_uid: &str, last_played: &NaiveDateTime) -> Result<()> {
         let conn = self.0.get().await?;
         let stmt = r#"
             INSERT INTO steward.history
-                (player_login, map_uid)
+                (player_login, map_uid, last_played)
             VALUES
-                ($1, $2)
+                ($1, $2, $3)
             ON CONFLICT (player_login, map_uid)
             DO UPDATE SET
-                last_played = CURRENT_TIMESTAMP
+                last_played = excluded.last_played
         "#;
-        let _ = conn.execute(stmt, &[&player_login, &map_uid]).await?;
+        let _ = conn.execute(stmt, &[&player_login, &map_uid, &last_played]).await?;
         Ok(())
     }
 

@@ -291,8 +291,9 @@ impl PreferenceController {
         };
 
         // Update in database
+        let now = Utc::now().naive_utc();
         self.db
-            .add_history(&player_login, &map_uid)
+            .add_history(&player_login, &map_uid, &now)
             .await
             .expect("failed to update player history");
 

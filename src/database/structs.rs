@@ -17,7 +17,7 @@ pub struct Player {
 }
 
 /// Stores the most recent time a player has played a specific map.
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct History {
     pub player_login: String,
     pub map_uid: String,

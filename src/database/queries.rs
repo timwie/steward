@@ -4,6 +4,7 @@ use async_trait::async_trait;
 
 use crate::database::structs::*;
 use crate::server::PlayerInfo;
+use chrono::NaiveDateTime;
 
 #[async_trait]
 pub trait Queries: Send + Sync {
@@ -19,7 +20,7 @@ pub trait Queries: Send + Sync {
 
     /// Update a player's history, setting *now* as the time they most recently
     /// played the specified map.
-    async fn add_history(&self, player_login: &str, map_uid: &str) -> Result<()>;
+    async fn add_history(&self, player_login: &str, map_uid: &str, last_played: &NaiveDateTime) -> Result<()>;
 
     /// Returns the player's history for each map currently in the playlist.
     async fn history(&self, player_login: &str) -> Result<Vec<History>>;
