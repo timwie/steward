@@ -1,0 +1,83 @@
+{% extends "base_menu.j2" %}
+
+{# TODO map ranking widget #}
+
+{# ============================= VARIABLES ============================= #}
+{% block vars %}
+    {{ super() }}
+
+{% endblock vars %}
+{# ============================= MANIALINK ============================= #}
+{% block manialink %}
+{{ super() }}
+
+<frame id="map-ranking" z-index="101" pos="{{x_menu_tr}} {{y_menu_tr}}" hidden="1">
+    <label text="Map Ranking" textfont="RajdhaniMono" textsize="4"/>
+</frame>
+
+{% endblock manialink %}
+{# ============================= SCRIPT DECLARATIONS ============================= #}
+{% block decl %}
+{{ super() }}
+
+#Struct SMapRank {
+    Integer Pos;
+    Text    NickName;
+    Integer Millis;
+    Text    Timestamp;
+    Boolean IsOwn;
+}
+
+declare CMlFrame UI_Frame;
+
+declare SMapRank[] G_Ranking;
+
+declare Integer G_MaxPos;
+declare Integer G_PersonalPos;
+
+Void OhNo() {
+    // TODO if we don't put this here, we get "syntax error, unexpected MANIASCRIPT_MAIN" ???
+}
+
+{% endblock decl %}
+{# ============================= SCRIPT MAIN ============================= #}
+{% block main %}
+
+declare Integer P_ToggleMenuState for LocalUser;
+
+UI_Frame = (Page.GetFirstChild("map-ranking") as CMlFrame);
+
+G_MaxPos = {{max_pos}};
+
+{% for entry in entries %}
+    G_Ranking.add(SMapRank {
+        Pos = {{entry.pos}},
+        NickName = "{{entry.nick_name}}",
+        Millis = {{entry.millis}},
+        Timestamp = "{{entry.timestamp}}",
+        IsOwn = {% if entry.is_own %}True{% else %}False{% endif %}
+    });
+{% endfor %}
+
+{% set nb_ranks = entries | length %}
+{% set personal_pos = personal_entry.pos | default(value=nb_ranks+1) %}
+
+{% if personal_pos > nb_ranks %}
+    G_PersonalPos = {{personal_entry.pos}};
+    G_Ranking.add(SMapRank {
+        Pos = {{personal_entry.pos}},
+        NickName = "{{personal_entry.nick_name}}",
+        Millis = {{personal_entry.millis}},
+        Timestamp = "{{personal_entry.timestamp}}",
+        IsOwn = {% if personal_entry.is_own %}True{% else %}False{% endif %}
+    });
+{% endif %}
+
+
+{% endblock main %}
+{# ============================= LOOP ============================= #}
+{% block loop %}
+
+UI_Frame.Visible = P_ToggleMenuState == {{ MENU_PAGE2 }};
+
+{% endblock loop %}

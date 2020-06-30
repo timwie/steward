@@ -1,0 +1,43 @@
+{% extends "base_menu.j2" %}
+
+{# TODO schedule widget #}
+
+{# ============================= VARIABLES ============================= #}
+{% block vars %}
+    {{ super() }}
+
+{% endblock vars %}
+{# ============================= MANIALINK ============================= #}
+{% block manialink %}
+{{ super() }}
+
+<frame id="schedule" z-index="101" pos="{{x_menu_bl}} {{y_menu_bl}}" hidden="1">
+    <label text="Schedule" textfont="RajdhaniMono" textsize="4"/>
+</frame>
+
+{% endblock manialink %}
+{# ============================= SCRIPT DECLARATIONS ============================= #}
+{% block decl %}
+{{ super() }}
+
+declare CMlFrame UI_Frame;
+
+Void OhNo() {
+    // TODO if we don't put this here, we get "syntax error, unexpected MANIASCRIPT_MAIN" ???
+}
+
+{% endblock decl %}
+{# ============================= SCRIPT MAIN ============================= #}
+{% block main %}
+
+declare Integer P_ToggleMenuState for LocalUser;
+
+UI_Frame = (Page.GetFirstChild("schedule") as CMlFrame);
+
+{% endblock main %}
+{# ============================= LOOP ============================= #}
+{% block loop %}
+
+UI_Frame.Visible = P_ToggleMenuState == {{ MENU_PAGE2 }};
+
+{% endblock loop %}

@@ -1,0 +1,83 @@
+{% extends "base_menu.j2" %}
+
+{# TODO server ranking widget #}
+
+{# ============================= VARIABLES ============================= #}
+{% block vars %}
+    {{ super() }}
+
+{% endblock vars %}
+{# ============================= MANIALINK ============================= #}
+{% block manialink %}
+{{ super() }}
+
+<frame id="server-ranking" z-index="101" pos="{{x_menu_tl}} {{y_menu_tl}}" hidden="1">
+    <label text="Server Ranking" textfont="RajdhaniMono" textsize="4"/>
+</frame>
+
+{% endblock manialink %}
+{# ============================= SCRIPT DECLARATIONS ============================= #}
+{% block decl %}
+{{ super() }}
+
+#Struct SServerRank {
+    Integer Pos;
+    Text    NickName;
+    Integer NbWins;
+    Integer NbLosses;
+    Boolean IsOwn;
+}
+
+declare CMlFrame UI_Frame;
+
+declare SServerRank[] G_Ranking;
+
+declare Integer G_MaxPos;
+declare Integer G_PersonalPos;
+
+Void OhNo() {
+    // TODO if we don't put this here, we get "syntax error, unexpected MANIASCRIPT_MAIN" ???
+}
+
+{% endblock decl %}
+{# ============================= SCRIPT MAIN ============================= #}
+{% block main %}
+
+declare Integer P_ToggleMenuState for LocalUser;
+
+UI_Frame = (Page.GetFirstChild("server-ranking") as CMlFrame);
+
+G_MaxPos = {{max_pos}};
+
+{% for entry in entries %}
+    G_Ranking.add(SServerRank {
+        Pos = {{entry.pos}},
+        NickName = "{{entry.nick_name}}",
+        NbWins = {{entry.nb_wins}},
+        NbLosses = {{entry.nb_losses}},
+        IsOwn = {% if entry.is_own %}True{% else %}False{% endif %}
+    });
+{% endfor %}
+
+{% set nb_ranks = entries | length %}
+{% set personal_pos = personal_entry.pos | default(value=nb_ranks+1) %}
+
+{% if personal_pos > nb_ranks %}
+    G_PersonalPos = {{personal_entry.pos}};
+    G_Ranking.add(SServerRank {
+        Pos = {{personal_entry.pos}},
+        NickName = "{{personal_entry.nick_name}}",
+        NbWins = {{personal_entry.nb_wins}},
+        NbLosses = {{personal_entry.nb_losses}},
+        IsOwn = {% if personal_entry.is_own %}True{% else %}False{% endif %}
+    });
+{% endif %}
+
+
+{% endblock main %}
+{# ============================= LOOP ============================= #}
+{% block loop %}
+
+UI_Frame.Visible = P_ToggleMenuState == {{ MENU_PAGE2 }};
+
+{% endblock loop %}

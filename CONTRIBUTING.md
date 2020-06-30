@@ -81,11 +81,8 @@ date back to the mid-2000s.
   - The overhead of updating widgets makes splitting the UI
     into smaller widgets a good idea, since we don't want to re-send
     more data than we have to.
-  - But: widgets cannot communicate, or share code with other widgets.
-  - One consequence of this is that we cannot properly support gamepad interaction for more than
-    one widget at a time: every widget will receive the key inputs, but since there is
-    no shared state, it would be too complicated to track the focus across multiple
-    widgets.
+  - Widgets cannot share code, but they can indirectly communicate with each other
+    by sharing variables.
 
 The Rust bindings for this API are implemented in the [`gbx` crate].
 

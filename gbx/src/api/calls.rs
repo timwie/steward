@@ -178,7 +178,7 @@ pub trait Calls: Send + Sync {
     /// the current map ends.
     ///
     /// Calls method:
-    ///     GetNextMapIndex
+    ///     SetNextMapIndex
     async fn playlist_next_index(&self) -> usize;
 
     /// Append the map at the specified file name to the end of the playlist.

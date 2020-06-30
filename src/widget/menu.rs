@@ -7,49 +7,40 @@ use crate::controller::ActivePreferenceValue;
 use crate::widget::ser::{format_last_played, format_map_age, format_record_age};
 use crate::widget::Widget;
 
-/// A widget displayed during the race, that can be toggled
-/// by pressing a key. It contains
-/// - the complete list of maps
-///   - display a player's map rank for each map
-///   - let the player change their map preferences
-/// - the current server ranking
-/// - the current map ranking
-/// - the current race ranking
-///
-/// The data for the race ranking does not need to be included here,
-/// as it's available via ManiaScript.
+/// A widget displayed during the race, that can be toggled by pressing a key.
+/// This widget is only responsible for displaying the menu frame - the actual
+/// content is provided by other "sub-widgets". These are displayed on top
+/// of the menu frame.
 ///
 /// # Sending
-/// - This widget has to be re-sent for each map, to load new map & server rankings.
-///   The map list also has to be re-send, since we cannot update the map ranks and
-///   queue priorities it displays.
-/// - Within the same map, ManiaScript events can be used to update the race & map
-///   ranking accordingly.
+/// - Send this widget to a player after the intro.
 #[derive(Serialize, Debug)]
-pub struct ToggleMenuWidget<'a> {
-    pub map_list: MapList<'a>,
+pub struct MenuWidget {}
 
-    pub map_ranking: MapRanking<'a>,
-
-    pub server_ranking: ServerRanking<'a>,
-
-    /// The maximum number of live scores displayed for the current race.
-    pub max_displayed_race_ranks: usize,
+impl Widget for MenuWidget {
+    const FILE: &'static str = "menu.j2";
 }
 
-impl Widget for ToggleMenuWidget<'_> {
-    const FILE: &'static str = "race_toggle_menu.j2";
-}
-
+/// A widget that displays the server's playlist, and lets players change their map preferences.
+///
+/// # Sending
+/// - Send this widget to a player after the intro.
+/// - This widget has to be re-sent, since we cannot update the map ranks and
+///   queue positions it displays.
 #[derive(Serialize, Debug)]
-pub struct MapList<'a> {
+pub struct PlaylistWidget<'a> {
     /// The server's playlist, sorted so that maps with worse or
-    /// missing personal records are higher up.
-    pub maps: Vec<MapListEntry<'a>>,
+    /// missing personal records are higher up. The first entry is
+    /// the current map.
+    pub entries: Vec<PlaylistWidgetEntry<'a>>,
+}
+
+impl Widget for PlaylistWidget<'_> {
+    const FILE: &'static str = "menu_playlist.j2";
 }
 
 #[derive(Serialize, Debug, PartialEq, Eq)]
-pub struct MapListEntry<'a> {
+pub struct PlaylistWidgetEntry<'a> {
     /// UID of the map at this entry.
     pub map_uid: &'a str,
 
@@ -60,7 +51,7 @@ pub struct MapListEntry<'a> {
     pub map_author_login: &'a str,
 
     /// The player's preference for the map at this entry.
-    pub preference: Option<ActivePreferenceValue>,
+    pub preference: ActivePreferenceValue,
 
     /// The number of players that have completed a run
     /// on this map.
@@ -96,7 +87,7 @@ pub struct MapListEntry<'a> {
     pub last_played: Option<NaiveDateTime>,
 }
 
-impl Ord for MapListEntry<'_> {
+impl Ord for PlaylistWidgetEntry<'_> {
     fn cmp(&self, other: &Self) -> Ordering {
         // (a) Put current map at the top.
         if self.is_current_map {
@@ -115,10 +106,26 @@ impl Ord for MapListEntry<'_> {
     }
 }
 
-impl PartialOrd for MapListEntry<'_> {
+impl PartialOrd for PlaylistWidgetEntry<'_> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
+}
+
+/// A widget that displays the top map records.
+///
+/// # Sending
+/// - Send this widget to a player after the intro.
+/// - Does not have to be re-sent when there are new records,
+///   since they can be added in the script.
+#[derive(Serialize, Debug)]
+pub struct MapRankingWidget<'a> {
+    #[serde(flatten)]
+    pub ranking: MapRanking<'a>,
+}
+
+impl Widget for MapRankingWidget<'_> {
+    const FILE: &'static str = "menu_map_ranking.j2";
 }
 
 #[derive(Serialize, Debug)]
@@ -130,8 +137,8 @@ pub struct MapRanking<'a> {
     /// have not set a record on this map.
     pub personal_entry: Option<MapRankingEntry<'a>>,
 
-    /// Limits the amount of entries.
-    pub max_displayed_map_ranks: usize,
+    /// The maximum map rank; or the number of players that set a record on this map.
+    pub max_pos: usize,
 }
 
 #[derive(Serialize, Debug)]
@@ -153,6 +160,21 @@ pub struct MapRankingEntry<'a> {
     pub is_own: bool,
 }
 
+/// A widget that displays the top server ranks.
+///
+/// # Sending
+/// - Send this widget to a player after the intro.
+/// - This widget has to be re-sent, since we cannot update the rankings.
+#[derive(Serialize, Debug)]
+pub struct ServerRankingWidget<'a> {
+    #[serde(flatten)]
+    pub ranking: ServerRanking<'a>,
+}
+
+impl Widget for ServerRankingWidget<'_> {
+    const FILE: &'static str = "menu_server_ranking.j2";
+}
+
 #[derive(Serialize, Debug)]
 pub struct ServerRanking<'a> {
     /// A selection of top server ranks.
@@ -161,9 +183,6 @@ pub struct ServerRanking<'a> {
     /// The player's own server rank, or `None` if
     /// they are unranked.
     pub personal_entry: Option<ServerRankingEntry<'a>>,
-
-    /// Limits the amount of entries.
-    pub max_displayed_server_ranks: usize,
 
     /// The maximum server rank; or the number of players that have a server rank.
     pub max_pos: usize,
@@ -185,4 +204,22 @@ pub struct ServerRankingEntry<'a> {
 
     /// `True` if this is the player's own rank.
     pub is_own: bool,
+}
+
+/// A widget that displays the schedule, with the maps that are currently
+/// at the top of the queue.
+///
+/// # Sending
+/// - Send this widget to a player after the intro.
+/// - Has to be re-sent whenever the top of the queue changes.
+#[derive(Serialize, Debug)]
+pub struct ScheduleWidget {
+    // TODO add schedule widget details
+//  - map name, author
+//  - personal preferences
+//  - minutes until played
+}
+
+impl Widget for ScheduleWidget {
+    const FILE: &'static str = "menu_schedule.j2";
 }

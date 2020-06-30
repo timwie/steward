@@ -7,6 +7,7 @@ use tera::Tera;
 
 pub use action::*;
 pub use intro::*;
+pub use menu::*;
 pub use outro_map_rankings::*;
 pub use outro_queue::*;
 pub use outro_server_ranking::*;
@@ -14,12 +15,12 @@ pub use popup::*;
 pub use race_live_ranks::*;
 pub use race_run_outro::*;
 pub use race_sector_diff::*;
-pub use race_toggle_menu::*;
 
 use crate::config::{CDN_PREFIX, CDN_PREFIX_MASTER};
 
 mod action;
 mod intro;
+mod menu;
 mod outro_map_rankings;
 mod outro_queue;
 mod outro_server_ranking;
@@ -27,7 +28,6 @@ mod popup;
 mod race_live_ranks;
 mod race_run_outro;
 mod race_sector_diff;
-mod race_toggle_menu;
 mod ser;
 
 pub trait Widget
@@ -109,6 +109,7 @@ fn collect_templates() -> tera::Result<Tera> {
     // Add 'base_*' templates first, because others depend on them.
     add_from_name(&mut tera, "base_static.j2")?;
     add_from_name(&mut tera, "base_dynamic.j2")?;
+    add_from_name(&mut tera, "base_menu.j2")?;
 
     // Add all other templates.
     for file in TEMPLATE_DIR.files() {

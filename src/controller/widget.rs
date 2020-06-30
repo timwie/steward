@@ -6,8 +6,7 @@ use tokio::sync::RwLock;
 
 use crate::chat::CommandResponse;
 use crate::config::{
-    MAX_DISPLAYED_IN_QUEUE, MAX_DISPLAYED_MAP_RANKS, MAX_DISPLAYED_RACE_RANKS,
-    MAX_DISPLAYED_SERVER_RANKS, START_HIDE_WIDGET_DELAY_MILLIS,
+    MAX_DISPLAYED_IN_QUEUE, MAX_DISPLAYED_RACE_RANKS, START_HIDE_WIDGET_DELAY_MILLIS,
 };
 use crate::controller::*;
 use crate::database::{Database, PreferenceValue, RecordDetailed};
@@ -81,6 +80,7 @@ impl WidgetController {
         *widget_state = WidgetState::Race;
 
         self.show_intro_widgets().await;
+        self.show_menu().await;
     }
 
     /// For the specified player, remove widgets that are displayed during the intro,
@@ -135,6 +135,7 @@ impl WidgetController {
     /// Hide all outro widgets ahead of loading the next map.
     pub async fn end_outro(&self) {
         self.hide_outro_widgets().await;
+        self.hide_menu().await;
     }
 
     /// Display appropriate widgets for (new or transitioning) players
@@ -148,9 +149,15 @@ impl WidgetController {
         // it happens *at most* for a player while they are on the server,
         // and both intro & outro are short enough to justify this.
 
-        if *self.state.read().await != WidgetState::Race {
+        if let AddPlayer | AddSpectator | AddPureSpectator = diff.transition {
+            self.show_menu_for(&diff.info).await;
+        }
+
+        let is_race = *self.state.read().await == WidgetState::Race;
+        if !is_race {
             return;
         }
+
         match diff.transition {
             AddPlayer | MoveToPlayer => {
                 self.show_race_widgets_for(&diff.info).await;
@@ -214,13 +221,16 @@ impl WidgetController {
     pub async fn refresh_playlist(&self) {
         let players_state = self.live_players.lock().await;
         for info in players_state.info_all() {
-            self.show_toggle_menu_for(&info).await;
+            self.show_playlist_for(&info).await;
         }
     }
 
     /// Update any widget that displays the server's map queue or schedule.
     pub async fn refresh_queue_and_schedule(&self, diff: &QueueDiff) {
         // TODO queue: update UI
+        //  => if we use 'queue_pos' in the playlist, we could update it,
+        //     but we shouldn't replace the entire widget for that,
+        //     since it can happen frequently
 
         // Only refresh schedule if there are visible changes
         if diff.first_changed_idx < MAX_DISPLAYED_IN_QUEUE {
@@ -230,7 +240,10 @@ impl WidgetController {
 
     /// Update any widget that displays the server's map schedule.
     pub async fn refresh_schedule(&self) {
-        // TODO schedule: update UI
+        let players_state = self.live_players.lock().await;
+        for info in players_state.info_all() {
+            self.show_schedule_for(&info).await;
+        }
     }
 
     /// Display a popup message to the specified player.
@@ -312,23 +325,27 @@ impl WidgetController {
     async fn show_race_widgets_for(&self, player: &PlayerInfo) {
         self.show_sector_diff_for(player).await;
         self.show_curr_rank_for(player).await;
-        self.show_toggle_menu_for(player).await;
-        // TODO schedule: show widget here if it's a race widget
     }
 
     async fn hide_race_widgets_for(&self, for_uid: i32) {
         self.hide_for::<RunOutroWidget>(for_uid).await;
         self.hide_for::<SectorDiffWidget>(for_uid).await;
         self.hide_for::<LiveRanksWidget>(for_uid).await;
-        self.hide_for::<ToggleMenuWidget>(for_uid).await;
+        self.hide_for::<MenuWidget>(for_uid).await;
     }
 
     async fn hide_race_widgets(&self) {
         self.hide::<RunOutroWidget>().await;
         self.hide::<SectorDiffWidget>().await;
         self.hide::<LiveRanksWidget>().await;
-        self.hide::<ToggleMenuWidget>().await;
-        // TODO schedule: hide widget here if it's a race widget
+    }
+
+    async fn hide_menu(&self) {
+        self.hide::<MenuWidget>().await;
+        self.hide::<PlaylistWidget>().await;
+        self.hide::<ServerRankingWidget>().await;
+        self.hide::<MapRankingWidget>().await;
+        self.hide::<ScheduleWidget>().await;
     }
 
     async fn show_outro_widgets(&self) {
@@ -403,27 +420,54 @@ impl WidgetController {
         .await;
     }
 
-    async fn show_toggle_menu_for(&self, player: &PlayerInfo) {
-        let records_state = self.live_records.lock().await;
-        let playlist_state = self.live_playlist.lock().await;
-        let server_ranking_state = self.live_server_ranking.lock().await;
-        let preferences_state = self.live_prefs.lock().await;
+    async fn show_menu(&self) {
+        let players_state = self.live_players.lock().await;
+        for info in players_state.info_all() {
+            self.show_menu_for(&info).await;
+        }
+    }
 
-        let map_ranking = self.curr_map_ranking(&*records_state, &player).await;
+    async fn show_menu_for(&self, player: &PlayerInfo) {
+        let server_ranking_state = self.live_server_ranking.lock().await;
+        let records_state = self.live_records.lock().await;
+
         let server_ranking = self
             .curr_server_ranking(&*server_ranking_state, &player)
             .await;
-        let map_list = self
+
+        let map_ranking = self.curr_map_ranking(&*records_state, &player).await;
+
+        let server_ranking_widget = ServerRankingWidget {
+            ranking: server_ranking,
+        };
+
+        let map_ranking_widget = MapRankingWidget {
+            ranking: map_ranking,
+        };
+
+        let menu = MenuWidget {};
+        self.show_for(&menu, player.uid).await;
+        self.show_for(&server_ranking_widget, player.uid).await;
+        self.show_for(&map_ranking_widget, player.uid).await;
+
+        self.show_playlist_for(&player).await;
+        self.show_schedule_for(&player).await;
+    }
+
+    async fn show_playlist_for(&self, player: &PlayerInfo) {
+        let playlist_state = self.live_playlist.lock().await;
+        let preferences_state = self.live_prefs.lock().await;
+
+        let playlist_widget = self
             .curr_map_list(&*playlist_state, &*preferences_state, &player)
             .await;
 
-        let menu = ToggleMenuWidget {
-            map_ranking,
-            server_ranking,
-            map_list,
-            max_displayed_race_ranks: MAX_DISPLAYED_RACE_RANKS,
-        };
-        self.show_for(&menu, player.uid).await;
+        self.show_for(&playlist_widget, player.uid).await;
+    }
+
+    async fn show_schedule_for(&self, player: &PlayerInfo) {
+        let schedule_widget = ScheduleWidget {};
+        self.show_for(&schedule_widget, player.uid).await;
     }
 
     async fn show_run_outro_for(&self, diff: &PbDiff) {
@@ -594,7 +638,6 @@ impl WidgetController {
             max_pos: server_ranking.max_pos(),
             entries,
             personal_entry,
-            max_displayed_server_ranks: MAX_DISPLAYED_SERVER_RANKS,
         }
     }
 
@@ -625,9 +668,9 @@ impl WidgetController {
         });
 
         MapRanking {
-            max_displayed_map_ranks: MAX_DISPLAYED_MAP_RANKS,
             entries: map_ranks,
             personal_entry,
+            max_pos: records_state.nb_records,
         }
     }
 
@@ -636,7 +679,7 @@ impl WidgetController {
         playlist_state: &'a PlaylistState,
         prefs: &'a PreferencesState,
         for_player: &'a PlayerInfo,
-    ) -> MapList<'a> {
+    ) -> PlaylistWidget<'a> {
         let curr_map_uid = playlist_state.current_map().map(|m| &m.uid);
         let mut maps = join_all(playlist_state.maps.iter().map(|map| async move {
             let preference = prefs.pref(for_player.uid, &map.uid);
@@ -652,7 +695,7 @@ impl WidgetController {
                 .await
                 .expect("failed to load player PB")
                 .map(|rec| rec.map_rank as usize);
-            MapListEntry {
+            PlaylistWidgetEntry {
                 map_uid: &map.uid,
                 map_name: &map.name.formatted,
                 map_author_login: &map.author_login,
@@ -671,7 +714,7 @@ impl WidgetController {
         }))
         .await;
         maps.sort();
-        MapList { maps }
+        PlaylistWidget { entries: maps }
     }
 }
 
