@@ -8,8 +8,10 @@ Version numbers consist of `MAJOR.MINOR.PATCH`:
 
 <br>
 
-## 0.1.0-alpha4
+## [0.1.0-alpha4] - 2020-07-01
 All `0.1.0-alpha` releases are unstable, and have missing widgets.
+
+This will be the last version built for TM².
 
 ### Updating
 - The controller config has changed:
