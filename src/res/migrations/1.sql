@@ -77,15 +77,13 @@ CREATE TABLE steward.sector (
     index         INTEGER NOT NULL, -- first checkpoint has index 0; finish is at the last index
     cp_millis     INTEGER NOT NULL, -- total millis at time of crossing checkpoint
     cp_speed      REAL    NOT NULL, -- speed in km/h at time of crossing checkpoint
-    cp_distance   REAL    NOT NULL, -- total driven distance in meters at time of crossing checkpoint
 
     PRIMARY KEY (player_login, map_uid, index),
     FOREIGN KEY (player_login, map_uid) REFERENCES steward.record (player_login, map_uid),
 
     CONSTRAINT index_positive    check (index >= 0),
     CONSTRAINT millis_positive   check (cp_millis > 0),
-    CONSTRAINT speed_positive    check (cp_speed > 0),
-    CONSTRAINT distance_positive check (cp_distance > 0)
+    CONSTRAINT speed_positive    check (cp_speed > 0)
 );
 
 UPDATE steward.meta SET at_migration = 1;

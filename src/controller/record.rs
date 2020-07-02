@@ -262,7 +262,6 @@ impl RecordController {
                     index: ev.cp_index,
                     cp_millis: ev.race_time_millis,
                     cp_speed: ev.speed.abs(), // driving backwards gives negative speed
-                    cp_distance: ev.distance,
                 });
         }
     }

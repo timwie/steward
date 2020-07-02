@@ -454,14 +454,13 @@ impl Queries for PostgresClient {
 
         let insert_sector_stmt = r#"
             INSERT INTO steward.sector
-                (player_login, map_uid, index, cp_millis, cp_speed, cp_distance)
+                (player_login, map_uid, index, cp_millis, cp_speed)
             VALUES
                 ($1, $2, $3, $4, $5, $6)
             ON CONFLICT (player_login, map_uid, index)
             DO UPDATE SET
                 cp_millis = excluded.cp_millis,
-                cp_speed = excluded.cp_speed,
-                cp_distance = excluded.cp_distance
+                cp_speed = excluded.cp_speed
         "#;
 
         for sector in &rec.sectors {
@@ -474,7 +473,6 @@ impl Queries for PostgresClient {
                         &sector.index,
                         &sector.cp_millis,
                         &sector.cp_speed,
-                        &sector.cp_distance,
                     ],
                 )
                 .await?;

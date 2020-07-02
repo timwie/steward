@@ -18,11 +18,9 @@ services:
       args:
         STEWARD_VERSION:
         DEDICATED_URL:
-        TITLE:
-        TITLE_PACK_URL:
     restart: always
     volumes:
-      - dedicated-root:/home/maniaplanet/
+      - dedicated-root:/home/trackmania/
     expose:
       - 5000/tcp
     ports:
@@ -50,7 +48,7 @@ services:
     restart: always
     volumes:
       - controller-root:/home/steward/
-      - dedicated-root:/home/maniaplanet/
+      - dedicated-root:/home/trackmania/
     depends_on:
       - database
       - dedicated

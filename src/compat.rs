@@ -57,7 +57,7 @@ async fn prepare_server(server: &Arc<dyn Server>) {
     let mut server_options = server.server_options().await;
     add_server_option_constraints(&mut server_options);
     log::info!("using server options:");
-    log::info!("{:?}", &server_options);
+    log::info!("{:#?}", &server_options);
     server.set_server_options(&server_options).await;
 
     // Load the player blacklist from disk, or create the file so that it can be written to.
@@ -66,19 +66,24 @@ async fn prepare_server(server: &Arc<dyn Server>) {
         .await
         .join("Config")
         .join(BLACKLIST_FILE);
+
     if !blacklist_file.is_file() {
-        // Saving the empty list allows to load it without a fault.
-        std::fs::File::create(blacklist_file).expect("failed to create blacklist file");
+        let empty_list = r#"
+        <?xml version="1.0" encoding="utf-8" ?>
+        <blacklist>
+        </blacklist>
+        "#;
+        std::fs::write(blacklist_file, empty_list).expect("failed to create blacklist file");
         server
             .save_blacklist(BLACKLIST_FILE)
             .await
             .expect("failed to write empty blacklist file");
-    } else {
-        server
-            .load_blacklist(BLACKLIST_FILE)
-            .await
-            .expect("failed to load blacklist file");
     }
+
+    server
+        .load_blacklist(BLACKLIST_FILE)
+        .await
+        .expect("failed to load blacklist file");
 }
 
 /// There are a few server options that will be overridden
@@ -109,50 +114,28 @@ fn add_server_option_constraints(options: &mut ServerOptions) {
 /// For newer builds, this should not cause incompatibilities, but it might still
 /// be good to be aware of them.
 fn check_server_compat(info: ServerInfo) {
-    const SERVER_KNOWN_NAME: &str = "ManiaPlanet";
     const SERVER_KNOWN_VERSION: &str = "3.3.0";
-    const SERVER_KNOWN_BUILD: &str = "2019-10-23_20_00";
+    const SERVER_KNOWN_BUILD: &str = "2020-07-01_14_30";
 
-    if info.name != SERVER_KNOWN_NAME {
-        log::warn!("server is not a ManiaPlanet server:");
-        log::warn!("{:?}", info);
-        return;
-    }
+    assert_eq!(&info.name, "Trackmania");
+
     if info.version != SERVER_KNOWN_VERSION || info.build != SERVER_KNOWN_BUILD {
         log::warn!("server has an unexpected build:");
-        log::warn!("{:?}", info);
-        return;
-    }
-    if !info.title_id.starts_with("TM") || !info.title_id.ends_with("@nadeo") {
-        log::warn!(
-            "server does not play a Nadeo Trackmania title: {}",
-            &info.title_id
-        );
+        log::warn!("{:#?}", info);
     }
 }
 
 /// Set & configure the game mode.
 /// Overwrite the default `<ui_properties>`.
 async fn prepare_mode(server: &Arc<dyn Server>) {
-    const TA_SCRIPT_TEXT: &str = include_str!("res/TimeAttack.Script.txt");
-
     log::debug!("prepare game mode...");
-
-    // Change game mode if we have to.
-    if !check_mode_compat(server.mode().await) {
-        log::info!("replacing game mode with bundled Time Attack script");
-        server
-            .set_mode(TA_SCRIPT_TEXT)
-            .await
-            .expect("failed to set mode script");
-    }
-    log::info!("using mode:");
-    log::info!("{:?}", server.mode().await);
+    let _ = check_mode_compat(server.mode().await);
 
     let mode_options = server.mode_options().await;
     log::info!("using mode options:");
-    log::info!("{:?}", &mode_options);
+    log::info!("{:#?}", &mode_options);
 
+    // TODO are UiProperties still a thing?
     let ui_properties_xml = include_str!("res/UiProperties.xml");
     server.set_ui_properties(&ui_properties_xml).await;
 }
@@ -164,9 +147,9 @@ async fn prepare_mode(server: &Arc<dyn Server>) {
 /// It's unlikely that we get incompatibilities with newer Time Attack versions,
 /// but it might still be good to be aware of them.
 fn check_mode_compat(info: ModeInfo) -> bool {
-    if info.file_name != TA_SCRIPT && info.file_name != CUSTOM_SCRIPT {
+    if info.file_name != TA_SCRIPT {
         log::warn!("mode is not Time Attack!");
-        log::warn!("{:?}", info);
+        log::warn!("{:#?}", info);
         return false;
     }
     if !info
@@ -174,13 +157,18 @@ fn check_mode_compat(info: ModeInfo) -> bool {
         .split(',')
         .any(|typ| typ == TA_MAP_TYPE)
     {
-        log::warn!("mode does not support Race map type!");
-        log::warn!("{:?}", info);
+        log::warn!("mode does not support TM_Race map type!");
+        log::warn!("{:#?}", info);
         return false;
     }
+
+    log::info!("using mode:");
+    log::info!("{:#?}", info);
+
     if info.version != TA_KNOWN_VERSION {
         log::warn!("mode has different version '{}'", info.version);
     }
+
     true
 }
 
@@ -262,7 +250,7 @@ async fn fs_maps_to_db(server: &Arc<dyn Server>, db: &Arc<dyn Database>) {
         .collect();
 
     // set playlist to all maps that have files
-    log::debug!("local map files: {:?}", &map_file_names);
+    log::debug!("local map files: {:#?}", &map_file_names);
     server.playlist_add_all(map_file_names).await;
 
     let server_maps: Vec<PlaylistMap> = server
@@ -271,7 +259,7 @@ async fn fs_maps_to_db(server: &Arc<dyn Server>, db: &Arc<dyn Database>) {
         .into_iter()
         .filter(|info| !info.is_campaign_map())
         .collect();
-    log::debug!("local maps: {:?}", &server_maps);
+    log::debug!("local maps: {:#?}", &server_maps);
 
     // Insert new maps & update file paths of those already in the database.
     for server_map in server_maps.into_iter() {
@@ -320,7 +308,7 @@ async fn fs_map_to_db(map_info: MapInfo, map_data: Vec<u8>, db: &Arc<dyn Databas
         .expect("failed to upsert map");
 
     if is_new_map {
-        log::info!("found new map: {:?}", &evidence.metadata);
+        log::info!("found new map: {:#?}", &evidence.metadata);
     }
 }
 
@@ -337,7 +325,7 @@ async fn db_maps_to_fs(server: &Arc<dyn Server>, db: &Arc<dyn Database>) {
     for map in restorable_maps.iter() {
         let map_path = maps_dir.join(&map.metadata.file_name);
         if !map_path.is_file() {
-            log::info!("restore map file: {:?}", map_path);
+            log::info!("restore map file: {:#?}", map_path);
             fs::write(&map_path, &map.data).expect("failed to restore map file");
         }
     }
@@ -366,7 +354,7 @@ async fn db_maps_to_match_settings(server: &Arc<dyn Server>, db: &Arc<dyn Databa
     let playlist_files: Vec<&str> = db_maps.iter().map(|map| map.file_name.as_ref()).collect();
 
     log::info!("using playlist:");
-    log::info!("{:?}", &playlist_files);
+    log::info!("{:#?}", &playlist_files);
 
     // Put all maps in the playlist, regardless whether enabled or not
     server.playlist_replace(playlist_files).await;
@@ -380,13 +368,8 @@ async fn db_maps_to_match_settings(server: &Arc<dyn Server>, db: &Arc<dyn Databa
         .join("Maps")
         .join(MATCH_SETTINGS_PATH);
 
-    // If we use a custom script, the match settings will contain
-    // "<script_name><in-development></script_name>", which will prevent
-    // restarting the server, as it's not a valid name. We will replace
-    // it with the Time Attack mode.
     let match_settings_xml =
         fs::read_to_string(&match_settings_file).expect("failed to read match settings file");
-    let match_settings_xml = match_settings_xml.replace(CUSTOM_SCRIPT, TA_SCRIPT);
     fs::write(match_settings_file, &match_settings_xml)
         .expect("failed to write match settings file");
 
@@ -402,8 +385,6 @@ fn read_to_bytes(file_path: &PathBuf) -> std::io::Result<Vec<u8>> {
     Ok(buffer)
 }
 
-const CUSTOM_SCRIPT: &str = "<in-development>"; // the name if we set the script ourselves
-
-const TA_SCRIPT: &str = "TimeAttack.Script.txt";
-const TA_MAP_TYPE: &str = "Race";
-const TA_KNOWN_VERSION: &str = "2018-05-14";
+const TA_SCRIPT: &str = "Trackmania/TM_TimeAttack_Online.Script.txt";
+const TA_MAP_TYPE: &str = "TM_Race";
+const TA_KNOWN_VERSION: &str = "2020-06-28";

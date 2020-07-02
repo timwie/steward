@@ -115,7 +115,7 @@ instructions are available in the [docker/](/docker) directory.
 - You can choose to launch the controller before or after the server.
 - Start the server like this:
 ```
-$ ./ManiaPlanetServer /game_settings=MatchSettings/maplist.txt /dedicated_cfg=dedicated_cfg.txt
+$ ./TrackmaniaServer /game_settings=MatchSettings/maplist.txt /dedicated_cfg=dedicated_cfg.txt
 ```
 - Start the controller like this:
 ```
@@ -172,7 +172,7 @@ and offer a plugin architecture that is arguably easier to extend:
 Distributed under the MIT License. See `LICENSE` for more information.
 
 
-[Dedicated Server]: http://files.v04.maniaplanet.com/server/ManiaplanetServer_Latest.zip
+[Dedicated Server]: http://files.v04.maniaplanet.com/server/TrackmaniaServer_2020-07-01.zip
 [PostgreSQL server]: https://www.postgresql.org/download/
 [this tutorial]: https://forum.maniaplanet.com/viewtopic.php?p=295335&sid=ecff725fd89d73b95dbb6a67bb781a07#p295335
 

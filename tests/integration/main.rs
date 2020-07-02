@@ -579,7 +579,6 @@ fn record_evidence(login: &str, map_uid: &str, millis: i32) -> RecordEvidence {
                 index: i,
                 cp_millis: (i + 1) * (millis / 5),
                 cp_speed: 420.1337,
-                cp_distance: 1337.42 + i as f32,
             })
             .collect(),
     }

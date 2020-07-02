@@ -143,9 +143,6 @@ pub struct RecordSector {
 
     /// Speed at time of crossing the checkpoint at this index.
     pub cp_speed: f32,
-
-    /// Total driven distance at time of crossing the checkpoint at this index.
-    pub cp_distance: f32,
 }
 
 /// Detailed record data, that is only missing speed & distance
@@ -174,6 +171,7 @@ pub struct RecordDetailed {
 }
 
 impl RecordDetailed {
+    #[allow(dead_code)]
     pub fn sector_millis(&self) -> Vec<usize> {
         let mut sector_times = Vec::with_capacity(self.cp_millis.len());
         let mut offset_millis: usize = 0;

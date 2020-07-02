@@ -14,7 +14,6 @@ pub use outro_server_ranking::*;
 pub use popup::*;
 pub use race_live_ranks::*;
 pub use race_run_outro::*;
-pub use race_sector_diff::*;
 
 use crate::config::{CDN_PREFIX, CDN_PREFIX_MASTER};
 
@@ -27,7 +26,6 @@ mod outro_server_ranking;
 mod popup;
 mod race_live_ranks;
 mod race_run_outro;
-mod race_sector_diff;
 mod ser;
 
 pub trait Widget

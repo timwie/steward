@@ -33,8 +33,8 @@ so that you can join the server on the same machine.
    - Update the controller config in `steward.toml` accordingly.
 5. Start the dedicated server (f.e. in a PowerShell prompt).
 ```
-$ cd <your path>/ManiaplanetServer_Latest/
-$ .\ManiaPlanetServer /nodaemon /lan /game_settings=MatchSettings/maplist.txt /dedicated_cfg=dedicated_cfg.txt
+$ cd <your path>/TrackmaniaServer_2020-07-01/
+$ .\TrackmaniaServer /nodaemon /lan /game_settings=MatchSettings/maplist.txt /dedicated_cfg=dedicated_cfg.txt
 ```
 6. Start the controller (f.e. in a PowerShell prompt).
 ```
@@ -209,7 +209,7 @@ Remember to...
 [Exchange]: https://trackmania.exchange/
 
 [rustup]: https://rustup.rs/
-[Dedicated Server]: http://files.v04.maniaplanet.com/server/ManiaplanetServer_Latest.zip
+[Dedicated Server]: http://files.v04.maniaplanet.com/server/TrackmaniaServer_2020-07-01.zip
 [PostgreSQL server]: https://www.postgresql.org/download/
 
 [Dedicated Server Documentation]: https://doc.maniaplanet.com/dedicated-server/getting-started

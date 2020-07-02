@@ -9,7 +9,7 @@ use crate::config::{
     MAX_DISPLAYED_IN_QUEUE, MAX_DISPLAYED_RACE_RANKS, START_HIDE_WIDGET_DELAY_MILLIS,
 };
 use crate::controller::*;
-use crate::database::{Database, PreferenceValue, RecordDetailed};
+use crate::database::{Database, PreferenceValue};
 use crate::event::*;
 use crate::server::{Fault, PlayerInfo, Server};
 use crate::widget::*;
@@ -178,20 +178,6 @@ impl WidgetController {
     ///   players, their widgets have to be updated as well.
     pub async fn refresh_personal_best(&self, diff: &PbDiff) {
         self.refresh_curr_rank(diff).await;
-
-        if let PbDiff {
-            prev_pos: None,
-            new_record: Some(new_record),
-            ..
-        } = diff
-        {
-            // After players have set their first record on a map, send them
-            // the sector diff widget.
-            let players_state = self.live_players.lock().await;
-            if let Some(info) = players_state.info(&new_record.player_login) {
-                self.show_sector_diff_for(info).await;
-            }
-        }
     }
 
     /// Add or update widgets that should display server ranks.
@@ -255,28 +241,6 @@ impl WidgetController {
         }
     }
 
-    async fn show_sector_diff_for(&self, player: &PlayerInfo) {
-        let records_state = self.live_records.lock().await;
-
-        let top_1: &RecordDetailed = match &records_state.top_record {
-            Some(rec) => rec,
-            None => return,
-        };
-        let pb: &RecordDetailed = match records_state.pb(player.uid) {
-            Some(rec) => rec,
-            None => return,
-        };
-
-        let widget = SectorDiffWidget {
-            pb_millis: pb.millis as usize,
-            pb_sector_millis: pb.sector_millis(),
-            top1_millis: top_1.millis as usize,
-            top1_sector_millis: top_1.sector_millis(),
-        };
-
-        self.show_for(&widget, player.uid).await;
-    }
-
     async fn show_for<T>(&self, widget: &T, for_uid: i32)
     where
         T: Widget,
@@ -323,20 +287,16 @@ impl WidgetController {
     }
 
     async fn show_race_widgets_for(&self, player: &PlayerInfo) {
-        self.show_sector_diff_for(player).await;
         self.show_curr_rank_for(player).await;
     }
 
     async fn hide_race_widgets_for(&self, for_uid: i32) {
         self.hide_for::<RunOutroWidget>(for_uid).await;
-        self.hide_for::<SectorDiffWidget>(for_uid).await;
         self.hide_for::<LiveRanksWidget>(for_uid).await;
-        self.hide_for::<MenuWidget>(for_uid).await;
     }
 
     async fn hide_race_widgets(&self) {
         self.hide::<RunOutroWidget>().await;
-        self.hide::<SectorDiffWidget>().await;
         self.hide::<LiveRanksWidget>().await;
     }
 
