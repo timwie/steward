@@ -455,21 +455,29 @@ impl WidgetController {
     }
 
     async fn refresh_curr_rank(&self, diff: &PbDiff) {
-        // update ranks for all players with records beneath this rank
-        let max_pos_changed = match diff {
-            PbDiff {
-                new_record: Some(_),
-                new_pos,
-                ..
-            } => new_pos,
-            _ => return,
-        };
+        // Nothing to do if PB not improved
+        if diff.new_record.is_none() {
+            return;
+        }
 
         let players_state = self.live_players.lock().await;
+
+        // Update for record setting player only, if they did not
+        // improve their map rank.
+        if diff.pos_gained == 0 {
+            if let Some(info) = players_state.uid_info(diff.player_uid) {
+                self.show_curr_rank_for(info).await;
+            }
+            return;
+        }
+
+        // Update ranks for all players with records beneath this rank.
+        let max_pos_changed = diff.new_pos;
+
         let records_state = self.live_records.lock().await;
 
         let need_update = records_state.playing_pbs().filter_map(|pb| {
-            if pb.map_rank as usize >= *max_pos_changed {
+            if pb.map_rank as usize >= max_pos_changed {
                 players_state.info(&pb.player_login)
             } else {
                 None

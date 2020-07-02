@@ -456,7 +456,7 @@ impl Queries for PostgresClient {
             INSERT INTO steward.sector
                 (player_login, map_uid, index, cp_millis, cp_speed)
             VALUES
-                ($1, $2, $3, $4, $5, $6)
+                ($1, $2, $3, $4, $5)
             ON CONFLICT (player_login, map_uid, index)
             DO UPDATE SET
                 cp_millis = excluded.cp_millis,

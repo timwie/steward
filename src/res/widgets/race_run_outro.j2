@@ -12,19 +12,3 @@
 </frame>
 
 {% endblock manialink %}
-{# ============================= SCRIPT MAIN ============================= #}
-{% block main %}
-
-ClientUI.ScoreTableVisibility = CUIConfig::EVisibility::ForcedHidden;
-
-{% endblock main %}
-{# ============================= SCRIPT EVENTS ============================= #}
-{% block race_events %}
-
-switch (Event.Type) {
-    case CTmRaceClientEvent::EType::Respawn: {
-        ClientUI.ScoreTableVisibility = CUIConfig::EVisibility::Normal;
-    }
-}
-
-{% endblock race_events %}

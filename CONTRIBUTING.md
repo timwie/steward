@@ -137,10 +137,8 @@ is a bug. The following list contains many of the potential runtime errors when 
 - [ManiaPlanet Mode Scripts]
 - [Manialink Reference]
 - [ManiaScript Reference]
-- [Trackmania Race API for Manialink Scripts]
+- [ManiaScript API for Widgets]
 - [In-game Text Formatting]
-- [Dedimania API]
-- [Dedimania Forum]
 - [ManiaExchange API]
 
 
@@ -155,7 +153,6 @@ is a bug. The following list contains many of the potential runtime errors when 
 | Calls          | Refers to remote procedure calls sent by the controller, executed by the game server. |
 | Command        | Refers to commands written by players in the in-game chat.                            |
 | Config         | • *Server config* refers to the XML config in `/UserData/Config/*.txt`, passed to the `/dedicated_cfg` launcher option. Some options can will be overridden by the controller.<br> • *Controller config* refers to the TOML config listed in the `STEWARD_CONFIG` environment variable. |
-| [Dedimania]    | A popular database for global records.                                                |
 | [Exchange]     | A popular website for sharing maps.                                                   |
 | Intro & Outro  | • Refers to the stages before and after a race, respectively.<br> • During the intro, the server briefly waits for players to load, and the map's MediaTracker intro is shown as a cutscene.<br> • During the outro, the game gives players some time to chat, and to inspect the scores. |
 | Manialink      | In-game "web pages", written in XML with specific tags.                               |
@@ -205,7 +202,6 @@ Remember to...
 [Issue]: https://github.com/timwie/steward/issues/new
 [Pull Request]: https://github.com/timwie/steward/compare
 
-[Dedimania]: http://dedimania.net/tmstats/
 [Exchange]: https://trackmania.exchange/
 
 [rustup]: https://rustup.rs/
@@ -222,8 +218,6 @@ Remember to...
 [ManiaPlanet Mode Scripts]: https://github.com/maniaplanet/game-modes
 [Manialink Reference]: https://doc.maniaplanet.com/manialink/getting-started
 [ManiaScript Reference]: https://doc.maniaplanet.com/maniascript/syntax-basics
-[Trackmania Race API for Manialink Scripts]: https://www.uaseco.org/maniascript/2019-10-10/struct_c_tm_ml_script_ingame.html
+[ManiaScript API for Widgets]: https://maniascript.boss-bravo.fr/class_c_sm_ml_script_ingame.html
 [In-game Text Formatting]: https://doc.maniaplanet.com/client/text-formatting
-[Dedimania API]: http://dedimania.net:8082/Dedimania
-[Dedimania Forum]: http://dedimania.net/SITE/forum/viewforum.php?id=17
 [ManiaExchange API]: https://api.mania-exchange.com/documents/reference

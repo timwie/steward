@@ -85,16 +85,3 @@ G_Top1Millis = {{top1_millis | default(value=0)}};
 UpdateTimes();
 
 {% endblock main %}
-{# ============================= SCRIPT EVENTS ============================= #}
-{% block race_events %}
-
-switch (Event.Type) {
-    case CTmRaceClientEvent::EType::WayPoint: {
-        if (Event.IsEndRace) {
-            OnFinish(Event);
-        }
-    }
-}
-
-{% endblock race_events %}
-

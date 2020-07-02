@@ -180,8 +180,8 @@ pub struct PbDiff {
     /// The player's map rank before this run.
     pub prev_pos: Option<usize>,
 
-    /// The player's map rank after this run, which has improved
-    /// if `new_record` is `Some`, and is equal to `prev_pos` otherwise.
+    /// The player's map rank after this run, which may have improved
+    /// if `new_record` is `Some`.
     pub new_pos: usize,
 
     /// If `prev_pos` is `Some`, this is `prev_pos - new_pos`.
