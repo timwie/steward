@@ -205,7 +205,7 @@ Remember to...
 [Exchange]: https://trackmania.exchange/
 
 [rustup]: https://rustup.rs/
-[Dedicated Server]: http://files.v04.maniaplanet.com/server/TrackmaniaServer_2020-07-01.zip
+[Dedicated Server]: http://files.v04.maniaplanet.com/server/TrackmaniaServer_2020-07-02.zip
 [PostgreSQL server]: https://www.postgresql.org/download/
 
 [Dedicated Server Documentation]: https://doc.maniaplanet.com/dedicated-server/getting-started

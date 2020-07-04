@@ -155,10 +155,9 @@ $ ./steward
 ## Related Projects
 Here are some more "general-purpose" server controllers that are less opinionated,
 and offer a plugin architecture that is arguably easier to extend:
-- [ManiaControl]
 - [PyPlanet]
-- [UASECO]
-- [eXpansion]
+- [EvoSC]
+- [ManiaControl]
 
 ### Acknowledgements
 - [belak/serde-xmlrpc]: This repository was a great reference
@@ -172,9 +171,9 @@ and offer a plugin architecture that is arguably easier to extend:
 Distributed under the MIT License. See `LICENSE` for more information.
 
 
-[Dedicated Server]: http://files.v04.maniaplanet.com/server/TrackmaniaServer_2020-07-01.zip
+[Dedicated Server]: http://files.v04.maniaplanet.com/server/TrackmaniaServer_2020-07-02.zip
 [PostgreSQL server]: https://www.postgresql.org/download/
-[this tutorial]: https://forum.maniaplanet.com/viewtopic.php?p=295335&sid=ecff725fd89d73b95dbb6a67bb781a07#p295335
+[this tutorial]: https://forums.ubisoft.com/showthread.php/2242192-Tutorial-Trackmania-2020-Dedicated-Server
 
 [Issues]: /issues
 
@@ -185,7 +184,6 @@ Distributed under the MIT License. See `LICENSE` for more information.
 
 [ManiaControl]: https://github.com/ManiaControl/ManiaControl
 [PyPlanet]: https://github.com/PyPlanet/PyPlanet
-[eXpansion]: https://github.com/eXpansionPluginPack/eXpansion2
-[UASECO]: https://github.com/undeflabs/UASECO
+[EvoSC]: https://github.com/EvoTM/EvoSC
 
 [belak/serde-xmlrpc]: https://github.com/belak/serde-xmlrpc

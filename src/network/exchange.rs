@@ -74,6 +74,7 @@ pub async fn exchange_id(map_id: &str) -> Result<i32, ExchangeError> {
 }
 
 async fn exchange_metadata(map_id: &str) -> Result<ExchangeMetadata, ExchangeError> {
+    // FIXME new exchange API endpoint
     let info_url = "https://api.mania-exchange.com/tm/maps/".to_string() + map_id;
 
     log::debug!("fetch exchange metadata for map id {}", map_id);
@@ -88,7 +89,7 @@ async fn exchange_metadata(map_id: &str) -> Result<ExchangeMetadata, ExchangeErr
 }
 
 async fn exchange_map_file(map_id: &str) -> Result<Vec<u8>, ExchangeError> {
-    let dl_url = "https://tm.mania-exchange.com/tracks/download/".to_string() + map_id;
+    let dl_url = "https://trackmania.exchange/tracks/download/".to_string() + map_id;
 
     log::debug!("fetch exchange file for map id {}", map_id);
     let data = HTTP_CLIENT
