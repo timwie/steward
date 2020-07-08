@@ -39,9 +39,6 @@ TBD
 - [x] **Server Ranking**
  - Set top records on every map to rise in the server ranking.
  - You will get updates of your progression at the end of every race.
-- [x] **Sector Times**
- - Compare your live & personal best runs to the top record.
- - Find out in which sectors you have to improve.
 - [x] **Playlist**
  - Bring up the list of maps to see all of your record rankings.
 - [x] **Map Preferences**
@@ -171,7 +168,7 @@ and offer a plugin architecture that is arguably easier to extend:
 Distributed under the MIT License. See `LICENSE` for more information.
 
 
-[Dedicated Server]: http://files.v04.maniaplanet.com/server/TrackmaniaServer_2020-07-02.zip
+[Dedicated Server]: http://files.v04.maniaplanet.com/server/TrackmaniaServer_2020-07-07.zip
 [PostgreSQL server]: https://www.postgresql.org/download/
 [this tutorial]: https://forums.ubisoft.com/showthread.php/2242192-Tutorial-Trackmania-2020-Dedicated-Server
 

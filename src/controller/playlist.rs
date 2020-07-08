@@ -13,7 +13,7 @@ use crate::controller::LiveConfig;
 use crate::database::{Database, Map, MapEvidence};
 use crate::event::PlaylistDiff;
 use crate::network::{exchange_map, ExchangeError};
-use crate::server::{GameString, Server};
+use crate::server::Server;
 
 /// Use to lookup the current playlist, and the map that is currently being played.
 #[async_trait]
@@ -233,7 +233,9 @@ impl PlaylistController {
     pub async fn import_map(&self, map_id: &str) -> Result<PlaylistDiff, PlaylistCommandError> {
         let import_map = match exchange_map(map_id).await {
             Ok(import_map) => import_map,
-            Err(ExchangeError::UnknownId) => return Err(PlaylistCommandError::UnknownImportId),
+            Err(ExchangeError::UnknownId) | Err(ExchangeError::NotDownloadable) => {
+                return Err(PlaylistCommandError::UnknownImportId)
+            }
             Err(err) => return Err(PlaylistCommandError::MapImportFailed(Box::new(err))),
         };
 
@@ -250,7 +252,7 @@ impl PlaylistController {
         let maps_dir = self.live_config.maps_dir().await;
         let file_name = format!(
             "{}.{}.Map.gbx",
-            &import_map.metadata.name_plain.trim(),
+            &import_map.metadata.name.plain(),
             &import_map.metadata.uid
         );
 
@@ -276,7 +278,7 @@ impl PlaylistController {
         let db_map = Map {
             uid: import_map.metadata.uid,
             file_name,
-            name: GameString::from(import_map.metadata.name.trim().to_string()),
+            name: import_map.metadata.name,
             author_login: map_info.author_login,
             added_since: Utc::now().naive_utc(),
             author_millis: map_info.author_millis,
