@@ -168,7 +168,7 @@ and offer a plugin architecture that is arguably easier to extend:
 Distributed under the MIT License. See `LICENSE` for more information.
 
 
-[Dedicated Server]: http://files.v04.maniaplanet.com/server/TrackmaniaServer_2020-07-07.zip
+[Dedicated Server]: http://files.v04.maniaplanet.com/server/TrackmaniaServer_Latest.zip
 [PostgreSQL server]: https://www.postgresql.org/download/
 [this tutorial]: https://forums.ubisoft.com/showthread.php/2242192-Tutorial-Trackmania-2020-Dedicated-Server
 

@@ -1,6 +1,7 @@
 use std::convert::TryFrom;
 use std::str::FromStr;
 use std::sync::Arc;
+use std::time::Duration;
 
 use anyhow::Result;
 use async_trait::async_trait;
@@ -13,17 +14,15 @@ use crate::database::structs::*;
 use crate::server::{GameString, PlayerInfo};
 
 /// Connect to the Postgres database and open a connection pool.
-pub async fn db_connect(conn: &str) -> Arc<dyn Queries> {
-    let client = pg_connect(conn).await;
-    Arc::new(client) as Arc<dyn Queries>
+pub async fn db_connect(conn: &str, timeout: Duration) -> Option<Arc<dyn Queries>> {
+    pg_connect(conn, timeout)
+        .await
+        .map(|client| Arc::new(client) as Arc<dyn Queries>)
 }
 
-pub async fn pg_connect(conn: &str) -> PostgresClient {
+pub async fn pg_connect(conn: &str, timeout: Duration) -> Option<PostgresClient> {
     let config = tokio_postgres::config::Config::from_str(&conn)
         .expect("failed to parse postgres connection string");
-
-    log::debug!("using postgres connection config:");
-    log::debug!("{:?}", config);
 
     let pg_mgr = bb8_postgres::PostgresConnectionManager::new(config, tokio_postgres::NoTls);
 
@@ -32,7 +31,16 @@ pub async fn pg_connect(conn: &str) -> PostgresClient {
         .await
         .expect("failed to build database pool");
 
-    PostgresClient(pool)
+    let connect_or_timeout = tokio::time::timeout(timeout, pool.get());
+
+    match connect_or_timeout.await {
+        Ok(conn) => {
+            conn.expect("failed to connect to database");
+        }
+        Err(_) => return None,
+    }
+
+    Some(PostgresClient(pool))
 }
 
 /// A connection pool that maintains a set of open

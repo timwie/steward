@@ -6,12 +6,11 @@ use chrono::Utc;
 use futures::future::join_all;
 use tokio::sync::{RwLock, RwLockReadGuard};
 
-use gbx::PlayerInfo;
-
 use crate::config::{MAX_DISPLAYED_MAP_RANKS, MAX_GHOST_REPLAY_RANK};
 use crate::controller::{LivePlayers, LivePlaylist};
 use crate::database::{Database, Map, Record, RecordDetailed, RecordEvidence, RecordSector};
 use crate::event::{PbDiff, PlayerDiff, PlayerTransition};
+use crate::server::PlayerInfo;
 use crate::server::{CheckpointEvent, Server};
 
 /// Shared component that allows to look up records

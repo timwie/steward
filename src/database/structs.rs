@@ -2,9 +2,8 @@ use chrono::{NaiveDateTime, Utc};
 use postgres_types::{FromSql, ToSql};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 
-use gbx::MapInfo;
-
 use crate::server::GameString;
+use crate::server::MapInfo;
 
 /// Database player that has joined the server at least once.
 #[derive(Debug, PartialEq)]

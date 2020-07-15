@@ -1,11 +1,10 @@
 use futures::future::join_all;
 
-use gbx::PlayerInfo;
-
 use crate::chat::{CommandOutputResponse, CommandResponse};
 use crate::controller::{Controller, PublicConfig};
 use crate::database::Preference;
 use crate::event::ControllerEvent;
+use crate::server::PlayerInfo;
 use crate::widget::Action;
 
 impl Controller {

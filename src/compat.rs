@@ -5,11 +5,10 @@ use std::io::Read;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use gbx::MapInfo;
-
 use crate::config::{Config, BLACKLIST_FILE, MAX_GHOST_REPLAY_RANK, VERSION};
 use crate::database::{Database, Map, MapEvidence};
 use crate::network::exchange_id;
+use crate::server::MapInfo;
 use crate::server::{
     ModeInfo, PlaylistMap, Server, ServerInfo, ServerOptions, SCRIPT_API_VERSION,
     SERVER_API_VERSION,
@@ -115,7 +114,7 @@ fn add_server_option_constraints(options: &mut ServerOptions) {
 /// be good to be aware of them.
 fn check_server_compat(info: ServerInfo) {
     const SERVER_KNOWN_VERSION: &str = "3.3.0";
-    const SERVER_KNOWN_BUILD: &str = "2020-07-01_14_30";
+    const SERVER_KNOWN_BUILD: &str = "2020-07-10_17_00";
 
     assert_eq!(&info.name, "Trackmania");
 

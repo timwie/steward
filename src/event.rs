@@ -1,9 +1,8 @@
 use std::collections::HashMap;
 
-use gbx::CheckpointEvent;
-
 use crate::chat::{AdminCommand, PlayerCommand, SuperAdminCommand};
 use crate::database::{Map, RecordDetailed};
+use crate::server::CheckpointEvent;
 use crate::server::{GameString, PlayerInfo};
 use crate::widget::Action;
 

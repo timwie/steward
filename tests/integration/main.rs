@@ -68,7 +68,7 @@ async fn clean_db() -> Result<Arc<dyn Database>> {
         db
     );
 
-    let client = pg_connect(&pg_conn_str).await;
+    let client = pg_connect(&pg_conn_str, std::time::Duration::from_secs(5)).await;
     let arc = Arc::new(client.clone()) as Arc<dyn Database>;
 
     let conn = client.0.get().await?;

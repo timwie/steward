@@ -1,8 +1,7 @@
 use serde::Deserialize;
 
-use gbx::PlayerAnswer;
-
 use crate::database::PreferenceValue;
+use crate::server::PlayerAnswer;
 
 /// Actions are triggered within widgets via ManiaScript
 /// and allow players to interact with the controller.

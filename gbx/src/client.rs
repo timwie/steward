@@ -416,8 +416,6 @@ impl RpcConnection {
     /// - when the given socket address is invalid
     /// - when failing to clone the TCP stream handle
     pub async fn new(addr: &str) -> Option<RpcConnection> {
-        log::debug!("using XML-RPC address: {}", addr);
-
         let tcp_stream = match tcp_connect(&addr) {
             Ok(stream) => stream,
             Err(err) => {

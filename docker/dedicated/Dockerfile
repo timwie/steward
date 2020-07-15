@@ -3,7 +3,7 @@ FROM debian:buster-slim
 ARG STEWARD_VERSION
 ARG CONFIG_URL=https://github.com/timwie/steward/releases/download/${STEWARD_VERSION}/config.tar.gz
 
-ARG DEDICATED_URL=http://files.v04.maniaplanet.com/server/TrackmaniaServer_2020-07-07.zip
+ARG DEDICATED_URL=http://files.v04.maniaplanet.com/server/TrackmaniaServer_Latest.zip
 
 RUN apt-get update \
     && apt-get -y install unzip wget

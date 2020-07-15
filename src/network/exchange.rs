@@ -1,9 +1,9 @@
+use chrono::NaiveDateTime;
 use serde::Deserialize;
 use thiserror::Error;
 
 use crate::network::HTTP_CLIENT;
-use chrono::NaiveDateTime;
-use gbx::GameString;
+use crate::server::GameString;
 
 /// Possible errors when querying Trackmania Exchange.
 #[derive(Error, Debug)]
@@ -55,6 +55,7 @@ pub struct ExchangeMetadata {
     /// f.e. "2020-07-01T20:19:54.22"
     pub updated_at: NaiveDateTime,
 
+    /// Not sure when maps are not downloadable.
     pub downloadable: bool,
 }
 
