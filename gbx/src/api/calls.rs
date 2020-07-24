@@ -132,21 +132,6 @@ pub trait Calls: Send + Sync {
     ///     SetModeScriptSettings
     async fn set_mode_options(&self, options: &ModeOptions);
 
-    /// Set the `<ui_properties>` of the server. We can hide many overlays
-    /// with ManiaScript, but we need this method for the offset positions
-    /// in particular.
-    ///
-    /// Probably faults on a non-Trackmania game modes.
-    ///
-    /// Faults if the XML document is not valid.
-    ///
-    /// Calls method:
-    ///     Trackmania.UI.SetProperties
-    // Use a raw string, since this is using neither XML-RPC structs,
-    // nor JSON, but some custom XML tags. Not worth the effort
-    // to serialize this from some struct.
-    async fn set_ui_properties(&self, xml: &str);
-
     /// Get the list of connected players.
     ///
     /// Calls method:

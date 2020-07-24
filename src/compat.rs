@@ -125,7 +125,6 @@ fn check_server_compat(info: ServerInfo) {
 }
 
 /// Set & configure the game mode.
-/// Overwrite the default `<ui_properties>`.
 async fn prepare_mode(server: &Arc<dyn Server>) {
     log::debug!("prepare game mode...");
     let _ = check_mode_compat(server.mode().await);
@@ -133,10 +132,6 @@ async fn prepare_mode(server: &Arc<dyn Server>) {
     let mode_options = server.mode_options().await;
     log::info!("using mode options:");
     log::info!("{:#?}", &mode_options);
-
-    // TODO are UiProperties still a thing?
-    let ui_properties_xml = include_str!("res/UiProperties.xml");
-    server.set_ui_properties(&ui_properties_xml).await;
 }
 
 /// Check the server's game mode, and return `True` if it is compatible

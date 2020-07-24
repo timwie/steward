@@ -96,11 +96,6 @@ impl Calls for RpcClient {
             .await;
     }
 
-    async fn set_ui_properties(&self, xml: &str) {
-        self.call_script("Trackmania.UI.SetProperties", args!(escape_xml(xml)))
-            .await;
-    }
-
     async fn players(&self) -> Vec<PlayerInfo> {
         self.call_method_unwrap(
             "GetPlayerList",
