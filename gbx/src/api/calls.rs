@@ -279,18 +279,6 @@ pub trait Calls: Send + Sync {
     ///     SendDisplayManialinkPageToId
     async fn send_manialink_to(&self, ml: &str, player_uid: i32) -> Result<()>;
 
-    /// Fetch the validation replay of the player's best run on the current map.
-    ///
-    /// Calls method:
-    ///     GetValidationReplay
-    async fn validation_replay(&self, player_login: &str) -> Result<Vec<u8>>;
-
-    /// Fetch the ghost replay of the player's best run on the current map.
-    ///
-    /// Calls method:
-    ///     SaveBestGhostsReplay
-    async fn ghost_replay(&self, player_login: &str) -> Result<std::io::Result<Vec<u8>>>;
-
     /// Moves a player to spectator, and removes their player slot,
     /// effectively making place for another player.
     ///

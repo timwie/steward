@@ -5,7 +5,7 @@ use std::io::Read;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use crate::config::{Config, BLACKLIST_FILE, MAX_GHOST_REPLAY_RANK, VERSION};
+use crate::config::{Config, BLACKLIST_FILE, VERSION};
 use crate::database::{Database, Map, MapEvidence};
 use crate::network::exchange_id;
 use crate::server::MapInfo;
@@ -167,18 +167,8 @@ fn check_mode_compat(info: ModeInfo) -> bool {
 }
 
 /// If needed, migrate the database to a newer version.
-/// Clears outdated ghost replays to reduce size.
 async fn prepare_db(db: &Arc<dyn Database>) {
     db.migrate().await.expect("failed to migrate database");
-
-    // Maintenance: remove outdated ghost replays.
-    let nb_removed_ghosts = db
-        .delete_old_ghosts(MAX_GHOST_REPLAY_RANK as i64)
-        .await
-        .expect("failed to clean up ghost replays");
-    if nb_removed_ghosts > 0 {
-        log::info!("removed {} old ghost replays", nb_removed_ghosts);
-    }
 }
 
 /// When starting a server, there are three sources for a map list:

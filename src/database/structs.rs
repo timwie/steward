@@ -103,36 +103,18 @@ pub enum PreferenceValue {
     Remove = 3,
 }
 
-/// Complete record variant, that includes replay data as "evidence".
-/// Should only be used to store data, or when exporting it.
+/// Record data used when inserting into the database.
+#[derive(Debug)]
 pub struct RecordEvidence {
     pub player_login: String,
     pub map_uid: String,
     pub millis: i32,
     pub timestamp: NaiveDateTime,
     pub sectors: Vec<RecordSector>,
-
-    /// Validation replay file data.
-    pub validation: Vec<u8>,
-
-    /// Ghost replay file data.
-    pub ghost: Option<Vec<u8>>,
-}
-
-impl std::fmt::Debug for RecordEvidence {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("RecordEvidence")
-            .field("player_login", &self.player_login)
-            .field("map_uid", &self.map_uid)
-            .field("millis", &self.millis)
-            .field("timestamp", &self.timestamp)
-            .field("sectors", &self.sectors)
-            .finish()
-    }
 }
 
 /// Detailed checkpoint data recorded at the end of a sector.
-#[derive(Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct RecordSector {
     /// First sector has index 0, and so on.
     pub index: i32,
@@ -147,7 +129,10 @@ pub struct RecordSector {
 /// Detailed record data, that is only missing speed & distance
 /// for each checkpoint.
 #[derive(Clone, Debug, PartialEq)]
-pub struct RecordDetailed {
+pub struct Record {
+    /// The UID of the map this record was set on.
+    pub map_uid: String,
+
     /// The player's map rank, which is the rank of this record
     /// in the ranking of all records on this map.
     pub map_rank: i64,
@@ -164,42 +149,8 @@ pub struct RecordDetailed {
     /// The moment this record was set.
     pub timestamp: NaiveDateTime,
 
-    /// The milliseconds at the time of passing each checkpoint -
-    /// the finish line being the last.
-    pub cp_millis: Vec<i32>,
-}
-
-impl RecordDetailed {
-    #[allow(dead_code)]
-    pub fn sector_millis(&self) -> Vec<usize> {
-        let mut sector_times = Vec::with_capacity(self.cp_millis.len());
-        let mut offset_millis: usize = 0;
-        for millis in self.cp_millis.iter() {
-            sector_times.push(*millis as usize - offset_millis);
-            offset_millis = *millis as usize;
-        }
-        sector_times
-    }
-}
-
-/// Record variant without rank & sector data.
-#[derive(Debug)]
-pub struct Record {
-    pub player_login: String,
-    pub player_nick_name: GameString,
-    pub millis: i32,
-    pub timestamp: NaiveDateTime,
-}
-
-impl From<RecordDetailed> for Record {
-    fn from(rec: RecordDetailed) -> Self {
-        Record {
-            player_login: rec.player_login,
-            player_nick_name: rec.player_nick_name,
-            millis: rec.millis,
-            timestamp: rec.timestamp,
-        }
-    }
+    /// Checkpoint data.
+    pub sectors: Vec<RecordSector>,
 }
 
 /// A rank of a player's record on a specific map.

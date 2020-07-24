@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::chat::{AdminCommand, PlayerCommand, SuperAdminCommand};
-use crate::database::{Map, RecordDetailed};
+use crate::database::{Map, Record};
 use crate::server::CheckpointEvent;
 use crate::server::{GameString, PlayerInfo};
 use crate::widget::Action;
@@ -188,7 +188,7 @@ pub struct PbDiff {
     pub pos_gained: usize,
 
     /// `Some` if the player improved their personal best.
-    pub new_record: Option<RecordDetailed>,
+    pub new_record: Option<Record>,
 }
 
 /// A command with its sender, who was confirmed to have the necessary permission.

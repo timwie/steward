@@ -36,9 +36,6 @@ pub const CDN_PREFIX: &str = concat!(
 /// for older versions.
 pub const CDN_PREFIX_MASTER: &str = "https://cdn.jsdelivr.net/gh/timwie/steward@master/src/res/img";
 
-/// The number of top records for which ghost replays are stored.
-pub const MAX_GHOST_REPLAY_RANK: usize = 3;
-
 /// The time (in percentage of the total outro duration) during which players
 /// can still vote for a restart after the race ends. The next map will be
 /// decided after this duration.

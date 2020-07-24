@@ -19,6 +19,7 @@ This is the first version for the new Trackmania.
 - Clear your database with `DROP SCHEMA steward CASCADE`.
 
 ### Removed
+- Replays can no longer be stored in the database.
 - **Widget**: Sector times have been removed, since you can race ghosts online
   as well now.
 

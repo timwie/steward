@@ -6,10 +6,6 @@
 -- We put up with that, because it simplifies record queries, and because it is an
 -- unlikely mistake, since that data is produced by the game itself.
 
--- Validation & ghost replays are stored in the 'record' table, one of the reasons being
--- that Dedimania requires validation replays for all records, and ghost replays
--- for top 1 records. GRs are great because you can actually watch and play against a run.
-
 CREATE TABLE steward.player (
     login     TEXT,
     nick_name TEXT    NOT NULL,
@@ -62,8 +58,6 @@ CREATE TABLE steward.record (
     player_login  TEXT,
     map_uid       TEXT,
     millis        INTEGER   NOT NULL,
-    validation    BYTEA     NOT NULL, -- validation replays (~5 - 50 KB)
-    ghost         BYTEA,              -- ghost replays (~250 KB - 2 MB)
     timestamp     TIMESTAMP NOT NULL,
 
     PRIMARY KEY (player_login, map_uid),
