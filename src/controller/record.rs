@@ -276,6 +276,11 @@ impl RecordController {
     /// and if it is a top n record, that cached list will also be
     /// updated.
     pub async fn end_run(&self, finish_ev: &CheckpointEvent) -> Option<PbDiff> {
+        // TODO cannot produce validation/ghost replays in TMNext
+        //  => Fault { code: -1000, msg: "Not in race." }
+        //  => does not work with login, nickname, accountid
+        //  => remove related functionality if this won't come back
+
         assert!(finish_ev.is_finish);
 
         let player = match self.live_players.info(&finish_ev.player_login).await {
@@ -311,7 +316,7 @@ impl RecordController {
             Ok(data) => data,
             Err(fault) => {
                 log::error!("cannot get validation replay: {:?}", fault);
-                return None;
+                Vec::new()
             }
         };
 

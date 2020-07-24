@@ -43,7 +43,7 @@ Void OhNo() {
 {# ============================= SCRIPT MAIN ============================= #}
 {% block main %}
 
-declare Integer P_ToggleMenuState for LocalUser;
+declare Integer P_ToggleMenuState for This;
 
 UI_Frame = (Page.GetFirstChild("server-ranking") as CMlFrame);
 

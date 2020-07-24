@@ -114,7 +114,7 @@ fn add_server_option_constraints(options: &mut ServerOptions) {
 /// be good to be aware of them.
 fn check_server_compat(info: ServerInfo) {
     const SERVER_KNOWN_VERSION: &str = "3.3.0";
-    const SERVER_KNOWN_BUILD: &str = "2020-07-10_17_00";
+    const SERVER_KNOWN_BUILD: &str = "2020-07-17_15_09";
 
     assert_eq!(&info.name, "Trackmania");
 

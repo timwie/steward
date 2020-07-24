@@ -25,7 +25,7 @@ pub enum AdminCommand<'a> {
 
     /// Add the map with the given UID to the playlist.
     ///
-    /// Usage: `/playlistadd <uid>`
+    /// Usage: `/playlist add <uid>`
     PlaylistAdd { uid: &'a str },
 
     /// Remove the map with the given UID from the playlist.

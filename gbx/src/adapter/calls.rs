@@ -356,7 +356,7 @@ impl RpcClient {
     async fn call_method_unit(&self, method_name: &str, args: Vec<Value>) -> Result<()> {
         self.call_method::<bool>(method_name, args)
             .await
-            .and_then(|_| Ok(()))
+            .map(|_| ())
     }
 
     /// Call an XML-RPC method, and do not expect any faults.
