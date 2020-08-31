@@ -5,10 +5,13 @@ use std::io::Read;
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use chrono::Utc;
+
+use gbx::file::parse_map_file;
+
 use crate::config::{Config, BLACKLIST_FILE, VERSION};
 use crate::database::{Database, Map, MapEvidence};
 use crate::network::exchange_id;
-use crate::server::MapInfo;
 use crate::server::{
     ModeInfo, PlaylistMap, Server, ServerInfo, ServerOptions, SCRIPT_API_VERSION,
     SERVER_API_VERSION,
@@ -114,7 +117,7 @@ fn add_server_option_constraints(options: &mut ServerOptions) {
 /// be good to be aware of them.
 fn check_server_compat(info: ServerInfo) {
     const SERVER_KNOWN_VERSION: &str = "3.3.0";
-    const SERVER_KNOWN_BUILD: &str = "2020-07-17_15_09";
+    const SERVER_KNOWN_BUILD: &str = "2020-07-20_12_19";
 
     assert_eq!(&info.name, "Trackmania");
 
@@ -255,24 +258,35 @@ async fn fs_maps_to_db(server: &Arc<dyn Server>, db: &Arc<dyn Database>) {
             continue;
         }
 
-        let map_info = server
-            .map(&server_map.file_name)
-            .await
-            .expect("failed to fetch map info");
+        let header = parse_map_file(&map_file).expect("failed to read map header");
+
+        let map = Map {
+            uid: header.uid,
+            file_name: server_map.file_name,
+            name: header.name,
+            author_login: header.author_login,
+            author_nick_name: header.author_nick,
+            added_since: Utc::now().naive_utc(),
+            author_millis: header.millis_author,
+            in_playlist: true,
+            exchange_id: None,
+        };
 
         let map_data = read_to_bytes(&map_file).expect("failed to read map file");
-        fs_map_to_db(map_info, map_data, &db).await;
+
+        fs_map_to_db(map, map_data, &db).await;
     }
 }
 
-async fn fs_map_to_db(map_info: MapInfo, map_data: Vec<u8>, db: &Arc<dyn Database>) {
-    let maybe_db_map = db.map(&map_info.uid).await.expect("failed to load map");
-
-    let is_new_map = maybe_db_map.is_none();
+async fn fs_map_to_db(fs_map: Map, fs_map_data: Vec<u8>, db: &Arc<dyn Database>) {
+    let maybe_db_map = db.map(&fs_map.uid).await.expect("failed to load map");
 
     let mut new_db_map = match maybe_db_map {
-        None => Map::from(map_info),
-        Some(map) => map,
+        Some(db_map) => db_map,
+        None => {
+            log::info!("found new map: {:#?}", &fs_map);
+            fs_map
+        }
     };
 
     // Try to find exchange ID
@@ -284,16 +298,12 @@ async fn fs_map_to_db(map_info: MapInfo, map_data: Vec<u8>, db: &Arc<dyn Databas
 
     let evidence = MapEvidence {
         metadata: new_db_map,
-        data: map_data,
+        data: fs_map_data,
     };
 
     db.upsert_map(&evidence)
         .await
         .expect("failed to upsert map");
-
-    if is_new_map {
-        log::info!("found new map: {:#?}", &evidence.metadata);
-    }
 }
 
 /// Add every map in the database to the file system, in case

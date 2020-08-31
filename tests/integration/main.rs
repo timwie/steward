@@ -563,6 +563,7 @@ fn map_evidence(uid: &str, file_name: &str) -> MapEvidence {
             file_name: file_name.to_string(),
             name: GameString::from("".to_string()),
             author_login: "".to_string(),
+            author_nick_name: GameString::from("".to_string()),
             author_millis: 0,
             added_since: now(),
             in_playlist: true,

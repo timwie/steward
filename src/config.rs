@@ -23,18 +23,22 @@ pub const USER_AGENT: &str = concat!(
 /// to be hosted somewhere. Using jsDelivr, we can serve files from the GitHub
 /// repository via their CDN.
 ///
+/// The master branch is used during development, while the files at the specific version tag
+/// are used in production.
+///
 /// Reference: https://www.jsdelivr.com/features#gh
 // use @<branch>, @<tag>, or @latest (most recent tag)
-pub const CDN_PREFIX: &str = concat!(
-    "https://cdn.jsdelivr.net/gh/timwie/steward@v",
-    env!("CARGO_PKG_VERSION"),
-    "/src/res/img"
-);
-
-/// Same as `CDN_PREFIX`, but using images from the master branch.
-/// Useful for development, but not for production, since images might disappear
-/// for older versions.
-pub const CDN_PREFIX_MASTER: &str = "https://cdn.jsdelivr.net/gh/timwie/steward@master/src/res/img";
+pub const fn cdn_prefix() -> &'static str {
+    if cfg!(debug_assertions) {
+        "https://cdn.jsdelivr.net/gh/timwie/steward@master/src/res/img"
+    } else {
+        concat!(
+            "https://cdn.jsdelivr.net/gh/timwie/steward@v",
+            env!("CARGO_PKG_VERSION"),
+            "/src/res/img"
+        )
+    }
+}
 
 /// The time (in percentage of the total outro duration) during which players
 /// can still vote for a restart after the race ends. The next map will be

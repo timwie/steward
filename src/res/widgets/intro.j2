@@ -26,7 +26,7 @@
 
     {% set y = y - 5 %}
     <label pos="{{padding/2}} {{y}}" size="{{width - padding}}" textfont="BiryaniDemiBold" textsize="2"
-           textcolor="{{col_white}}" text="$sby {{ map_author_nick_name | default(value=map_author_login) }}"/>
+           textcolor="{{col_white}}" text="$sby {{ map_author_nick_name }}"/>
 
     {% if player_preference == PREF_AUTOPICK %}
         {% set msg = "This map was picked for you." %}

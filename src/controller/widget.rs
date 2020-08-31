@@ -335,7 +335,8 @@ impl WidgetController {
             .player(&map.author_login)
             .await
             .expect("failed to load player")
-            .map(|p| p.nick_name);
+            .map(|p| p.nick_name)
+            .unwrap_or_else(|| map.author_nick_name.clone());
 
         let records_state = self.live_records.lock().await;
         let preferences_state = self.live_prefs.lock().await;
@@ -355,11 +356,7 @@ impl WidgetController {
         for id in id_playing {
             let widget = IntroWidget {
                 map_name: &map.name.formatted,
-                map_author_login: &map.author_login,
-                map_author_nick_name: match &author_nick_name {
-                    Some(str) => Some(&str.formatted),
-                    None => None,
-                },
+                map_author_nick_name: &author_nick_name.formatted,
                 player_map_rank: records_state.pb(id).map(|rec| rec.map_rank as usize),
                 max_map_rank: records_state.nb_records,
                 player_preference: preferences_state.pref(id, &map.uid),

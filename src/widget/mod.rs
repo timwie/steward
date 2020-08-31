@@ -15,7 +15,7 @@ pub use popup::*;
 pub use race_live_ranks::*;
 pub use race_run_outro::*;
 
-use crate::config::{CDN_PREFIX, CDN_PREFIX_MASTER};
+use crate::config::cdn_prefix;
 
 mod action;
 mod intro;
@@ -68,14 +68,7 @@ where
 
     fn extend_ctxt(ctxt: &mut tera::Context) {
         ctxt.insert("widget_id", Self::ID);
-        ctxt.insert(
-            "cdn",
-            if cfg!(debug_assertions) {
-                CDN_PREFIX_MASTER
-            } else {
-                CDN_PREFIX
-            },
-        );
+        ctxt.insert("cdn", &cdn_prefix());
     }
 }
 

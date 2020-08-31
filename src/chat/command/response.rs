@@ -237,8 +237,8 @@ impl Display for CommandResponse<'_> {
                 for map in maps.iter().filter(|map| map.in_playlist) {
                     writeln!(
                         f,
-                        "{} | {} | {}",
-                        fill(&map.name.plain(), 30),
+                        "{} | {} | https://trackmania.exchange/maps/{}",
+                        fill(&map.name.plain(), 20),
                         &map.uid,
                         map.exchange_id.map(|id| id.to_string()).unwrap_or_default()
                     )?;
@@ -249,8 +249,8 @@ impl Display for CommandResponse<'_> {
                 for map in maps.iter().filter(|map| !map.in_playlist) {
                     writeln!(
                         f,
-                        "{} | {} | {}",
-                        fill(&map.name.plain(), 30),
+                        "{} | {} | https://trackmania.exchange/maps/{}",
+                        fill(&map.name.plain(), 20),
                         &map.uid,
                         map.exchange_id.map(|id| id.to_string()).unwrap_or_default()
                     )?;

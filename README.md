@@ -121,7 +121,8 @@ $ ./steward
 ```
 
 #### Admin Commands
-- Make sure you add your own login to the `super_admin_whitelist` in the controller config.
+- Use the `/players` command to find your login, and make sure to add it to
+  the `super_admin_whitelist` in the controller config.
 - List available commands by typing `/help` into the chat in-game.
 
 #### Supervision

@@ -18,6 +18,11 @@ This is the first version for the new Trackmania.
 - Get the new [default config](https://github.com/timwie/steward/blob/v0.1.0-alpha5/config/).
 - Clear your database with `DROP SCHEMA steward CASCADE`.
 
+### Changed
+- Display map author nick names instead of unreadable logins.
+  Since we use the nick name stored in the map file, it will be out of date once
+  the author changes their nick name.
+
 ### Removed
 - Replays can no longer be stored in the database.
 - **Widget**: Sector times have been removed, since you can race ghosts online

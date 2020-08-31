@@ -39,7 +39,7 @@ tokio-postgres = { version = "0.5", features = ["with-chrono-0_4"] }
 toml = "0.5"
 
 [dev-dependencies]
-testcontainers = "0.9"
+testcontainers = "0.10"
 
 [features]
 # The reason we do this is because integration tests don't get cfg(test)

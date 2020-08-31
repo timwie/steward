@@ -147,8 +147,8 @@ impl Display for ServerMessage<'_> {
 
             NewMap { name, author } => write!(
                 f,
-                "A new map was added: {}{}{} by {}",
-                name, RESET, NOTICE, author
+                "A new map was added: {}{}{}{} by {}{}{}",
+                RESET, name, RESET, NOTICE, RESET, author, RESET
             ),
 
             AddedMap { name } => write!(
@@ -165,8 +165,8 @@ impl Display for ServerMessage<'_> {
 
             NextMap { name, author } => write!(
                 f,
-                "Next map will be {}{}{} by {}",
-                name, RESET, NOTICE, author
+                "Next map will be {}{}{}{} by {}{}{}",
+                RESET, name, RESET, NOTICE, RESET, author, RESET
             ),
 
             VoteNow { threshold, .. } if *threshold > 1f32 => {

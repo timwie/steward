@@ -1,29 +1,43 @@
 {% extends "base_dynamic.j2" %}
 
+{# ============================= VARIABLES ============================= #}
+{% block vars %}
+    {{ super() }}
+    {% set textsize_big = "4" %}
+    {% set textsize_small = "0.5" %}
+
+{% endblock vars %}
 {# ============================= MANIALINK ============================= #}
 {% block manialink %}
 {{ super() }}
 
-<frame pos="157 20">
+<quad pos="160 -7.5" valign="bottom" halign="right" size="34 14" bgcolor="000" opacity="0.7" z-index="-100"/>
+<label halign="right" textfont="RajdhaniMono" textcolor="{{col_white}}" textemboss="1" pos="157 -4" text="Timelimit" textsize="{{textsize_small}}"/>
+
+<quad pos="160 -7.5" halign="right" size="36 12" bgcolor="000"/>
+
+<quad pos="160 -19.5" halign="right" size="34 44" bgcolor="000" opacity="0.7" z-index="-100"/>
+
+<frame pos="157 -22">
     {% set y = 0 %}
-    <label id="top1"     halign="right" textfont="RajdhaniMono" textcolor="{{col_white}}" textemboss="1" pos="0 {{y}}"/>
-    {% set y = y - 4.5 %}
-    <label               halign="right" textfont="RajdhaniMono" textcolor="{{col_white}}" textemboss="1" pos="0 {{y}}" text="Top Record" textsize="1"/>
+    <label id="top1"     halign="right" textfont="RajdhaniMono" textcolor="{{col_white}}" textemboss="1" pos="0 {{y}}" textsize="{{textsize_big}}"/>
+    {% set y = y - 5 %}
+    <label               halign="right" textfont="RajdhaniMono" textcolor="{{col_white}}" textemboss="1" pos="0 {{y}}" text="Top Record" textsize="{{textsize_small}}"/>
 
     {% set y = y - 5 %}
-    <label id="pb"       halign="right" textfont="RajdhaniMono" textcolor="{{col_white}}" textemboss="1" pos="0 {{y}}"/>
-    {% set y = y - 4.5 %}
-    <label               halign="right" textfont="RajdhaniMono" textcolor="{{col_white}}" textemboss="1" pos="0 {{y}}" text="Personal Best" textsize="1"/>
+    <label id="pb"       halign="right" textfont="RajdhaniMono" textcolor="{{col_white}}" textemboss="1" pos="0 {{y}}" textsize="{{textsize_big}}"/>
+    {% set y = y - 5 %}
+    <label               halign="right" textfont="RajdhaniMono" textcolor="{{col_white}}" textemboss="1" pos="0 {{y}}" text="Personal Best" textsize="{{textsize_small}}"/>
 
     {% set y = y - 5 %}
-    <label id="map-rank" halign="right" textfont="RajdhaniMono" textcolor="{{col_white}}" textemboss="1" pos="0 {{y}}" text="{{map_rank | default(value='-')}} / {{max_map_rank}}"/>
-    {% set y = y - 4.5 %}
-    <label               halign="right" textfont="RajdhaniMono" textcolor="{{col_white}}" textemboss="1" pos="0 {{y}}" text="Map Record" textsize="1"/>
+    <label id="map-rank" halign="right" textfont="RajdhaniMono" textcolor="{{col_white}}" textemboss="1" pos="0 {{y}}" text="{{map_rank | default(value='-')}} / {{max_map_rank}}" textsize="{{textsize_big}}"/>
+    {% set y = y - 5 %}
+    <label               halign="right" textfont="RajdhaniMono" textcolor="{{col_white}}" textemboss="1" pos="0 {{y}}" text="Map Record" textsize="{{textsize_small}}"/>
 
     {% set y = y - 5 %}
-    <label               halign="right" textfont="RajdhaniMono" textcolor="{{col_white}}" textemboss="1"  pos="0 {{y}}" text="{{server_rank | default(value='-')}} / {{max_server_rank}}"/>
-    {% set y = y - 4.5 %}
-    <label               halign="right" textfont="RajdhaniMono" textcolor="{{col_white}}" textemboss="1" pos="0 {{y}}" text="Server Rank" textsize="1"/>
+    <label               halign="right" textfont="RajdhaniMono" textcolor="{{col_white}}" textemboss="1"  pos="0 {{y}}" text="{{server_rank | default(value='-')}} / {{max_server_rank}}" textsize="{{textsize_big}}"/>
+    {% set y = y - 5 %}
+    <label               halign="right" textfont="RajdhaniMono" textcolor="{{col_white}}" textemboss="1" pos="0 {{y}}" text="Server Rank" textsize="{{textsize_small}}"/>
 
 </frame>
 

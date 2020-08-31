@@ -1,9 +1,8 @@
-use chrono::{NaiveDateTime, Utc};
+use chrono::NaiveDateTime;
 use postgres_types::{FromSql, ToSql};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 
 use crate::server::GameString;
-use crate::server::MapInfo;
 
 /// Database player that has joined the server at least once.
 #[derive(Debug, PartialEq)]
@@ -44,6 +43,12 @@ pub struct Map {
     /// The map author's login.
     pub author_login: String,
 
+    /// The map author's nick name.
+    ///
+    /// Since TMNext this is the UPlay username, but formatted nick names might be possible
+    /// again at some point.
+    pub author_nick_name: GameString,
+
     /// The "author time" in milliseconds. This is the time the map
     /// was validated with in the map editor.
     pub author_millis: i32,
@@ -56,21 +61,6 @@ pub struct Map {
 
     /// This map's ID on Trackmania Exchange, or `None` if it is unknown.
     pub exchange_id: Option<i32>,
-}
-
-impl From<MapInfo> for Map {
-    fn from(info: MapInfo) -> Self {
-        Map {
-            uid: info.uid,
-            file_name: info.file_name,
-            name: info.name,
-            author_login: info.author_login,
-            added_since: Utc::now().naive_utc(),
-            author_millis: info.author_millis,
-            in_playlist: true,
-            exchange_id: None,
-        }
-    }
 }
 
 /// Database map, including its file data.
