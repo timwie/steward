@@ -1,6 +1,7 @@
 use std::convert::TryFrom;
 use std::str::FromStr;
 use std::sync::Arc;
+use std::time::Duration;
 
 use anyhow::Result;
 use async_trait::async_trait;
@@ -13,17 +14,15 @@ use crate::database::structs::*;
 use crate::server::{GameString, PlayerInfo};
 
 /// Connect to the Postgres database and open a connection pool.
-pub async fn db_connect(conn: &str) -> Arc<dyn Queries> {
-    let client = pg_connect(conn).await;
-    Arc::new(client) as Arc<dyn Queries>
+pub async fn db_connect(conn: &str, timeout: Duration) -> Option<Arc<dyn Queries>> {
+    pg_connect(conn, timeout)
+        .await
+        .map(|client| Arc::new(client) as Arc<dyn Queries>)
 }
 
-pub async fn pg_connect(conn: &str) -> PostgresClient {
+pub async fn pg_connect(conn: &str, timeout: Duration) -> Option<PostgresClient> {
     let config = tokio_postgres::config::Config::from_str(&conn)
         .expect("failed to parse postgres connection string");
-
-    log::debug!("using postgres connection config:");
-    log::debug!("{:?}", config);
 
     let pg_mgr = bb8_postgres::PostgresConnectionManager::new(config, tokio_postgres::NoTls);
 
@@ -32,7 +31,16 @@ pub async fn pg_connect(conn: &str) -> PostgresClient {
         .await
         .expect("failed to build database pool");
 
-    PostgresClient(pool)
+    let connect_or_timeout = tokio::time::timeout(timeout, pool.get());
+
+    match connect_or_timeout.await {
+        Ok(conn) => {
+            conn.expect("failed to connect to database");
+        }
+        Err(_) => return None,
+    }
+
+    Some(PostgresClient(pool))
 }
 
 /// A connection pool that maintains a set of open
@@ -51,7 +59,7 @@ impl PostgresClient {
             UPDATE steward.map
             SET in_playlist = $2
             WHERE uid = $1
-            RETURNING uid, file_name, name, author_login, added_since, in_playlist, exchange_id
+            RETURNING uid, file_name, name, author_login, author_nick_name, added_since, in_playlist, exchange_id
         "#;
         let row = conn.query_opt(stmt, &[&map_uid, &in_playlist]).await?;
         Ok(row.map(Map::from))
@@ -188,7 +196,7 @@ impl Queries for PostgresClient {
     async fn maps(&self) -> Result<Vec<Map>> {
         let conn = self.0.get().await?;
         let stmt = r#"
-            SELECT uid, file_name, name, author_login, author_millis, added_since, in_playlist, exchange_id
+            SELECT uid, file_name, name, author_login, author_nick_name, author_millis, added_since, in_playlist, exchange_id
             FROM steward.map
         "#;
         let rows = conn.query(stmt, &[]).await?;
@@ -199,7 +207,7 @@ impl Queries for PostgresClient {
     async fn playlist(&self) -> Result<Vec<Map>> {
         let conn = self.0.get().await?;
         let stmt = r#"
-            SELECT uid, file_name, name, author_login, author_millis, added_since, in_playlist, exchange_id
+            SELECT uid, file_name, name, author_login, author_nick_name, author_millis, added_since, in_playlist, exchange_id
             FROM steward.map
             WHERE in_playlist
         "#;
@@ -211,7 +219,7 @@ impl Queries for PostgresClient {
     async fn map(&self, map_uid: &str) -> Result<Option<Map>> {
         let conn = self.0.get().await?;
         let stmt = r#"
-            SELECT uid, file_name, name, author_login, author_millis, added_since, in_playlist, exchange_id
+            SELECT uid, file_name, name, author_login, author_nick_name, author_millis, added_since, in_playlist, exchange_id
             FROM steward.map
             WHERE uid = $1
         "#;
@@ -224,12 +232,14 @@ impl Queries for PostgresClient {
         let stmt = r#"
             INSERT INTO steward.map
                 (uid, file_name, file,
-                 name, author_login, author_millis,
-                 added_since, in_playlist, exchange_id)
+                 name, author_login, author_nick_name,
+                 author_millis, added_since, in_playlist,
+                 exchange_id)
             VALUES
                 ($1, $2, $3,
                  $4, $5, $6,
-                 $7, $8, $9)
+                 $7, $8, $9,
+                 $10)
             ON CONFLICT (uid)
             DO UPDATE SET
                 file_name = excluded.file_name,
@@ -244,6 +254,7 @@ impl Queries for PostgresClient {
                     &map.data,
                     &map.metadata.name.formatted.trim(),
                     &map.metadata.author_login,
+                    &map.metadata.author_nick_name.formatted.trim(),
                     &map.metadata.author_millis,
                     &map.metadata.added_since,
                     &map.metadata.in_playlist,
@@ -273,68 +284,18 @@ impl Queries for PostgresClient {
         Ok(row.get(0))
     }
 
-    async fn top_record(&self, map_uid: &str) -> Result<Option<RecordDetailed>> {
-        let conn = self.0.get().await?;
-        let stmt = r#"
-            SELECT p.login, p.nick_name, r.millis, r.timestamp, s.cp_millis
-            FROM (
-                SELECT player_login, millis, timestamp
-                FROM steward.record
-                WHERE map_uid = $1
-                ORDER BY millis ASC
-                LIMIT 1
-            ) r
-            RIGHT JOIN steward.sector s ON r.player_login = s.player_login
-            LEFT JOIN steward.player p ON r.player_login = p.login
-            WHERE r.player_login IS NOT NULL AND s.map_uid = $1
-            ORDER BY s.index ASC
-        "#;
-        let rows = conn.query(stmt, &[&map_uid]).await?;
-        Ok(rows.first().map(|row| RecordDetailed {
-            map_rank: 1,
-            player_login: row.get("login"),
-            player_nick_name: GameString::from(row.get("nick_name")),
-            timestamp: row.get("timestamp"),
-            millis: row.get("millis"),
-            cp_millis: rows.iter().map(|row| row.get("cp_millis")).collect(),
-        }))
-    }
-
-    async fn top_records(&self, map_uid: &str, limit: i64) -> Result<Vec<Record>> {
-        let conn = self.0.get().await?;
-        let stmt = r#"
-            SELECT p.login, p.nick_name, r.timestamp, r.millis
-            FROM steward.record r
-            LEFT JOIN steward.player p
-            ON r.player_login = p.login
-            WHERE map_uid = $1
-            ORDER BY r.millis ASC
-            LIMIT $2
-        "#;
-        let rows = conn.query(stmt, &[&map_uid, &limit]).await?;
-
-        Ok(rows
-            .iter()
-            .map(|row| Record {
-                player_login: row.get("login"),
-                player_nick_name: GameString::from(row.get("nick_name")),
-                timestamp: row.get("timestamp"),
-                millis: row.get("millis"),
-            })
-            .collect())
-    }
-
-    async fn player_records(
+    async fn records(
         &self,
-        map_uid: &str,
+        map_uids: Vec<&str>,
         player_logins: Vec<&str>,
-    ) -> Result<Vec<RecordDetailed>> {
+        limit_per_map: Option<i64>,
+    ) -> Result<Vec<Record>> {
         let conn = self.0.get().await?;
         let stmt = r#"
             SELECT
-                r.pos, r.millis, r.timestamp,
+                r.map_uid, r.pos, r.millis, r.timestamp,
                 p.login, p.nick_name,
-                s.cp_millis
+                s.cp_millis, s.cp_speed
             FROM (
                 SELECT
                    map_uid,
@@ -345,31 +306,51 @@ impl Queries for PostgresClient {
                       ORDER BY millis ASC
                    ) pos
                 FROM steward.record
-                WHERE map_uid = $1
+                WHERE CARDINALITY($1::text[]) = 0 OR map_uid = ANY($1::text[])
+                LIMIT $3
             ) r
             NATURAL JOIN (
                 SELECT
                     map_uid,
                     player_login,
-                    ARRAY_AGG(cp_millis ORDER BY index ASC) cp_millis
+                    ARRAY_AGG(cp_millis ORDER BY index ASC) cp_millis,
+                    ARRAY_AGG(cp_speed ORDER BY index ASC) cp_speed
                 FROM steward.sector
-                WHERE map_uid = $1 AND player_login = ANY($2)
+                WHERE CARDINALITY($2::text[]) = 0 OR player_login = ANY($2::text[])
                 GROUP BY map_uid, player_login
             ) s
             INNER JOIN steward.player p ON r.player_login = p.login
         "#;
-        let rows = conn.query(stmt, &[&map_uid, &player_logins]).await?;
-        Ok(rows
+        let rows = conn
+            .query(stmt, &[&map_uids, &player_logins, &limit_per_map])
+            .await?;
+        let records = rows
             .into_iter()
-            .map(|row| RecordDetailed {
-                map_rank: row.get("pos"),
-                player_login: row.get("login"),
-                player_nick_name: GameString::from(row.get("nick_name")),
-                timestamp: row.get("timestamp"),
-                millis: row.get("millis"),
-                cp_millis: row.get::<_, Vec<i32>>("cp_millis"),
+            .map(|row| {
+                let cp_millis: Vec<i32> = row.get("cp_millis");
+                let cp_speed: Vec<f32> = row.get("cp_speed");
+                let sectors = cp_millis
+                    .into_iter()
+                    .zip(cp_speed.into_iter())
+                    .enumerate()
+                    .map(|(idx, (millis, speed))| RecordSector {
+                        index: idx as i32,
+                        cp_millis: millis,
+                        cp_speed: speed,
+                    })
+                    .collect();
+                Record {
+                    map_uid: row.get("map_uid"),
+                    map_rank: row.get("pos"),
+                    player_login: row.get("login"),
+                    player_nick_name: GameString::from(row.get("nick_name")),
+                    timestamp: row.get("timestamp"),
+                    millis: row.get("millis"),
+                    sectors,
+                }
             })
-            .collect())
+            .collect();
+        Ok(records)
     }
 
     async fn nb_players_with_record(&self) -> Result<i64> {
@@ -427,41 +408,31 @@ impl Queries for PostgresClient {
 
         let insert_record_stmt = r#"
             INSERT INTO steward.record
-                (player_login, map_uid, millis, validation, ghost, timestamp)
+                (player_login, map_uid, millis, timestamp)
             VALUES
-                ($1, $2, $3, $4, $5, $6)
+                ($1, $2, $3, $4)
             ON CONFLICT (player_login, map_uid)
             DO UPDATE SET
                 millis = excluded.millis,
-                validation = excluded.validation,
-                ghost = excluded.ghost,
                 timestamp = excluded.timestamp
         "#;
 
         let _ = transaction
             .execute(
                 insert_record_stmt,
-                &[
-                    &rec.player_login,
-                    &rec.map_uid,
-                    &rec.millis,
-                    &rec.validation,
-                    &rec.ghost,
-                    &rec.timestamp,
-                ],
+                &[&rec.player_login, &rec.map_uid, &rec.millis, &rec.timestamp],
             )
             .await?;
 
         let insert_sector_stmt = r#"
             INSERT INTO steward.sector
-                (player_login, map_uid, index, cp_millis, cp_speed, cp_distance)
+                (player_login, map_uid, index, cp_millis, cp_speed)
             VALUES
-                ($1, $2, $3, $4, $5, $6)
+                ($1, $2, $3, $4, $5)
             ON CONFLICT (player_login, map_uid, index)
             DO UPDATE SET
                 cp_millis = excluded.cp_millis,
-                cp_speed = excluded.cp_speed,
-                cp_distance = excluded.cp_distance
+                cp_speed = excluded.cp_speed
         "#;
 
         for sector in &rec.sectors {
@@ -474,7 +445,6 @@ impl Queries for PostgresClient {
                         &sector.index,
                         &sector.cp_millis,
                         &sector.cp_speed,
-                        &sector.cp_distance,
                     ],
                 )
                 .await?;
@@ -600,29 +570,6 @@ impl Queries for PostgresClient {
         transaction.commit().await?;
         Ok(maybe_map)
     }
-
-    async fn delete_old_ghosts(&self, max_rank: i64) -> Result<u64> {
-        assert!(max_rank > 0, "tried to delete every ghost replay");
-
-        let conn = self.0.get().await?;
-        let stmt = r#"
-            DELETE FROM steward.record a
-            USING (
-                SELECT
-                   player_login,
-                   map_uid,
-                   RANK () OVER (
-                      PARTITION BY player_login, map_uid
-                      ORDER BY millis ASC
-                   ) pos
-                FROM steward.record
-            ) b
-            WHERE a.player_login = b.player_login AND a.map_uid = b.map_uid AND b.pos > $1
-        "#;
-        let nb_deleted = conn.execute(stmt, &[&max_rank]).await?;
-
-        Ok(nb_deleted)
-    }
 }
 
 impl From<Row> for Map {
@@ -632,6 +579,7 @@ impl From<Row> for Map {
             file_name: row.get("file_name"),
             name: GameString::from(row.get("name")),
             author_login: row.get("author_login"),
+            author_nick_name: GameString::from(row.get("author_nick_name")),
             author_millis: row.get("author_millis"),
             added_since: row.get("added_since"),
             in_playlist: row.get("in_playlist"),

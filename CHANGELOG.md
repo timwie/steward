@@ -8,6 +8,28 @@ Version numbers consist of `MAJOR.MINOR.PATCH`:
 
 <br>
 
+## 0.1.0-alpha5
+All `0.1.0-alpha` releases are unstable, and have missing widgets.
+
+This is the first version for the new Trackmania.
+
+### Updating
+- Download the new dedicated server.
+- Get the new [default config](https://github.com/timwie/steward/blob/v0.1.0-alpha5/config/).
+- Clear your database with `DROP SCHEMA steward CASCADE`.
+
+### Changed
+- Display map author nick names instead of unreadable logins.
+  Since we use the nick name stored in the map file, it will be out of date once
+  the author changes their nick name.
+
+### Removed
+- Replays can no longer be stored in the database.
+- **Widget**: Sector times have been removed, since you can race ghosts online
+  as well now.
+
+<br>
+
 ## [0.1.0-alpha4] - 2020-07-01
 All `0.1.0-alpha` releases are unstable, and have missing widgets.
 

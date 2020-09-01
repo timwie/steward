@@ -1,13 +1,9 @@
 use std::convert::TryFrom;
-use std::fs;
-use std::fs::File;
-use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use async_trait::async_trait;
 use serde::Deserialize;
-use serde_bytes::ByteBuf;
 
 use crate::api::*;
 use crate::xml::*;
@@ -93,11 +89,6 @@ impl Calls for RpcClient {
 
     async fn set_mode_options(&self, options: &ModeOptions) {
         self.call_method_unwrap_unit("SetModeScriptSettings", args!(to_value(options)))
-            .await;
-    }
-
-    async fn set_ui_properties(&self, xml: &str) {
-        self.call_script("Trackmania.UI.SetProperties", args!(escape_xml(xml)))
             .await;
     }
 
@@ -226,43 +217,6 @@ impl Calls for RpcClient {
         .await
     }
 
-    async fn validation_replay(&self, player_login: &str) -> Result<Vec<u8>> {
-        // I cannot igure out how to deserialize into a Vec<u8>,
-        // so we'll use "serde_bytes" for that.
-        let buf: ByteBuf = self
-            .call_method("GetValidationReplay", args!(player_login))
-            .await?;
-        Ok(buf.into_vec())
-    }
-
-    async fn ghost_replay(&self, player_login: &str) -> Result<std::io::Result<Vec<u8>>> {
-        // The server will write the ghost replay to disk.
-        // We will use a temporary file, read from it, then delete it.
-
-        // To prevent problems that might be caused by calling this function
-        // in quick succession, the temporary file should never have the
-        // same name twice.
-        let unique_file_name = {
-            static COUNTER: AtomicUsize = AtomicUsize::new(1);
-            format!("tmp_ghost_{}", COUNTER.fetch_add(1, Ordering::Relaxed))
-        };
-
-        // .../UserData/Replays/<file_name>.Replay.Gbx
-        let replay_path = self
-            .user_data_dir()
-            .await
-            .join("Replays")
-            .join(format!("{}.Replay.Gbx", unique_file_name));
-
-        self.call_method_unit(
-            "SaveBestGhostsReplay",
-            args!(player_login, unique_file_name),
-        )
-        .await?;
-
-        Ok(consume_file(&replay_path))
-    }
-
     async fn force_pure_spectator(&self, player_uid: i32) -> Result<()> {
         // This value is documented as "spectator but keep selectable",
         // which probably means that you can switch back to a playing slot.
@@ -356,7 +310,7 @@ impl RpcClient {
     async fn call_method_unit(&self, method_name: &str, args: Vec<Value>) -> Result<()> {
         self.call_method::<bool>(method_name, args)
             .await
-            .and_then(|_| Ok(()))
+            .map(|_| ())
     }
 
     /// Call an XML-RPC method, and do not expect any faults.
@@ -416,14 +370,4 @@ fn escape_xml(input: &str) -> String {
         }
     }
     result
-}
-
-/// Read a file into memory, and delete it.
-fn consume_file(file_path: &PathBuf) -> std::io::Result<Vec<u8>> {
-    let mut f = File::open(file_path)?;
-    let metadata = fs::metadata(file_path)?;
-    let mut buffer = vec![0; metadata.len() as usize];
-    f.read_exact(&mut buffer)?;
-    fs::remove_file(file_path)?;
-    Ok(buffer)
 }

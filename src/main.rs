@@ -31,21 +31,28 @@ async fn main() {
 
     let config = Config::load();
 
-    let db = db_connect(&config.postgres_connection).await;
+    let retry_after = Duration::from_secs(1);
 
-    const RETRY_CONNECT_AFTER_SECS: u64 = 1;
-
-    log::info!("waiting for connection...");
+    log::info!("waiting for dedicated server connection...");
     let mut conn = loop {
         match RpcConnection::new(&config.rpc_address).await {
             None => {
-                delay_for(Duration::from_secs(RETRY_CONNECT_AFTER_SECS)).await;
-                log::debug!("waiting for connection...");
+                delay_for(retry_after).await;
+                log::debug!("waiting for dedicated server connection...");
             }
             Some(conn) => break conn,
         }
     };
-    log::info!("got connection");
+    log::info!("got dedicated server connection");
+
+    log::info!("waiting for database connection...");
+    let db = loop {
+        match db_connect(&config.postgres_connection, retry_after).await {
+            None => log::debug!("waiting for database connection..."),
+            Some(db) => break db,
+        }
+    };
+    log::info!("got database connection");
 
     let server = Arc::new(conn.client.clone()) as Arc<dyn Server>;
 

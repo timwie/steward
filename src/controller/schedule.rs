@@ -101,7 +101,7 @@ impl ScheduleController {
         // Update in case a new record have been set the last time this map was played.
         if let Some(top_record) = &records_state.top_record {
             let top1_millis = top_record.millis as u64;
-            std::mem::replace(&mut schedule_state.reference_millis[idx], top1_millis);
+            let _ = std::mem::replace(&mut schedule_state.reference_millis[idx], top1_millis);
         }
 
         // Set the server's time limit

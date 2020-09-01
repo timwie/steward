@@ -2,7 +2,7 @@
 
 {% block manialink %}
 <script><!--
-#RequireContext CTmMlScriptIngame
+#RequireContext CSmMlScriptIngame
 
 {% block decl %}
 #Include "ColorLib" as ColorLib
@@ -15,9 +15,6 @@ main() {
     while(True) {
         yield;
         {% block loop %}{% endblock loop %}
-        foreach (Event in RaceEvents) {
-            {% block race_events %}{% endblock race_events %}
-        }
         foreach (Event in PendingEvents) {
             {% block ml_events %}{% endblock ml_events %}
         }

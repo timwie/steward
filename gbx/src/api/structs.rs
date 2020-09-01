@@ -11,16 +11,13 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 #[derive(Deserialize, Debug, PartialEq)]
 #[serde(rename_all = "PascalCase")]
 pub struct ServerInfo {
-    /// f.e. "ManiaPlanet" - this is not the display name of the server!
+    /// "Trackmania" - this is not the display name of the server!
     pub name: String,
-
-    /// f.e. "TMStadium@nadeo"
-    pub title_id: String,
 
     /// f.e. "3.3.0"
     pub version: String,
 
-    /// f.e. "2019-10-23_20_00"
+    /// f.e. "2020-07-01_14_30"
     pub build: String,
 
     /// Setting the API version works, but does not affect
@@ -190,8 +187,7 @@ pub struct ServerOptions {
     /// Config: `<referee_validation_mode>` in `<server_options>`
     pub referee_mode: i32,
 
-    /// Only used by ShootMania.
-    #[deprecated(since = "0.0.0", note = "Only used by ShootMania")]
+    /// Leave at 0, which gives "automatic adjustment".
     pub client_inputs_max_latency: i32,
 }
 
@@ -425,9 +421,6 @@ pub struct CheckpointEvent {
     /// Speed of the player in km/h at the time of passing this checkpoint.
     /// This is negative if they are driving backwards!
     pub speed: f32,
-
-    /// Total distance traveled by the player up to this checkpoint.
-    pub distance: f32,
 }
 
 /// The ranking of the current race.
@@ -450,6 +443,7 @@ pub struct Scores {
 /// A player's ranking in the current race.
 ///
 /// Reference: https://github.com/maniaplanet/script-xmlrpc/blob/master/XmlRpcListing.md#trackmaniascores
+///
 #[derive(Deserialize, Debug, PartialEq, Clone)]
 pub struct Score {
     /// The player's login.
@@ -466,10 +460,6 @@ pub struct Score {
     /// Best run time in milliseconds (or -1 if no completed run).
     #[serde(rename = "bestracetime")]
     pub best_time_millis: i32,
-
-    /// Number of respawns during the best run (or -1 if no completed run).
-    #[serde(rename = "bestracerespawns")]
-    pub best_time_respawns: i32,
 
     /// Checkpoints times during the best run in milliseconds (or empty if no completed run).
     #[serde(rename = "bestracecheckpoints")]

@@ -13,7 +13,8 @@ use crate::controller::LiveConfig;
 use crate::database::{Database, Map, MapEvidence};
 use crate::event::PlaylistDiff;
 use crate::network::{exchange_map, ExchangeError};
-use crate::server::{GameString, Server};
+use crate::server::Server;
+use gbx::file::parse_map_file;
 
 /// Use to lookup the current playlist, and the map that is currently being played.
 #[async_trait]
@@ -140,10 +141,12 @@ impl PlaylistController {
 
     /// Add the specified map to the server playlist.
     pub async fn add(&self, map_uid: &str) -> Result<PlaylistDiff, PlaylistCommandError> {
+        use PlaylistCommandError::*;
+
         let mut playlist_state = self.state.write().await;
 
         if playlist_state.index_of(map_uid).is_some() {
-            return Err(PlaylistCommandError::MapAlreadyAdded);
+            return Err(MapAlreadyAdded);
         }
 
         // 1. add to db playlist
@@ -155,7 +158,7 @@ impl PlaylistController {
 
         let map = match maybe_map {
             Some(map) => map,
-            None => return Err(PlaylistCommandError::UnknownUid),
+            None => return Err(UnknownUid),
         };
 
         // 2. add to server playlist
@@ -177,17 +180,19 @@ impl PlaylistController {
 
     /// Remove the specified map from the server playlist.
     pub async fn remove(&self, map_uid: &str) -> Result<PlaylistDiff, PlaylistCommandError> {
+        use PlaylistCommandError::*;
+
         let mut playlist_state = self.state.write().await;
 
         let can_disable = playlist_state.maps.iter().any(|map| map.uid != map_uid);
 
         if !can_disable {
-            return Err(PlaylistCommandError::CannotDisableAllMaps);
+            return Err(CannotDisableAllMaps);
         }
 
         let map_index = match playlist_state.index_of(map_uid) {
             Some(index) => index,
-            None => return Err(PlaylistCommandError::MapAlreadyRemoved),
+            None => return Err(MapAlreadyRemoved),
         };
 
         // 1. remove from db playlist
@@ -199,7 +204,7 @@ impl PlaylistController {
 
         let map = match maybe_map {
             Some(map) => map,
-            None => return Err(PlaylistCommandError::UnknownUid),
+            None => return Err(UnknownUid),
         };
 
         // 2. remove from server playlist
@@ -231,10 +236,14 @@ impl PlaylistController {
     /// The ID is either its ID on the website (a number), or
     /// its UID (encoded in the GBX file's header).
     pub async fn import_map(&self, map_id: &str) -> Result<PlaylistDiff, PlaylistCommandError> {
+        use PlaylistCommandError::*;
+
         let import_map = match exchange_map(map_id).await {
             Ok(import_map) => import_map,
-            Err(ExchangeError::UnknownId) => return Err(PlaylistCommandError::UnknownImportId),
-            Err(err) => return Err(PlaylistCommandError::MapImportFailed(Box::new(err))),
+            Err(ExchangeError::UnknownId) | Err(ExchangeError::NotDownloadable) => {
+                return Err(UnknownImportId)
+            }
+            Err(err) => return Err(MapImportFailed(Box::new(err))),
         };
 
         let is_already_imported = self
@@ -244,21 +253,22 @@ impl PlaylistController {
             .expect("failed to lookup map")
             .is_some();
         if is_already_imported {
-            return Err(PlaylistCommandError::MapAlreadyImported);
+            return Err(MapAlreadyImported);
         }
 
         let maps_dir = self.live_config.maps_dir().await;
         let file_name = format!(
             "{}.{}.Map.gbx",
-            &import_map.metadata.name_plain.trim(),
+            &import_map.metadata.name.plain(),
             &import_map.metadata.uid
         );
+        let file_path = Path::new(&maps_dir).join(&file_name);
 
-        let write_file_res = File::create(Path::new(&maps_dir).join(&file_name))
-            .and_then(|mut file| file.write_all(&import_map.data));
+        let write_file_res =
+            File::create(&file_path).and_then(|mut file| file.write_all(&import_map.data));
         if let Err(err) = write_file_res {
             log::error!("failed to write imported map to disk: {:?}", err);
-            return Err(PlaylistCommandError::MapImportFailed(Box::new(err)));
+            return Err(MapImportFailed(Box::new(err)));
         }
 
         // 1. add to server playlist
@@ -267,19 +277,19 @@ impl PlaylistController {
             .await
             .expect("tried to add duplicate map to playlist");
 
-        let map_info = self
-            .server
-            .map(&file_name)
-            .await
-            .expect("tried to fetch map info of unknown map");
+        let header = match parse_map_file(&file_path) {
+            Ok(header) => header,
+            Err(err) => return Err(MapImportFailed(err.into())),
+        };
 
         let db_map = Map {
             uid: import_map.metadata.uid,
             file_name,
-            name: GameString::from(import_map.metadata.name.trim().to_string()),
-            author_login: map_info.author_login,
+            name: import_map.metadata.name,
+            author_login: header.author_login,
+            author_nick_name: header.author_nick,
             added_since: Utc::now().naive_utc(),
-            author_millis: map_info.author_millis,
+            author_millis: header.millis_author,
             in_playlist: true,
             exchange_id: Some(import_map.metadata.exchange_id),
         };

@@ -6,12 +6,11 @@ use chrono::Utc;
 use futures::future::join_all;
 use tokio::sync::{RwLock, RwLockReadGuard};
 
-use gbx::PlayerInfo;
-
-use crate::config::{MAX_DISPLAYED_MAP_RANKS, MAX_GHOST_REPLAY_RANK};
+use crate::config::MAX_DISPLAYED_MAP_RANKS;
 use crate::controller::{LivePlayers, LivePlaylist};
-use crate::database::{Database, Map, Record, RecordDetailed, RecordEvidence, RecordSector};
+use crate::database::{Database, Map, Record, RecordEvidence, RecordSector};
 use crate::event::{PbDiff, PlayerDiff, PlayerTransition};
+use crate::server::PlayerInfo;
 use crate::server::{CheckpointEvent, Server};
 
 /// Shared component that allows to look up records
@@ -28,7 +27,7 @@ pub struct RecordsState {
 
     /// The top record on the current map, or `None` if no player
     /// has set a record on the current map.
-    pub top_record: Option<RecordDetailed>,
+    pub top_record: Option<Record>,
 
     /// A number of top records on the current map. The number is determined
     /// by how many records we want to display in-game. The vector is sorted
@@ -36,7 +35,7 @@ pub struct RecordsState {
     pub top_records: Vec<Record>,
 
     /// Maps player UID to their personal best on the current map.
-    pbs: HashMap<i32, RecordDetailed>,
+    pbs: HashMap<i32, Record>,
 
     /// Maps player UID to the recorded sector data in their current run.
     run_sectors: HashMap<i32, Vec<RecordSector>>,
@@ -55,12 +54,12 @@ impl RecordsState {
 
     /// The personal best of the specified player, on the current map, or
     /// `None` if they have not set a record yet.
-    pub fn pb(&self, player_uid: i32) -> Option<&RecordDetailed> {
+    pub fn pb(&self, player_uid: i32) -> Option<&Record> {
         self.pbs.get(&player_uid)
     }
 
     /// Iterate through the records of only connected players.
-    pub fn playing_pbs(&self) -> impl Iterator<Item = &RecordDetailed> {
+    pub fn playing_pbs(&self) -> impl Iterator<Item = &Record> {
         self.pbs.values()
     }
 
@@ -78,7 +77,7 @@ impl RecordsState {
         }
     }
 
-    fn upsert_record(&mut self, player_uid: i32, record: &RecordDetailed) {
+    fn upsert_record(&mut self, player_uid: i32, record: &Record) {
         let is_first_record = !self.pbs.contains_key(&player_uid);
         if is_first_record {
             self.nb_records += 1;
@@ -113,13 +112,7 @@ impl RecordsState {
         };
 
         if let Some(idx) = record_ranking_idx {
-            let ranking_rec = Record {
-                player_login: record.player_login.clone(),
-                player_nick_name: record.player_nick_name.clone(),
-                millis: record.millis,
-                timestamp: Utc::now().naive_utc(),
-            };
-            self.top_records.insert(idx, ranking_rec);
+            self.top_records.insert(idx, record.clone());
             self.top_records.truncate(MAX_DISPLAYED_MAP_RANKS);
 
             if idx == 0 {
@@ -239,7 +232,7 @@ impl RecordController {
             .collect();
         let pbs = self
             .db
-            .player_records(&loaded_map.uid, all_logins)
+            .records(vec![&loaded_map.uid], all_logins, None)
             .await
             .expect("failed to load player PBs");
 
@@ -262,17 +255,12 @@ impl RecordController {
                     index: ev.cp_index,
                     cp_millis: ev.race_time_millis,
                     cp_speed: ev.speed.abs(), // driving backwards gives negative speed
-                    cp_distance: ev.distance,
                 });
         }
     }
 
     /// Produce a record from the collected sector data at the end of a run.
     /// If that run is the player's new personal best, update the map records.
-    ///
-    /// A new record will be stored in the database, including its
-    /// validation replay. If it is the new top 1 record, its
-    /// ghost replay will also be stored.
     ///
     /// The cached personal best for this player will be updated,
     /// and if it is a top n record, that cached list will also be
@@ -308,27 +296,15 @@ impl RecordController {
             });
         }
 
-        // If we cannot get a validation replay, we cannot count the record.
-        let validation = match self.server.validation_replay(&finish_ev.player_login).await {
-            Ok(data) => data,
-            Err(fault) => {
-                log::error!("cannot get validation replay: {:?}", fault);
-                return None;
-            }
-        };
-
         let sectors = records_state
             .run_sectors
             .remove(&player.uid)
             .expect("no sector data");
-        let cp_millis = sectors.iter().map(|s| s.cp_millis).collect();
 
-        let mut evidence = RecordEvidence {
+        let evidence = RecordEvidence {
             player_login: player.login.clone(),
             map_uid,
             millis: finish_ev.race_time_millis,
-            validation,
-            ghost: None,
             timestamp: Utc::now().naive_utc(),
             sectors,
         };
@@ -345,30 +321,20 @@ impl RecordController {
                 .expect("failed to check record rank") as usize,
         };
 
-        // Store ghost replays for the very best records.
-        if new_pos <= MAX_GHOST_REPLAY_RANK {
-            match self.server.ghost_replay(&finish_ev.player_login).await {
-                Ok(Ok(ghost)) => {
-                    evidence.ghost = Some(ghost);
-                }
-                Ok(Err(io_err)) => log::error!("cannot get ghost replay: {:?}", io_err),
-                Err(fault) => log::error!("cannot get ghost replay: {:?}", fault),
-            }
-        }
-
         // Remember record in the database.
         self.db
             .upsert_record(&evidence)
             .await
             .expect("failed to update player PB");
 
-        let record = RecordDetailed {
+        let record = Record {
+            map_uid: evidence.map_uid,
             map_rank: new_pos as i64,
             player_login: player.login.clone(),
             player_nick_name: player.nick_name.clone(),
             timestamp: evidence.timestamp,
             millis: evidence.millis,
-            cp_millis,
+            sectors: evidence.sectors,
         };
 
         // Remember record in the cache.

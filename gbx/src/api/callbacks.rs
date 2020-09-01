@@ -41,7 +41,20 @@ pub enum Callback {
     /// Can also be triggered on demand with `Calls::request_scores`
     MapScores { scores: Scores },
 
+    /// Sent when the countdown is displayed for the player.
+    ///
+    /// Since TMNext, this callback is *not* followed by `RunStartline`!
+    /// Both have to be handled to know when a player is starting a run.
+    ///
+    /// Triggered by
+    /// - `Trackmania.Event.GiveUp`
+    /// - `Trackmania.Event.SkipOutro`
+    RunCountdown { player_login: String },
+
     /// Sent when the countdown is over, and the player can accelerate.
+    ///
+    /// Since TMNext, this callback is *not* preceeded by `RunStartline`!
+    /// Both have to be handled to know when a player is starting a run.
     ///
     /// Triggered by `Trackmania.Event.StartLine`
     RunStartline { player_login: String },
