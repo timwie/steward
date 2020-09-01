@@ -8,7 +8,7 @@ Version numbers consist of `MAJOR.MINOR.PATCH`:
 
 <br>
 
-## 0.1.0-alpha5
+## [0.1.0-alpha5] - 2020-09-01
 All `0.1.0-alpha` releases are unstable, and have missing widgets.
 
 This is the first version for the new Trackmania.
@@ -22,6 +22,7 @@ This is the first version for the new Trackmania.
 - Display map author nick names instead of unreadable logins.
   Since we use the nick name stored in the map file, it will be out of date once
   the author changes their nick name.
+- `/map_import` now imports maps from the new Trackmania Exchange.
 
 ### Removed
 - Replays can no longer be stored in the database.
@@ -250,3 +251,4 @@ All `0.1.0-alpha` releases are unstable, and have missing widgets.
 [0.1.0-alpha2]: https://github.com/timwie/steward/releases/tag/v0.1.0-alpha2
 [0.1.0-alpha3]: https://github.com/timwie/steward/releases/tag/v0.1.0-alpha3
 [0.1.0-alpha4]: https://github.com/timwie/steward/releases/tag/v0.1.0-alpha4
+[0.1.0-alpha5]: https://github.com/timwie/steward/releases/tag/v0.1.0-alpha5
