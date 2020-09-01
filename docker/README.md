@@ -12,7 +12,17 @@ same network:
   - `$ docker volume create --name steward-controller`
   - `$ docker volume create --name steward-dedicated`
   - `$ docker volume create --name steward-postgres`
-- Run `docker-compose up -d` to build & start the services in containers.
+- Run `$ docker-compose build` to build the services.
+- Configure the dedicated server:
+  - `$ docker-compose run dedicated bash`
+  - `$ nano UserData/Config/dedicated_cfg.txt`
+    - You *must* edit the `<masterserver_account>` section.
+- Configure the controller:
+  - `$ docker-compose run controller bash`
+  - `$ nano steward.toml`
+    - Do *not* change `rpc_address` or `postgres_connection`.
+  - `$ nano .env`
+- Run `docker-compose up -d` to start the services in containers.
 - All services are configured to be restarted whenever they go down.
 
 <br>

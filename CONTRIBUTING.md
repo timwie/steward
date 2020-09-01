@@ -33,7 +33,7 @@ so that you can join the server on the same machine.
    - Update the controller config in `steward.toml` accordingly.
 5. Start the dedicated server (f.e. in a PowerShell prompt).
 ```
-$ cd <your path>/TrackmaniaServer_2020-07-01/
+$ cd <your path>/TrackmaniaServer_Latest/
 $ .\TrackmaniaServer /nodaemon /lan /game_settings=MatchSettings/maplist.txt /dedicated_cfg=dedicated_cfg.txt
 ```
 6. Start the controller (f.e. in a PowerShell prompt).

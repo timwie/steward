@@ -5,7 +5,7 @@ ARG CONTROLLER_URL=https://github.com/timwie/steward/releases/download/${STEWARD
 ARG CONFIG_URL=https://github.com/timwie/steward/releases/download/${STEWARD_VERSION}/config.tar.gz
 
 RUN apt-get update \
-    && apt-get -y install git unzip wget
+    && apt-get -y install git nano unzip wget
 
 RUN groupadd -r steward -g 1000 && \
     useradd -u 1000 -g 1000 -m steward
