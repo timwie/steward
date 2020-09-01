@@ -186,14 +186,32 @@ fn forward_script_callback(cb_out: &Sender<Callback>, call: Call) -> CallbackTyp
                 };
                 (cb, CallbackType::Unprompted)
             }
+
             "Maniaplanet.UnloadingMap_Start" => (MapUnload, CallbackType::Unprompted),
+
+            "Trackmania.Event.GiveUp" | "Trackmania.Event.SkipOutro" => {
+                // Since TMNext, "Trackmania.Event.StartCountdown" is never triggered,
+                // but we know that the countdown will appear for players directly following
+                // these two events. "Trackmania.Event.StartLine" will *not* be triggered after
+                // either of these events.
+                let data: ScriptEventData = de!(&str_args[0]);
+                let cb = RunCountdown {
+                    player_login: data.login,
+                };
+                (cb, CallbackType::Unprompted)
+            }
+
             "Trackmania.Event.StartLine" => {
+                // Since TMNext, "Trackmania.Event.StartLine" is not triggered consistently,
+                // but only when prior to spawning, the run outro was not skipped (this includes
+                // the very first spawn for instance)
                 let data: ScriptEventData = de!(&str_args[0]);
                 let cb = RunStartline {
                     player_login: data.login,
                 };
                 (cb, CallbackType::Unprompted)
             }
+
             "Trackmania.Event.WayPoint" => {
                 let event: CheckpointEvent = de!(&str_args[0]);
                 let cb = if event.race_time_millis > 0 {
@@ -205,6 +223,7 @@ fn forward_script_callback(cb_out: &Sender<Callback>, call: Call) -> CallbackTyp
                 };
                 (cb, CallbackType::Unprompted)
             }
+
             "Trackmania.Scores" => {
                 let scores: Scores = de!(&str_args[0]);
                 let cb_type = match scores.response_id.as_ref() {
@@ -241,7 +260,6 @@ fn forward_script_callback(cb_out: &Sender<Callback>, call: Call) -> CallbackTyp
             | "Maniaplanet.StartTurn_End"
             | "Maniaplanet.StartTurn_Start"
             | "Maniaplanet.UnloadingMap_End"
-            | "Trackmania.Event.GiveUp"
             | "Trackmania.Event.OnPlayerAdded"
             | "Trackmania.Event.OnPlayerRemoved"
             | "Trackmania.Event.Respawn"

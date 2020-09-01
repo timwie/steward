@@ -39,9 +39,6 @@ TBD
 - [x] **Server Ranking**
  - Set top records on every map to rise in the server ranking.
  - You will get updates of your progression at the end of every race.
-- [x] **Sector Times**
- - Compare your live & personal best runs to the top record.
- - Find out in which sectors you have to improve.
 - [x] **Playlist**
  - Bring up the list of maps to see all of your record rankings.
 - [x] **Map Preferences**
@@ -115,7 +112,7 @@ instructions are available in the [docker/](/docker) directory.
 - You can choose to launch the controller before or after the server.
 - Start the server like this:
 ```
-$ ./ManiaPlanetServer /game_settings=MatchSettings/maplist.txt /dedicated_cfg=dedicated_cfg.txt
+$ ./TrackmaniaServer /game_settings=MatchSettings/maplist.txt /dedicated_cfg=dedicated_cfg.txt
 ```
 - Start the controller like this:
 ```
@@ -124,7 +121,8 @@ $ ./steward
 ```
 
 #### Admin Commands
-- Make sure you add your own login to the `super_admin_whitelist` in the controller config.
+- Use the `/players` command to find your login, and make sure to add it to
+  the `super_admin_whitelist` in the controller config.
 - List available commands by typing `/help` into the chat in-game.
 
 #### Supervision
@@ -155,10 +153,9 @@ $ ./steward
 ## Related Projects
 Here are some more "general-purpose" server controllers that are less opinionated,
 and offer a plugin architecture that is arguably easier to extend:
-- [ManiaControl]
 - [PyPlanet]
-- [UASECO]
-- [eXpansion]
+- [EvoSC]
+- [ManiaControl]
 
 ### Acknowledgements
 - [belak/serde-xmlrpc]: This repository was a great reference
@@ -172,9 +169,9 @@ and offer a plugin architecture that is arguably easier to extend:
 Distributed under the MIT License. See `LICENSE` for more information.
 
 
-[Dedicated Server]: http://files.v04.maniaplanet.com/server/ManiaplanetServer_Latest.zip
+[Dedicated Server]: http://files.v04.maniaplanet.com/server/TrackmaniaServer_Latest.zip
 [PostgreSQL server]: https://www.postgresql.org/download/
-[this tutorial]: https://forum.maniaplanet.com/viewtopic.php?p=295335&sid=ecff725fd89d73b95dbb6a67bb781a07#p295335
+[this tutorial]: https://forums.ubisoft.com/showthread.php/2242192-Tutorial-Trackmania-2020-Dedicated-Server
 
 [Issues]: /issues
 
@@ -185,7 +182,6 @@ Distributed under the MIT License. See `LICENSE` for more information.
 
 [ManiaControl]: https://github.com/ManiaControl/ManiaControl
 [PyPlanet]: https://github.com/PyPlanet/PyPlanet
-[eXpansion]: https://github.com/eXpansionPluginPack/eXpansion2
-[UASECO]: https://github.com/undeflabs/UASECO
+[EvoSC]: https://github.com/EvoTM/EvoSC
 
 [belak/serde-xmlrpc]: https://github.com/belak/serde-xmlrpc

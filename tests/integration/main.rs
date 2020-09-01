@@ -29,7 +29,8 @@ use steward::server::{GameString, PlayerInfo};
 // [ ] top_record
 // [ ] top_records
 // [ ] player_record
-// [x] player_records
+// [ ] records
+//     - test with limit
 // [ ] nb_players_with_record
 // [x] maps_without_player_record
 // [x] record_preview
@@ -40,7 +41,6 @@ use steward::server::{GameString, PlayerInfo};
 // [ ] map_rankings
 // [ ] delete_player
 // [ ] delete_map
-// [ ] delete_old_ghosts
 
 /// Spins up a Postgres database in a Docker container.
 async fn clean_db() -> Result<Arc<dyn Database>> {
@@ -68,7 +68,9 @@ async fn clean_db() -> Result<Arc<dyn Database>> {
         db
     );
 
-    let client = pg_connect(&pg_conn_str).await;
+    let client = pg_connect(&pg_conn_str, std::time::Duration::from_secs(5))
+        .await
+        .expect("postgres not running");
     let arc = Arc::new(client.clone()) as Arc<dyn Database>;
 
     let conn = client.0.get().await?;
@@ -195,7 +197,7 @@ async fn test_player_record_some() -> Result<()> {
     db.upsert_map(&map).await?;
     db.upsert_record(&rec).await?;
 
-    let expected = record_detailed(1, "nickname", rec);
+    let expected = record(1, "nickname", rec);
     let expected = Some(expected);
 
     let actual = db.player_record("uid1", "login").await?;
@@ -205,7 +207,7 @@ async fn test_player_record_some() -> Result<()> {
 }
 
 #[tokio::test]
-async fn test_player_records_single() -> Result<()> {
+async fn test_records_single() -> Result<()> {
     let db = clean_db().await?;
 
     let player = player_info("login", "nickname");
@@ -215,17 +217,17 @@ async fn test_player_records_single() -> Result<()> {
     db.upsert_map(&map).await?;
     db.upsert_record(&rec).await?;
 
-    let expected = record_detailed(1, "nickname", rec);
+    let expected = record(1, "nickname", rec);
     let expected = vec![expected];
 
-    let actual = db.player_records("uid1", vec!["login"]).await?;
+    let actual = db.records(vec!["uid1"], vec!["login"], None).await?;
     assert_eq!(expected, actual);
 
     Ok(())
 }
 
 #[tokio::test]
-async fn test_player_records_multiple_players() -> Result<()> {
+async fn test_records_multiple_players() -> Result<()> {
     let db = clean_db().await?;
 
     let player1 = player_info("login1", "nickname1");
@@ -239,18 +241,20 @@ async fn test_player_records_multiple_players() -> Result<()> {
     db.upsert_record(&rec1).await?;
     db.upsert_record(&rec2).await?;
 
-    let expected1 = record_detailed(1, "nickname1", rec1);
-    let expected2 = record_detailed(2, "nickname2", rec2);
+    let expected1 = record(1, "nickname1", rec1);
+    let expected2 = record(2, "nickname2", rec2);
     let expected = vec![expected1, expected2];
 
-    let actual = db.player_records("uid1", vec!["login1", "login2"]).await?;
+    let actual = db
+        .records(vec!["uid1"], vec!["login1", "login2"], None)
+        .await?;
     assert_eq!(expected, actual);
 
     Ok(())
 }
 
 #[tokio::test]
-async fn test_player_records_multiple_maps() -> Result<()> {
+async fn test_records_multiple_maps() -> Result<()> {
     let db = clean_db().await?;
 
     let player1 = player_info("login1", "nickname1");
@@ -266,10 +270,12 @@ async fn test_player_records_multiple_maps() -> Result<()> {
     db.upsert_record(&rec1).await?;
     db.upsert_record(&rec2).await?;
 
-    let expected = record_detailed(1, "nickname1", rec1);
+    let expected = record(1, "nickname1", rec1);
     let expected = vec![expected];
 
-    let actual = db.player_records("uid1", vec!["login1", "login2"]).await?;
+    let actual = db
+        .records(vec!["uid1"], vec!["login1", "login2"], None)
+        .await?;
     assert_eq!(expected, actual);
 
     Ok(())
@@ -557,6 +563,7 @@ fn map_evidence(uid: &str, file_name: &str) -> MapEvidence {
             file_name: file_name.to_string(),
             name: GameString::from("".to_string()),
             author_login: "".to_string(),
+            author_nick_name: GameString::from("".to_string()),
             author_millis: 0,
             added_since: now(),
             in_playlist: true,
@@ -572,27 +579,25 @@ fn record_evidence(login: &str, map_uid: &str, millis: i32) -> RecordEvidence {
         map_uid: map_uid.to_string(),
         millis,
         timestamp: now(),
-        validation: "validation replay".as_bytes().to_owned(),
-        ghost: Some("ghost replay".as_bytes().to_owned()),
         sectors: (0..5)
             .map(|i| RecordSector {
                 index: i,
                 cp_millis: (i + 1) * (millis / 5),
                 cp_speed: 420.1337,
-                cp_distance: 1337.42 + i as f32,
             })
             .collect(),
     }
 }
 
-fn record_detailed(pos: i64, nick_name: &str, ev: RecordEvidence) -> RecordDetailed {
-    RecordDetailed {
+fn record(pos: i64, nick_name: &str, ev: RecordEvidence) -> Record {
+    Record {
+        map_uid: ev.map_uid,
         map_rank: pos,
         player_login: ev.player_login,
         player_nick_name: GameString::from(nick_name.to_string()),
         millis: ev.millis,
         timestamp: ev.timestamp,
-        cp_millis: ev.sectors.iter().map(|sector| sector.cp_millis).collect(),
+        sectors: ev.sectors,
     }
 }
 

@@ -153,7 +153,7 @@ impl Controller {
 
                 let msg = ServerMessage::NextMap {
                     name: &next_map.name.formatted,
-                    author: &next_map.author_login,
+                    author: &next_map.author_nick_name.formatted,
                 };
                 self.chat.announce(msg).await;
             }
@@ -272,7 +272,7 @@ impl Controller {
 
             NewPlaylist(PlaylistDiff::AppendNew(map)) => Some(NewMap {
                 name: &map.name.formatted,
-                author: &map.author_login,
+                author: &map.author_nick_name.formatted,
             }),
 
             NewPlaylist(PlaylistDiff::Append(map)) => Some(AddedMap {

@@ -194,7 +194,7 @@ UI_ScrollDown = (Page.GetFirstChild("scroll-down") as CMlQuad);
         Name = "{{entry.map_name}}",
         Author = "{{entry.map_author_login}}",
         Preference = {{entry.preference}},
-        Rank = {{entry.map_rank}},
+        Rank = {{entry.map_rank | default(value=0) }},
         MaxRank = {{entry.nb_records}},
         AddedSince = "{{entry.added_since}}"
     });
@@ -212,7 +212,7 @@ G_FocusX = G_ActiveX[0];
 
 OnScroll(0);
 
-declare Integer P_ToggleMenuState for LocalUser;
+declare Integer P_ToggleMenuState for This;
 
 {% endblock main %}
 {# ============================= LOOP ============================= #}

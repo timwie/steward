@@ -46,6 +46,19 @@ impl Controller {
                 self.on_controller_event(outro_ev).await;
             }
 
+            ServerEvent::RunCountdown { player_login } => {
+                const COUNTDOWN_SECS: u64 = 2;
+
+                let controller = self.clone(); // 'self' with 'static lifetime
+                let _ = tokio::spawn(async move {
+                    tokio::time::delay_for(tokio::time::Duration::from_secs(COUNTDOWN_SECS)).await;
+                    let ev = ControllerEvent::BeginRun {
+                        player_login: &player_login,
+                    };
+                    controller.on_controller_event(ev).await;
+                });
+            }
+
             ServerEvent::RunStartline { player_login } => {
                 let ev = ControllerEvent::BeginRun {
                     player_login: &player_login,

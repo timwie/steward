@@ -324,16 +324,9 @@ impl RpcClient {
         // ... Instead, we will add a timeout when waiting for the callback,
         // and assume it doesn't exist once that timeout was exceeded.
         let await_callback = async { res_in.await.expect("callback result sender was dropped") };
-        tokio::time::timeout(
-            Duration::from_secs(if cfg!(debug_assertions) {
-                DEBUG_CALLBACK_TIMEOUT_SECS
-            } else {
-                CALLBACK_TIMEOUT_SECS
-            }),
-            await_callback,
-        )
-        .await
-        .expect("callback was never triggered");
+        tokio::time::timeout(callback_timeout(), await_callback)
+            .await
+            .expect("callback was never triggered");
     }
 
     async fn next_handle(&self) -> u32 {
@@ -352,10 +345,13 @@ impl RpcClient {
 /// This value should be longer than you would expect the game server
 /// to take to respond. In fact, we can just set this very high, since
 /// it should be a very rare error.
-const CALLBACK_TIMEOUT_SECS: u64 = 30;
-
-/// A shorter replacement for `CALLBACK_TIMEOUT_SECS` for quicker debugging.
-const DEBUG_CALLBACK_TIMEOUT_SECS: u64 = 1;
+const fn callback_timeout() -> Duration {
+    Duration::from_secs(if cfg!(debug_assertions) {
+        1 // A short duration for quicker debugging.
+    } else {
+        30 // An arbitrary, long duration in production.
+    })
+}
 
 /// This task consumes all `Msg`s, and produces `Callback`s, as well as
 /// responses to waiting receivers of an `RpcClient`.
@@ -416,8 +412,6 @@ impl RpcConnection {
     /// - when the given socket address is invalid
     /// - when failing to clone the TCP stream handle
     pub async fn new(addr: &str) -> Option<RpcConnection> {
-        log::debug!("using XML-RPC address: {}", addr);
-
         let tcp_stream = match tcp_connect(&addr) {
             Ok(stream) => stream,
             Err(err) => {

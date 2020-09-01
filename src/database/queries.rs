@@ -58,32 +58,44 @@ pub trait Queries: Send + Sync {
 
     /// Return the top record set by any player on the specified map,
     /// or `None` if no player has completed a run on that map.
-    async fn top_record(&self, map_uid: &str) -> Result<Option<RecordDetailed>>;
-
-    /// Return limited number of top records on the specified map,
-    /// sorted from best to worse.
-    async fn top_records(&self, map_uid: &str, limit: i64) -> Result<Vec<Record>>;
-
-    /// Return the personal best of the specified player on the specified map,
-    /// or `None` if the player has not completed a run on that map.
-    async fn player_record(
-        &self,
-        map_uid: &str,
-        player_login: &str,
-    ) -> Result<Option<RecordDetailed>> {
+    async fn top_record(&self, map_uid: &str) -> Result<Option<Record>> {
         Ok(self
-            .player_records(map_uid, vec![player_login])
+            .records(vec![map_uid], vec![], Some(1))
             .await?
             .into_iter()
             .next())
     }
-    /// Return the personal best for each of the specified players on the specified map,
-    /// if they have one.
-    async fn player_records(
+
+    /// Return limited number of top records on the specified map,
+    /// sorted from best to worse.
+    async fn top_records(&self, map_uid: &str, limit: i64) -> Result<Vec<Record>> {
+        Ok(self.records(vec![map_uid], vec![], Some(limit)).await?)
+    }
+
+    /// Return the personal best of the specified player on the specified map,
+    /// or `None` if the player has not completed a run on that map.
+    async fn player_record(&self, map_uid: &str, player_login: &str) -> Result<Option<Record>> {
+        Ok(self
+            .records(vec![map_uid], vec![player_login], None)
+            .await?
+            .into_iter()
+            .next())
+    }
+
+    /// Return records on the specified maps, set by the specified players.
+    ///
+    /// # Arguments
+    /// `map_uids` - A list of map UIDs to return records for. Use an empty list to select
+    ///              records for all maps.
+    /// `player_logins` - A list of player logins to return records for. Use an empty list to
+    ///                   select records set by any player.
+    /// `limit_per_map` - The maximum number of records returned for each specified map.
+    async fn records(
         &self,
-        map_uid: &str,
+        map_uids: Vec<&str>,
         player_logins: Vec<&str>,
-    ) -> Result<Vec<RecordDetailed>>;
+        limit_per_map: Option<i64>,
+    ) -> Result<Vec<Record>>;
 
     /// Return the number of players that have set a record on at least one map.
     async fn nb_players_with_record(&self) -> Result<i64>;
@@ -126,17 +138,6 @@ pub trait Queries: Send + Sync {
     /// Delete a map, its preferences, and its records.
     /// The data is lost forever.
     async fn delete_map(&self, map_uid: &str) -> Result<Option<Map>>;
-
-    /// Delete ghost replays of records on every map, that have a rank worse
-    /// than the specified one. For example, if `max_rank` is three, then every
-    /// record at rank four and higher will have their ghost replay deleted.
-    /// The replay data is lost forever, but we usually only care about replays
-    /// of the best records anyway.
-    ///
-    /// # Panics
-    /// This function panics if `max_rank` is smaller than one, since we must
-    /// never delete every ghost replay.
-    async fn delete_old_ghosts(&self, max_rank: i64) -> Result<u64>;
 }
 
 #[cfg(test)]
@@ -185,6 +186,7 @@ pub mod test {
                     file_name: "".to_string(),
                     name: GameString::from("".to_string()),
                     author_login: "".to_string(),
+                    author_nick_name: GameString::from("".to_string()),
                     added_since: Utc::now().naive_utc(),
                     author_millis: 0,
                     in_playlist,
@@ -201,8 +203,6 @@ pub mod test {
                 millis,
                 timestamp: Utc::now().naive_utc(),
                 sectors: vec![],
-                validation: vec![],
-                ghost: None,
             });
         }
 
@@ -287,19 +287,12 @@ pub mod test {
             unimplemented!()
         }
 
-        async fn top_record(&self, _map_uid: &str) -> Result<Option<RecordDetailed>> {
-            unimplemented!()
-        }
-
-        async fn top_records(&self, _map_uid: &str, _limit: i64) -> Result<Vec<Record>> {
-            unimplemented!()
-        }
-
-        async fn player_records(
+        async fn records(
             &self,
-            _map_uid: &str,
+            _map_uids: Vec<&str>,
             _player_logins: Vec<&str>,
-        ) -> Result<Vec<RecordDetailed>> {
+            _limit_per_map: Option<i64>,
+        ) -> Result<Vec<Record>> {
             unimplemented!()
         }
 
@@ -373,10 +366,6 @@ pub mod test {
         }
 
         async fn delete_map(&self, _map_uid: &str) -> Result<Option<Map>> {
-            unimplemented!()
-        }
-
-        async fn delete_old_ghosts(&self, _max_rank: i64) -> Result<u64> {
             unimplemented!()
         }
     }

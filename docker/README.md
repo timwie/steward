@@ -8,15 +8,21 @@ same network:
 - Edit the `.env` file accordingly. These variables will be used in the build process.
   - `STEWARD_VERSION` is a version tag like `v0.1.0`.
   - `DEDICATED_URL` lets you choose a specific dedicated server version.
-    Use `http://files.v04.maniaplanet.com/server/ManiaplanetServer_Latest.zip` if you don't
-    care about a specific version.
-  - `TITLE` is a title name like "TMStadium@nadeo".
-  - `TITLE_PACK_URL` is the download location of the `xyz.Title.Pack.gbx` file. 
 - Create the following docker volumes:
   - `$ docker volume create --name steward-controller`
   - `$ docker volume create --name steward-dedicated`
   - `$ docker volume create --name steward-postgres`
-- Run `docker-compose up -d` to build & start the services in containers.
+- Run `$ docker-compose build` to build the services.
+- Configure the dedicated server:
+  - `$ docker-compose run dedicated bash`
+  - `$ nano UserData/Config/dedicated_cfg.txt`
+    - You *must* edit the `<masterserver_account>` section.
+- Configure the controller:
+  - `$ docker-compose run controller bash`
+  - `$ nano steward.toml`
+    - Do *not* change `rpc_address` or `postgres_connection`.
+  - `$ nano .env`
+- Run `docker-compose up -d` to start the services in containers.
 - All services are configured to be restarted whenever they go down.
 
 <br>

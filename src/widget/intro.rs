@@ -24,12 +24,9 @@ pub struct IntroWidget<'a> {
     #[serde(serialize_with = "format_narrow")]
     pub map_name: &'a str,
 
-    /// The map author's login.
-    pub map_author_login: &'a str,
-
     /// The map author's nick name, which can only be added & updated
     /// whenever the author joins the server.
-    pub map_author_nick_name: Option<&'a str>,
+    pub map_author_nick_name: &'a str,
 
     /// The player's map ranking, or `None` if they have not
     /// set any record.

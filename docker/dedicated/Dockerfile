@@ -3,41 +3,35 @@ FROM debian:buster-slim
 ARG STEWARD_VERSION
 ARG CONFIG_URL=https://github.com/timwie/steward/releases/download/${STEWARD_VERSION}/config.tar.gz
 
-ARG DEDICATED_URL=http://files.v04.maniaplanet.com/server/ManiaplanetServer_2019-10-23.zip
-ARG TITLE=TMStadium@nadeo
-ARG TITLE_PACK_URL=https://v4.live.maniaplanet.com/ingame/public/titles/download/TMStadium@nadeo.Title.Pack.gbx
+ARG DEDICATED_URL=http://files.v04.maniaplanet.com/server/TrackmaniaServer_Latest.zip
 
 RUN apt-get update \
-    && apt-get -y install unzip wget
+    && apt-get -y install nano unzip wget
 
-RUN groupadd -r maniaplanet -g 1000 \
-    && useradd -u 1000 -g 1000 -m maniaplanet
+RUN groupadd -r trackmania -g 1000 \
+    && useradd -u 1000 -g 1000 -m trackmania
 
-WORKDIR /home/maniaplanet/
+WORKDIR /home/trackmania/
 
 COPY updater.sh updater.sh
 RUN chmod +x ./updater.sh
 
-USER maniaplanet
+USER trackmania
 
-RUN wget $DEDICATED_URL -qO /tmp/dedicated.zip
-
-RUN unzip -q /tmp/dedicated.zip -d ./ \
-    && rm /tmp/dedicated.zip \
+RUN wget -q $DEDICATED_URL
+RUN unzip -q TrackmaniaServer_Latest.zip \
+    && rm TrackmaniaServer_Latest.zip \
     && rm -rf ./*.bat ./*.exe ./*.html ./RemoteControlExamples \ 
-    && chmod +x ./ManiaPlanetServer
+    && chmod +x ./TrackmaniaServer
 
-RUN wget $CONFIG_URL -qO /tmp/config.tar.gz
-
-RUN tar -xf /tmp/config.tar.gz \
-    && rm /tmp/config.tar.gz \
-    && rm steward.toml
-
-RUN wget ${TITLE_PACK_URL} -qP /home/maniaplanet/Packs/
+RUN wget -q $CONFIG_URL
+RUN tar -xf config.tar.gz && \
+    rm config.tar.gz && \
+    rm steward.toml
 
 EXPOSE 2350 2350/udp 3450 3450/udp 5000
 
-CMD [ "./ManiaPlanetServer", \
+CMD [ "./TrackmaniaServer", \
       "/nodaemon",           \
       "/dedicated_cfg=dedicated_cfg.txt",        \
       "/game_settings=MatchSettings/maplist.txt" \

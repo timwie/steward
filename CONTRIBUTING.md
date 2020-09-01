@@ -33,8 +33,8 @@ so that you can join the server on the same machine.
    - Update the controller config in `steward.toml` accordingly.
 5. Start the dedicated server (f.e. in a PowerShell prompt).
 ```
-$ cd <your path>/ManiaplanetServer_Latest/
-$ .\ManiaPlanetServer /nodaemon /lan /game_settings=MatchSettings/maplist.txt /dedicated_cfg=dedicated_cfg.txt
+$ cd <your path>/TrackmaniaServer_Latest/
+$ .\TrackmaniaServer /nodaemon /lan /game_settings=MatchSettings/maplist.txt /dedicated_cfg=dedicated_cfg.txt
 ```
 6. Start the controller (f.e. in a PowerShell prompt).
 ```
@@ -137,10 +137,8 @@ is a bug. The following list contains many of the potential runtime errors when 
 - [ManiaPlanet Mode Scripts]
 - [Manialink Reference]
 - [ManiaScript Reference]
-- [Trackmania Race API for Manialink Scripts]
+- [ManiaScript API for Widgets]
 - [In-game Text Formatting]
-- [Dedimania API]
-- [Dedimania Forum]
 - [ManiaExchange API]
 
 
@@ -155,7 +153,6 @@ is a bug. The following list contains many of the potential runtime errors when 
 | Calls          | Refers to remote procedure calls sent by the controller, executed by the game server. |
 | Command        | Refers to commands written by players in the in-game chat.                            |
 | Config         | • *Server config* refers to the XML config in `/UserData/Config/*.txt`, passed to the `/dedicated_cfg` launcher option. Some options can will be overridden by the controller.<br> • *Controller config* refers to the TOML config listed in the `STEWARD_CONFIG` environment variable. |
-| [Dedimania]    | A popular database for global records.                                                |
 | [Exchange]     | A popular website for sharing maps.                                                   |
 | Intro & Outro  | • Refers to the stages before and after a race, respectively.<br> • During the intro, the server briefly waits for players to load, and the map's MediaTracker intro is shown as a cutscene.<br> • During the outro, the game gives players some time to chat, and to inspect the scores. |
 | Manialink      | In-game "web pages", written in XML with specific tags.                               |
@@ -167,8 +164,7 @@ is a bug. The following list contains many of the potential runtime errors when 
 | Queue          | Refers to an ordering of the playlist, that decides which maps are played when.       |
 | Race           | Refers to the race of connected players on a single map, within a single time limit.  |
 | Rank           | • *Race rank* refers to a player's ranking during the current race.<br> • *Map rank* refers to the rank of a player's personal best in the ranking of all records on map.<br> • *Server rank* refers to rank calculated over all maps, where players with many top records gain top ranks. |
-| Record         | • The *Personal Best* (PB) of a player is their best record on a given map.<br> • *Local records* refers to records that were set on this specific server. <br> • *Global records* refers to records across all servers.  |
-| Replay         | • *Validation replays* contain only very basic information about a player's run.<br> • *Ghost replays* allow you to playback a run, to observe or race against it.<br> • Both replays contain the map as well. Ghost replays are much larger, primarily because it contains calculated lightmaps for the map, giving it better ambient lighting. |
+| Record         | • The *Personal Best* (PB) of a player is their best record on a given map.<br> • *Local records* refers to records that were set on this specific server. <br> • *Global records* refers to records in the game's built-in ranking.  |
 | Run            | • Refers to a drive from start to finish, without respawns to the starting line.<br>• *Run outro* refers to the duration between finishing a run, and starting the next. |
 | Sector         | Refers to the sections of a run in between start, checkpoint, and finish blocks.      |
 | Spectator      | • Every server has a number of player slots, and spectator slots. <br> • A *spectator* is a player spectating another player, while still occupying a player slot, allowing them to switch back to racing at any time.<br> • *Pure spectators* only have a spectator slot, and must wait for a player slot to free up in case they want to join the race. |
@@ -194,9 +190,6 @@ To get your changes merged...
 
 Remember to...
 - look at the PR to see if all checks are passing
-  - `cargo fmt`
-  - `cargo clippy`
-  - `cargo test --workspace`
 - update other documents (README, CHANGELOG, this document, etc.) if required
 - test new or changed behavior on a local server (unit tests might not be required)
 
@@ -205,11 +198,10 @@ Remember to...
 [Issue]: https://github.com/timwie/steward/issues/new
 [Pull Request]: https://github.com/timwie/steward/compare
 
-[Dedimania]: http://dedimania.net/tmstats/
 [Exchange]: https://trackmania.exchange/
 
 [rustup]: https://rustup.rs/
-[Dedicated Server]: http://files.v04.maniaplanet.com/server/ManiaplanetServer_Latest.zip
+[Dedicated Server]: http://files.v04.maniaplanet.com/server/TrackmaniaServer_Latest.zip
 [PostgreSQL server]: https://www.postgresql.org/download/
 
 [Dedicated Server Documentation]: https://doc.maniaplanet.com/dedicated-server/getting-started
@@ -222,8 +214,6 @@ Remember to...
 [ManiaPlanet Mode Scripts]: https://github.com/maniaplanet/game-modes
 [Manialink Reference]: https://doc.maniaplanet.com/manialink/getting-started
 [ManiaScript Reference]: https://doc.maniaplanet.com/maniascript/syntax-basics
-[Trackmania Race API for Manialink Scripts]: https://www.uaseco.org/maniascript/2019-10-10/struct_c_tm_ml_script_ingame.html
+[ManiaScript API for Widgets]: https://maniascript.boss-bravo.fr/class_c_sm_ml_script_ingame.html
 [In-game Text Formatting]: https://doc.maniaplanet.com/client/text-formatting
-[Dedimania API]: http://dedimania.net:8082/Dedimania
-[Dedimania Forum]: http://dedimania.net/SITE/forum/viewforum.php?id=17
 [ManiaExchange API]: https://api.mania-exchange.com/documents/reference

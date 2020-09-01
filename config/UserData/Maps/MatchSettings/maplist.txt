@@ -1,8 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <playlist>
   <gameinfos>
-	  <script_name>TimeAttack.Script.txt</script_name>
+	  <script_name>Trackmania/TM_TimeAttack_Online.Script.txt</script_name>
   </gameinfos>
   <startindex>0</startindex>
-  <map><file>A01.Map.Gbx</file></map>
+  <map>
+      <file>U-Turn.Map.Gbx</file>
+      <ident>g7l2eO_x9z4HWGGYj8dVBCDSTEg</ident>
+  </map>
 </playlist>

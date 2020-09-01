@@ -43,7 +43,7 @@ Void OhNo() {
 {# ============================= SCRIPT MAIN ============================= #}
 {% block main %}
 
-declare Integer P_ToggleMenuState for LocalUser;
+declare Integer P_ToggleMenuState for This;
 
 UI_Frame = (Page.GetFirstChild("map-ranking") as CMlFrame);
 
@@ -60,9 +60,8 @@ G_MaxPos = {{max_pos}};
 {% endfor %}
 
 {% set nb_ranks = entries | length %}
-{% set personal_pos = personal_entry.pos | default(value=nb_ranks+1) %}
 
-{% if personal_pos > nb_ranks %}
+{% if personal_entry and personal_entry.pos > nb_ranks %}
     G_PersonalPos = {{personal_entry.pos}};
     G_Ranking.add(SMapRank {
         Pos = {{personal_entry.pos}},
