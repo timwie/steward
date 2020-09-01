@@ -186,6 +186,7 @@ pub mod test {
                     file_name: "".to_string(),
                     name: GameString::from("".to_string()),
                     author_login: "".to_string(),
+                    author_nick_name: GameString::from("".to_string()),
                     added_since: Utc::now().naive_utc(),
                     author_millis: 0,
                     in_playlist,
