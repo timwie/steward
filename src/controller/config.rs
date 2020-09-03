@@ -3,11 +3,9 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use chrono::Duration;
-use serde::{Deserialize, Serialize};
-use thiserror::Error;
 use tokio::sync::{RwLock, RwLockReadGuard};
 
-use crate::config::Config;
+use crate::config::{Config, PublicConfig};
 use crate::event::ConfigDiff;
 use crate::server::Server;
 
@@ -119,65 +117,4 @@ impl LiveConfig for ConfigController {
     async fn maps_dir(&self) -> PathBuf {
         self.server.user_data_dir().await.join("Maps")
     }
-}
-
-/// A public subset of the controller config, omitting credentials etc,
-/// that is ready to be displayed and edited in-game.
-#[derive(Deserialize, Serialize)]
-pub struct PublicConfig {
-    pub time_limit_factor: u32,
-    pub time_limit_max_secs: u32,
-    pub time_limit_min_secs: u32,
-    pub outro_duration_secs: u32,
-}
-
-impl Config {
-    pub fn public(&self) -> PublicConfig {
-        PublicConfig {
-            time_limit_factor: self.time_limit_factor,
-            time_limit_max_secs: self.time_limit_max_secs,
-            time_limit_min_secs: self.time_limit_min_secs,
-            outro_duration_secs: self.outro_duration_secs,
-        }
-    }
-}
-
-impl PublicConfig {
-    pub fn write(&self) -> String {
-        toml::to_string(&self).expect("failed to serialize ingame config")
-    }
-
-    pub fn read(serialized: &str) -> Result<PublicConfig, PublicConfigError> {
-        use PublicConfigError::*;
-
-        let cfg: PublicConfig = toml::from_str(serialized)?;
-
-        if cfg.time_limit_factor == 0 {
-            return Err(TimeLimitFactorCannotBeZero);
-        }
-        if cfg.time_limit_max_secs == 0 {
-            return Err(TimeLimitMaxCannotBeZero);
-        }
-        if cfg.time_limit_min_secs >= cfg.time_limit_max_secs {
-            return Err(TimeLimitMinGreaterThanMax);
-        }
-
-        Ok(cfg)
-    }
-}
-
-/// Failed checks when editing the public config.
-#[derive(Error, Debug)]
-pub enum PublicConfigError {
-    #[error("Not a valid config")]
-    ParseError(#[from] toml::de::Error),
-
-    #[error("time_limit_factor must be greater than zero")]
-    TimeLimitFactorCannotBeZero,
-
-    #[error("time_limit_max_secs must be greater than zero")]
-    TimeLimitMaxCannotBeZero,
-
-    #[error("time_limit_max_secs must be greater than time_limit_min_secs")]
-    TimeLimitMinGreaterThanMax,
 }

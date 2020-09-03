@@ -5,13 +5,14 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use tokio::sync::{RwLock, RwLockReadGuard};
 
-use crate::config::{
+use crate::constants::{
     DEFAULT_MIN_RESTART_VOTE_RATIO, MAX_DISPLAYED_IN_QUEUE, MIN_RESTART_VOTE_RATIO_STEP,
 };
-use crate::controller::{ActivePreferenceValue, LivePlayers, LivePlaylist, LivePreferences};
+use crate::controller::{LivePlayers, LivePlaylist, LivePreferences};
 use crate::database::Map;
 use crate::event::{PlaylistDiff, QueueDiff};
 use crate::server::Server;
+use crate::widget::ActivePreferenceValue;
 
 /// Use to lookup the current queue, which is an ordering of the playlist.
 #[async_trait]

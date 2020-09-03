@@ -3,7 +3,7 @@ use lazy_static::*;
 pub use exchange::*;
 pub use github::*;
 
-use crate::config::USER_AGENT;
+use crate::constants::USER_AGENT;
 
 mod exchange;
 mod github;

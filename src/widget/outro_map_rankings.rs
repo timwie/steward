@@ -1,6 +1,6 @@
 use serde::Serialize;
 
-use crate::widget::{MapRanking, Widget};
+use crate::widget::MapRanking;
 
 /// A widget displayed during the outro, showing a ranking of
 /// - top scores of the past race,
@@ -20,8 +20,4 @@ pub struct OutroMapRankingsWidget<'a> {
 
     /// The maximum number of live scores displayed for the current race.
     pub max_displayed_race_ranks: usize,
-}
-
-impl Widget for OutroMapRankingsWidget<'_> {
-    const FILE: &'static str = "outro_map_rankings.j2";
 }

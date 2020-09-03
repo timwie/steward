@@ -5,7 +5,7 @@ use futures::future::join_all;
 use tokio::sync::RwLock;
 
 use crate::chat::CommandResponse;
-use crate::config::{
+use crate::constants::{
     MAX_DISPLAYED_IN_QUEUE, MAX_DISPLAYED_RACE_RANKS, START_HIDE_WIDGET_DELAY_MILLIS,
 };
 use crate::controller::*;
@@ -508,7 +508,12 @@ impl WidgetController {
             .iter()
             .map(|entry| OutroQueueEntry {
                 map_name: &entry.map.name.formatted,
-                priority: entry.priority,
+                annotation: match entry.priority {
+                    QueuePriority::Score(_) => QueueEntryAnnotation::None,
+                    QueuePriority::VoteRestart => QueueEntryAnnotation::Restart,
+                    QueuePriority::Force(_) => QueueEntryAnnotation::Forced,
+                    QueuePriority::NoRestart => QueueEntryAnnotation::PlayingNow,
+                },
             })
             .collect();
         let widget = OutroQueueWidget {

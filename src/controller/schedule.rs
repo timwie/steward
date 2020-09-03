@@ -7,7 +7,8 @@ use chrono::{Duration, NaiveDateTime, Utc};
 use futures::future::join_all;
 use tokio::sync::RwLock;
 
-use crate::controller::{LiveConfig, LivePlaylist, LiveQueue, LiveRecords, PublicConfig};
+use crate::config::PublicConfig;
+use crate::controller::{LiveConfig, LivePlaylist, LiveQueue, LiveRecords};
 use crate::database::Database;
 use crate::event::PlaylistDiff;
 use crate::server::Server;

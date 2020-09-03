@@ -5,7 +5,6 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use chrono::{NaiveDateTime, Utc};
 use futures::future::join_all;
-use serde_repr::Serialize_repr;
 use tokio::sync::{RwLock, RwLockReadGuard};
 
 use crate::chat::PlayerMessage;
@@ -13,6 +12,7 @@ use crate::controller::{LiveChat, LivePlayers, LivePlaylist, PlayersState};
 use crate::database::{Database, History, Map, Preference, PreferenceValue};
 use crate::event::{PlayerDiff, PlayerTransition, PlaylistDiff};
 use crate::server::PlayerInfo;
+use crate::widget::ActivePreferenceValue;
 
 /// Use to lookup preferences of connected players.
 #[async_trait]
@@ -54,20 +54,11 @@ pub struct PreferencesState {
 }
 
 /// Extends `Preference` by implicit preference values, like `AutoPick`.
+#[derive(Clone)]
 pub struct ActivePreference {
     pub player_uid: i32,
     pub map_uid: String,
     pub value: ActivePreferenceValue,
-}
-
-#[derive(Serialize_repr, Debug, PartialEq, Eq, Clone, Copy)]
-#[repr(u8)]
-pub enum ActivePreferenceValue {
-    None = 0,
-    Pick = 1,
-    Veto = 2,
-    Remove = 3,
-    AutoPick = 100,
 }
 
 impl PreferencesState {
@@ -366,18 +357,32 @@ impl PreferenceController {
     }
 
     /// Update a player's map preference.
-    pub async fn set_preference(&self, preference: Preference) {
+    pub async fn set_preference(&self, preference: ActivePreference) {
+        let mut preferences_state = self.state.write().await;
+        preferences_state.add_pref(preference.clone());
+
+        let value = match preference.value {
+            ActivePreferenceValue::Pick => PreferenceValue::Pick,
+            ActivePreferenceValue::Veto => PreferenceValue::Veto,
+            ActivePreferenceValue::Remove => PreferenceValue::Remove,
+            _ => return,
+        };
+
+        let player_login = match self.live_players.login(preference.player_uid).await {
+            Some(login) => login,
+            None => return,
+        };
+
+        let db_pref = Preference {
+            player_login,
+            map_uid: preference.map_uid.clone(),
+            value,
+        };
+
         self.db
-            .upsert_preference(&preference)
+            .upsert_preference(&db_pref)
             .await
             .expect("failed to upsert preference of player");
-
-        let mut preferences_state = self.state.write().await;
-        let players_state = self.live_players.lock().await;
-
-        if let Some(pref) = to_active_pref(preference, &players_state) {
-            preferences_state.add_pref(pref);
-        }
     }
 
     /// Update a player's restart vote for the current map.

@@ -1,7 +1,5 @@
 use serde::Serialize;
 
-use crate::widget::Widget;
-
 /// A widget that summarizes a player's run.
 ///
 /// # Sending
@@ -25,8 +23,4 @@ pub struct RunOutroWidget {
     /// The player's new rank in this race.
     /// Might have been set, improved, or unchanged with this run.
     pub race_pos: usize,
-}
-
-impl Widget for RunOutroWidget {
-    const FILE: &'static str = "race_run_outro.j2";
 }

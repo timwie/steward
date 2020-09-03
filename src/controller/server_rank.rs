@@ -7,7 +7,7 @@ use async_trait::async_trait;
 use indexmap::map::IndexMap;
 use tokio::sync::{RwLock, RwLockReadGuard};
 
-use crate::config::MAX_DISPLAYED_SERVER_RANKS;
+use crate::constants::MAX_DISPLAYED_SERVER_RANKS;
 use crate::controller::LivePlayers;
 use crate::database::Database;
 use crate::event::{ServerRankDiff, ServerRankingDiff};

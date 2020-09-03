@@ -5,8 +5,8 @@ use crate::chat::{
     CommandResponse, DangerousCommand, PlayerCommand, PlaylistCommandError, ServerMessage,
     SuperAdminCommand,
 };
-use crate::config::BLACKLIST_FILE;
-use crate::config::VERSION;
+use crate::constants::BLACKLIST_FILE;
+use crate::constants::VERSION;
 use crate::controller::{Controller, LiveConfig, LivePlayers, LivePlaylist};
 use crate::event::{ControllerEvent, PlaylistDiff};
 use crate::network::most_recent_controller_version;

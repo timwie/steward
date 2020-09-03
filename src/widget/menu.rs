@@ -3,9 +3,8 @@ use std::cmp::Ordering;
 use chrono::NaiveDateTime;
 use serde::Serialize;
 
-use crate::controller::ActivePreferenceValue;
-use crate::widget::ser::{format_last_played, format_map_age, format_record_age};
-use crate::widget::Widget;
+use crate::widget::formatters::{format_last_played, format_map_age, format_record_age};
+use crate::widget::ActivePreferenceValue;
 
 /// A widget displayed during the race, that can be toggled by pressing a key.
 /// This widget is only responsible for displaying the menu frame - the actual
@@ -16,10 +15,6 @@ use crate::widget::Widget;
 /// - Send this widget to a player after the intro.
 #[derive(Serialize, Debug)]
 pub struct MenuWidget {}
-
-impl Widget for MenuWidget {
-    const FILE: &'static str = "menu.j2";
-}
 
 /// A widget that displays the server's playlist, and lets players change their map preferences.
 ///
@@ -33,10 +28,6 @@ pub struct PlaylistWidget<'a> {
     /// missing personal records are higher up. The first entry is
     /// the current map.
     pub entries: Vec<PlaylistWidgetEntry<'a>>,
-}
-
-impl Widget for PlaylistWidget<'_> {
-    const FILE: &'static str = "menu_playlist.j2";
 }
 
 #[derive(Serialize, Debug, PartialEq, Eq)]
@@ -124,10 +115,6 @@ pub struct MapRankingWidget<'a> {
     pub ranking: MapRanking<'a>,
 }
 
-impl Widget for MapRankingWidget<'_> {
-    const FILE: &'static str = "menu_map_ranking.j2";
-}
-
 #[derive(Serialize, Debug)]
 pub struct MapRanking<'a> {
     /// A selection of top map ranks.
@@ -169,10 +156,6 @@ pub struct MapRankingEntry<'a> {
 pub struct ServerRankingWidget<'a> {
     #[serde(flatten)]
     pub ranking: ServerRanking<'a>,
-}
-
-impl Widget for ServerRankingWidget<'_> {
-    const FILE: &'static str = "menu_server_ranking.j2";
 }
 
 #[derive(Serialize, Debug)]
@@ -218,8 +201,4 @@ pub struct ScheduleWidget {
 //  - map name, author
 //  - personal preferences
 //  - minutes until played
-}
-
-impl Widget for ScheduleWidget {
-    const FILE: &'static str = "menu_schedule.j2";
 }

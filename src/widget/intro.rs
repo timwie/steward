@@ -1,11 +1,9 @@
 use chrono::NaiveDateTime;
 use serde::Serialize;
 
-use crate::controller::ActivePreferenceValue;
 use crate::database::PreferenceValue;
-use crate::widget::ser::format_last_played;
-use crate::widget::ser::format_narrow;
-use crate::widget::Widget;
+use crate::widget::formatters::{format_last_played, format_narrow};
+use crate::widget::ActivePreferenceValue;
 
 /// An introductory widget that is displayed when a map
 /// is loaded, and hidden once the race starts.
@@ -47,8 +45,4 @@ pub struct IntroWidget<'a> {
     /// they have never played it. "Playing" means "finishing" here.
     #[serde(serialize_with = "format_last_played")]
     pub last_played: Option<NaiveDateTime>,
-}
-
-impl Widget for IntroWidget<'_> {
-    const FILE: &'static str = "intro.j2";
 }

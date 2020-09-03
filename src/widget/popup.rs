@@ -2,7 +2,6 @@ use serde::Serialize;
 use serde_repr::Serialize_repr;
 
 use crate::chat::{CommandOutputResponse, CommandResponse};
-use crate::widget::Widget;
 
 /// A widget that can be used for the outputs of chat commands.
 /// Such outputs are not ideal in the chat, since you cannot
@@ -39,8 +38,4 @@ impl PopupMode {
             _ => PopupMode::Default,
         }
     }
-}
-
-impl Widget for PopupWidget<'_> {
-    const FILE: &'static str = "popup.j2";
 }

@@ -15,9 +15,10 @@ pub use popup::*;
 pub use race_live_ranks::*;
 pub use race_run_outro::*;
 
-use crate::config::cdn_prefix;
+use crate::constants::cdn_prefix;
 
 mod action;
+mod formatters;
 mod intro;
 mod menu;
 mod outro_map_rankings;
@@ -26,7 +27,6 @@ mod outro_server_ranking;
 mod popup;
 mod race_live_ranks;
 mod race_run_outro;
-mod ser;
 
 pub trait Widget
 where
@@ -39,7 +39,7 @@ where
     ///
     /// Choosing the same ID for multiple widgets allows replacing
     /// one widget with another.
-    const ID: &'static str = Self::FILE;
+    const ID: &'static str;
 
     /// Render the template file with this context, extended by
     /// - `widget_id`: use as `<manialink>` ID
@@ -49,35 +49,34 @@ where
 
         let mut tera_context =
             tera::Context::from_serialize(self).expect("failed to create widget context!");
-        Self::extend_ctxt(&mut tera_context);
+        add_constants(&mut tera_context);
 
         TEMPLATES
             .render(Self::FILE, &tera_context)
-            .expect("failed to render widget!")
+            .expect("failed to render widget")
     }
 
     /// Render an empty widget that can replace a previously sent widget
     /// of this type.
     fn hidden() -> String {
         let mut tera_context = tera::Context::new();
-        Self::extend_ctxt(&mut tera_context);
+        add_constants(&mut tera_context);
         TEMPLATES
             .render("empty.j2", &tera_context)
-            .expect("failed to render widget!")
+            .expect("failed to render widget")
     }
+}
 
-    fn extend_ctxt(ctxt: &mut tera::Context) {
-        ctxt.insert("widget_id", Self::ID);
-        ctxt.insert("cdn", &cdn_prefix());
-    }
+fn add_constants(ctxt: &mut tera::Context) {
+    ctxt.insert("cdn", &cdn_prefix());
 }
 
 lazy_static! {
-    static ref TEMPLATES: Tera = collect_templates().unwrap();
+    static ref TEMPLATES: Tera = collect_templates().expect("failed to collect widget templates");
 }
 
 fn collect_templates() -> tera::Result<Tera> {
-    // Include all widget templates at compile-time:
+    // Include all widget templates at compile-time
     static TEMPLATE_DIR: Dir = include_dir!("src/res/widgets/");
 
     let mut tera = Tera::default();
@@ -109,3 +108,41 @@ fn collect_templates() -> tera::Result<Tera> {
 
     Ok(tera)
 }
+
+macro_rules! impl_widget {
+    ($file:expr, $typ:ty) => {
+        impl Widget for $typ {
+            const FILE: &'static str = $file;
+            const ID: &'static str = Self::FILE;
+        }
+    };
+    ($id:expr, $file:expr, $typ:ty) => {
+        impl Widget for $typ {
+            const FILE: &'static str = $file;
+            const ID: &'static str = $id;
+        }
+    };
+}
+
+impl_widget!("intro.j2", IntroWidget<'_>);
+impl_widget!("menu.j2", MenuWidget);
+impl_widget!("menu_map_ranking.j2", MapRankingWidget<'_>);
+impl_widget!("menu_playlist.j2", PlaylistWidget<'_>);
+impl_widget!("menu_schedule.j2", ScheduleWidget);
+impl_widget!("menu_server_ranking.j2", ServerRankingWidget<'_>);
+impl_widget!("outro_map_rankings.j2", OutroMapRankingsWidget<'_>);
+impl_widget!("outro_queue", "outro_queue.result.j2", OutroQueueWidget<'_>);
+impl_widget!("outro_queue", "outro_queue.vote.j2", OutroQueueVoteWidget);
+impl_widget!(
+    "outro_ranking",
+    "outro_server_ranking.result.j2",
+    OutroServerRankingWidget<'_>
+);
+impl_widget!(
+    "outro_ranking",
+    "outro_server_ranking.wait.j2",
+    OutroServerRankingPlaceholder
+);
+impl_widget!("popup.j2", PopupWidget<'_>);
+impl_widget!("race_live_ranks.j2", LiveRanksWidget);
+impl_widget!("race_run_outro.j2", RunOutroWidget);

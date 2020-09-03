@@ -1,6 +1,6 @@
 use serde::Deserialize;
+use serde_repr::{Deserialize_repr, Serialize_repr};
 
-use crate::database::PreferenceValue;
 use crate::server::PlayerAnswer;
 
 /// Actions are triggered within widgets via ManiaScript
@@ -18,11 +18,11 @@ use crate::server::PlayerAnswer;
 #[derive(Deserialize, Debug)]
 #[serde(tag = "action")]
 pub enum Action {
-    // no  &'a str, see https://github.com/serde-rs/serde/issues/1413#issuecomment-494892266
+    // no &'a str, see https://github.com/serde-rs/serde/issues/1413#issuecomment-494892266
     /// Update a player's map preference.
     SetPreference {
         map_uid: String,
-        preference: PreferenceValue, // 1..3 in JSON
+        preference: ActivePreferenceValue, // 1..3 in JSON
     },
 
     /// Update whether a player is for or against a restart
@@ -65,4 +65,15 @@ impl Action {
 
         action
     }
+}
+
+#[derive(Serialize_repr, Deserialize_repr, Debug, PartialEq, Eq, Clone, Copy)]
+#[repr(u8)]
+pub enum ActivePreferenceValue {
+    None = 0,
+    Pick = 1,
+    Veto = 2,
+    Remove = 3,
+    #[serde(skip_deserializing)]
+    AutoPick = 100,
 }

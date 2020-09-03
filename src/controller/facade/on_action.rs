@@ -1,8 +1,8 @@
 use futures::future::join_all;
 
 use crate::chat::{CommandOutputResponse, CommandResponse};
-use crate::controller::{Controller, PublicConfig};
-use crate::database::Preference;
+use crate::config::PublicConfig;
+use crate::controller::{ActivePreference, Controller};
 use crate::event::ControllerEvent;
 use crate::server::PlayerInfo;
 use crate::widget::Action;
@@ -48,9 +48,9 @@ impl Controller {
                 map_uid,
                 preference,
             } => {
-                let pref = Preference {
+                let pref = ActivePreference {
                     map_uid: map_uid.to_string(),
-                    player_login: player.login.clone(),
+                    player_uid: player.uid,
                     value: preference,
                 };
                 self.prefs.set_preference(pref).await;

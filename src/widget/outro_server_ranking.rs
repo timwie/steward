@@ -1,6 +1,6 @@
 use serde::Serialize;
 
-use crate::widget::{ServerRanking, Widget};
+use crate::widget::ServerRanking;
 
 /// Summarize the changes to a player's server rank after a race,
 /// and display a number of top ranks.
@@ -37,16 +37,4 @@ pub struct OutroServerRankingWidget<'a> {
 #[derive(Serialize, Debug)]
 pub struct OutroServerRankingPlaceholder {
     // Tera cannot create a context from a struct like this: "pub struct _;"
-}
-
-impl Widget for OutroServerRankingWidget<'_> {
-    const FILE: &'static str = "outro_server_ranking.j2";
-
-    const ID: &'static str = "outro_ranking";
-}
-
-impl Widget for OutroServerRankingPlaceholder {
-    const FILE: &'static str = "outro_server_ranking_placeholder.j2";
-
-    const ID: &'static str = "outro_ranking";
 }

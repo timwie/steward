@@ -6,7 +6,7 @@ use chrono::Utc;
 use futures::future::join_all;
 use tokio::sync::{RwLock, RwLockReadGuard};
 
-use crate::config::MAX_DISPLAYED_MAP_RANKS;
+use crate::constants::MAX_DISPLAYED_MAP_RANKS;
 use crate::controller::{LivePlayers, LivePlaylist};
 use crate::database::{Database, Map, Record, RecordEvidence, RecordSector};
 use crate::event::{PbDiff, PlayerDiff, PlayerTransition};

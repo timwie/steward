@@ -1,7 +1,7 @@
 use async_recursion::async_recursion;
 
 use crate::chat::{ServerMessage, TopRankMessage};
-use crate::config::{
+use crate::constants::{
     MAX_ANNOUNCED_RANK, MAX_ANNOUNCED_RECORD, MAX_ANNOUNCED_RECORD_IMPROVEMENT,
     MAX_NB_ANNOUNCED_RANKS,
 };

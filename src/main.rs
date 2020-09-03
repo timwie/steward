@@ -1,6 +1,7 @@
 mod chat;
 mod compat;
 mod config;
+mod constants;
 mod controller;
 mod database;
 mod event;

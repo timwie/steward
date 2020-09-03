@@ -1,23 +1,23 @@
 use chrono::{NaiveDateTime, Utc};
 use serde::Serializer;
 
-use crate::controller::QueuePriority;
+use crate::widget::QueueEntryAnnotation;
 
 /// Remove formatting to make a text more narrow.
-pub fn format_narrow<S>(p: &str, s: S) -> Result<S::Ok, S::Error>
+pub(super) fn format_narrow<S>(p: &str, s: S) -> Result<S::Ok, S::Error>
 where
     S: Serializer,
 {
     s.serialize_str(&p.replace("$o", "").replace("$w", ""))
 }
 
-pub fn format_map_age<S>(x: &NaiveDateTime, s: S) -> Result<S::Ok, S::Error>
+pub(super) fn format_map_age<S>(x: &NaiveDateTime, s: S) -> Result<S::Ok, S::Error>
 where
     S: Serializer,
 {
     let now = Utc::now().naive_utc();
     let seconds_since = now.timestamp() - x.timestamp();
-    assert!(seconds_since >= 0);
+    assert!(seconds_since >= 0, "tried to format future date");
 
     let days_since = seconds_since / 60 / 60 / 24; // div rounds down
     let weeks_since = days_since / 7;
@@ -38,14 +38,14 @@ where
     s.serialize_str(&format!("{} months ago", months_since)) // "2..11 months ago"
 }
 
-pub fn format_record_age<S>(x: &NaiveDateTime, s: S) -> Result<S::Ok, S::Error>
+pub(super) fn format_record_age<S>(x: &NaiveDateTime, s: S) -> Result<S::Ok, S::Error>
 where
     S: Serializer,
 {
     format_map_age(x, s)
 }
 
-pub fn format_last_played<S>(x: &Option<NaiveDateTime>, s: S) -> Result<S::Ok, S::Error>
+pub(super) fn format_last_played<S>(x: &Option<NaiveDateTime>, s: S) -> Result<S::Ok, S::Error>
 where
     S: Serializer,
 {
@@ -55,7 +55,7 @@ where
     };
     let now = Utc::now().naive_utc();
     let seconds_since = now.timestamp() - x.timestamp();
-    assert!(seconds_since >= 0);
+    assert!(seconds_since >= 0, "tried to format future date");
 
     let days_since = seconds_since / 60 / 60 / 24; // div rounds down
     let weeks_since = days_since / 7;
@@ -79,17 +79,16 @@ where
     s.serialize_str(&format!("{} months ago", months_since)) // "2..11 months ago"
 }
 
-pub fn format_queue_priority<S>(p: &QueuePriority, s: S) -> Result<S::Ok, S::Error>
+pub(super) fn format_queue_annotation<S>(p: &QueueEntryAnnotation, s: S) -> Result<S::Ok, S::Error>
 where
     S: Serializer,
 {
-    use QueuePriority::*;
+    use QueueEntryAnnotation::*;
     let str = match p {
-        NoRestart => "Playing Now".to_string(),
-        VoteRestart => "Restart".to_string(),
-        Force(_) => "Force".to_string(),
-        Score(score) if *score >= 0 => format!("+{}", *score),
-        Score(score) => score.to_string(),
+        None => "".to_string(),
+        Restart => "Restart".to_string(),
+        Forced => "Forced".to_string(),
+        PlayingNow => "Playing Now".to_string(),
     };
     s.serialize_str(&str)
 }

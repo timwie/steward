@@ -1,6 +1,6 @@
 use chrono::NaiveDateTime;
 use postgres_types::{FromSql, ToSql};
-use serde_repr::{Deserialize_repr, Serialize_repr};
+use serde_repr::Serialize_repr;
 
 use crate::server::GameString;
 
@@ -83,7 +83,7 @@ pub struct Preference {
     pub value: PreferenceValue,
 }
 
-#[derive(Debug, Clone, Copy, ToSql, FromSql, Deserialize_repr, Serialize_repr)]
+#[derive(Debug, Clone, Copy, ToSql, FromSql, Serialize_repr)]
 #[postgres(name = "pref")]
 #[repr(u8)]
 pub enum PreferenceValue {

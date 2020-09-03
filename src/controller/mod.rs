@@ -1,12 +1,9 @@
 pub(self) use chat::*;
-pub use config::PublicConfig;
 pub(self) use config::*;
 pub use facade::Controller;
 pub(self) use player::*;
 pub(self) use playlist::*;
 pub(self) use preference::*;
-pub use preference::{ActivePreference, ActivePreferenceValue};
-pub use queue::QueuePriority;
 pub(self) use queue::*;
 pub(self) use race::*;
 pub(self) use record::*;

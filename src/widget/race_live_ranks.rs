@@ -1,7 +1,5 @@
 use serde::Serialize;
 
-use crate::widget::Widget;
-
 /// A widget that is displayed during a race to let players know their
 /// - current server rank
 /// - personal best on this map
@@ -41,8 +39,4 @@ pub struct LiveRanksWidget {
 
     /// The number of players that have a server rank.
     pub max_server_rank: usize,
-}
-
-impl Widget for LiveRanksWidget {
-    const FILE: &'static str = "race_live_ranks.j2";
 }

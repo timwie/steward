@@ -8,13 +8,14 @@ use async_trait::async_trait;
 use chrono::Utc;
 use tokio::sync::{RwLock, RwLockReadGuard};
 
+use gbx::file::parse_map_file;
+
 use crate::chat::PlaylistCommandError;
 use crate::controller::LiveConfig;
 use crate::database::{Database, Map, MapEvidence};
 use crate::event::PlaylistDiff;
 use crate::network::{exchange_map, ExchangeError};
 use crate::server::Server;
-use gbx::file::parse_map_file;
 
 /// Use to lookup the current playlist, and the map that is currently being played.
 #[async_trait]

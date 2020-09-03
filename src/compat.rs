@@ -9,7 +9,8 @@ use chrono::Utc;
 
 use gbx::file::parse_map_file;
 
-use crate::config::{Config, BLACKLIST_FILE, VERSION};
+use crate::config::Config;
+use crate::constants::{BLACKLIST_FILE, VERSION};
 use crate::database::{Database, Map, MapEvidence};
 use crate::network::exchange_id;
 use crate::server::{

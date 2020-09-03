@@ -5,8 +5,7 @@ use semver::Version;
 use crate::chat::{
     ADMIN_COMMAND_REFERENCE, PLAYER_COMMAND_REFERENCE, SUPER_ADMIN_COMMAND_REFERENCE,
 };
-use crate::config::Config;
-use crate::controller::PublicConfig;
+use crate::config::{Config, PublicConfig};
 use crate::database::Map;
 use crate::server::{NetStats, PlayerInfo, ServerInfo};
 

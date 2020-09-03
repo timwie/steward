@@ -114,7 +114,6 @@ Void OnScroll(Integer OffsetY) {
     declare PrevScrollY = G_ScrollY;
     G_ScrollY = MathLib::Min(G_FocusY, G_ScrollY); // prevent out of top bounds
     G_ScrollY = MathLib::Max(G_ScrollY, G_FocusY + 1 - MAX_VISIBLE_MAPS); // prevent out of bottom bounds
-    log(G_ScrollY ^ " / " ^ {{entries | length}} - MAX_VISIBLE_MAPS);
 
     if (G_ScrollY == PrevScrollY && OffsetY != 0) {
         return; // nothing to do
@@ -171,7 +170,6 @@ Void SetPreference() {
     Uid = TextLib::SubString(Uid, 1, TextLib::Length(Uid) - 1);
 
     // Set remote preference. Yes, this has to be a single line for some reason.
-    // TODO setting to NONE is not supported; do we want it to be though?
     {% raw %}
     declare Text Action = """{ "action": "SetPreference", "map_uid": "{{{G_Maps[G_FocusY].Uid}}}",  "player_uid": "{{{Uid}}}", "preference": {{{G_FocusX}}} }""";
     {% endraw %}

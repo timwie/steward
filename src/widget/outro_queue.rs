@@ -1,8 +1,7 @@
 use serde::Serialize;
 
-use crate::controller::{ActivePreferenceValue, QueuePriority};
-use crate::widget::ser::format_queue_priority;
-use crate::widget::Widget;
+use crate::widget::formatters::format_queue_annotation;
+use crate::widget::ActivePreferenceValue;
 
 /// A widget displayed at the start of the outro, that lets
 /// players update their preference, and vote for a map restart.
@@ -43,19 +42,14 @@ pub struct OutroQueueEntry<'a> {
     /// The formatted map name.
     pub map_name: &'a str,
 
-    /// The priority can convey why a map will be queued.
-    #[serde(serialize_with = "format_queue_priority")]
-    pub priority: QueuePriority,
+    #[serde(serialize_with = "format_queue_annotation")]
+    pub annotation: QueueEntryAnnotation,
 }
 
-impl Widget for OutroQueueVoteWidget {
-    const FILE: &'static str = "outro_queue_vote.j2";
-
-    const ID: &'static str = "outro_poll";
-}
-
-impl Widget for OutroQueueWidget<'_> {
-    const FILE: &'static str = "outro_queue.j2";
-
-    const ID: &'static str = "outro_poll";
+#[derive(Debug)]
+pub enum QueueEntryAnnotation {
+    None,
+    Restart,
+    Forced,
+    PlayingNow,
 }
