@@ -34,10 +34,10 @@ impl Controller {
             }
 
             ServerEvent::MapUnload => {
-                let ev = ControllerEvent::EndOutro;
+                let ev = ControllerEvent::ChangeMap;
                 self.on_controller_event(ev).await;
 
-                let ev = ControllerEvent::ChangeMap;
+                let ev = ControllerEvent::EndOutro;
                 self.on_controller_event(ev).await;
             }
 

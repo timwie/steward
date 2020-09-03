@@ -106,9 +106,8 @@ impl Controller {
                 // Update the current map
                 let new_playlist_index = self
                     .server
-                    .playlist_current_index()
-                    .await
-                    .expect("server loaded non-playlist map");
+                    .playlist_next_index()
+                    .await;
                 let next_map = self.playlist.set_index(new_playlist_index).await;
 
                 // Re-sort the queue: the current map will move to the back.
