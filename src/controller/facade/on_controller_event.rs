@@ -61,10 +61,6 @@ impl Controller {
             }
 
             BeginIntro => {
-                self.race.reset().await;
-
-                self.schedule.set_time_limit().await;
-
                 self.widget.begin_intro().await;
             }
 
@@ -99,6 +95,10 @@ impl Controller {
             }
 
             EndOutro => {
+                self.race.reset().await;
+
+                self.schedule.set_time_limit().await;
+
                 self.widget.end_outro().await;
             }
 

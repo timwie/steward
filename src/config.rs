@@ -133,7 +133,7 @@ impl Config {
 
 impl PublicConfig {
     pub fn write(&self) -> String {
-        toml::to_string(&self).expect("failed to serialize ingame config")
+        toml::to_string(&self).expect("failed to serialize public config")
     }
 
     pub fn read(serialized: &str) -> Result<PublicConfig, PublicConfigError> {

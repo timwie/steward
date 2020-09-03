@@ -6,9 +6,12 @@ use serde::Serialize;
 use tera::Tera;
 
 pub use action::*;
-pub use intro::*;
 pub use menu::*;
-pub use outro_map_rankings::*;
+pub use menu_map_ranking::*;
+pub use menu_playlist::*;
+pub use menu_schedule::*;
+pub use menu_server_ranking::*;
+pub use outro::*;
 pub use outro_queue::*;
 pub use outro_server_ranking::*;
 pub use popup::*;
@@ -19,9 +22,12 @@ use crate::constants::cdn_prefix;
 
 mod action;
 mod formatters;
-mod intro;
 mod menu;
-mod outro_map_rankings;
+mod menu_map_ranking;
+mod menu_playlist;
+mod menu_schedule;
+mod menu_server_ranking;
+mod outro;
 mod outro_queue;
 mod outro_server_ranking;
 mod popup;
@@ -49,7 +55,7 @@ where
 
         let mut tera_context =
             tera::Context::from_serialize(self).expect("failed to create widget context!");
-        add_constants(&mut tera_context);
+        Self::add_constants(&mut tera_context);
 
         TEMPLATES
             .render(Self::FILE, &tera_context)
@@ -60,15 +66,16 @@ where
     /// of this type.
     fn hidden() -> String {
         let mut tera_context = tera::Context::new();
-        add_constants(&mut tera_context);
+        Self::add_constants(&mut tera_context);
         TEMPLATES
             .render("empty.j2", &tera_context)
             .expect("failed to render widget")
     }
-}
 
-fn add_constants(ctxt: &mut tera::Context) {
-    ctxt.insert("cdn", &cdn_prefix());
+    fn add_constants(ctxt: &mut tera::Context) {
+        ctxt.insert("widget_id", &Self::ID);
+        ctxt.insert("cdn", &cdn_prefix());
+    }
 }
 
 lazy_static! {
@@ -116,33 +123,16 @@ macro_rules! impl_widget {
             const ID: &'static str = Self::FILE;
         }
     };
-    ($id:expr, $file:expr, $typ:ty) => {
-        impl Widget for $typ {
-            const FILE: &'static str = $file;
-            const ID: &'static str = $id;
-        }
-    };
 }
 
-impl_widget!("intro.j2", IntroWidget<'_>);
 impl_widget!("menu.j2", MenuWidget);
 impl_widget!("menu_map_ranking.j2", MapRankingWidget<'_>);
 impl_widget!("menu_playlist.j2", PlaylistWidget<'_>);
 impl_widget!("menu_schedule.j2", ScheduleWidget);
 impl_widget!("menu_server_ranking.j2", ServerRankingWidget<'_>);
-impl_widget!("outro_map_rankings.j2", OutroMapRankingsWidget<'_>);
-impl_widget!("outro_queue", "outro_queue.result.j2", OutroQueueWidget<'_>);
-impl_widget!("outro_queue", "outro_queue.vote.j2", OutroQueueVoteWidget);
-impl_widget!(
-    "outro_ranking",
-    "outro_server_ranking.result.j2",
-    OutroServerRankingWidget<'_>
-);
-impl_widget!(
-    "outro_ranking",
-    "outro_server_ranking.wait.j2",
-    OutroServerRankingPlaceholder
-);
+impl_widget!("outro.j2", OutroWidget<'_>);
+impl_widget!("outro_queue.j2", OutroQueueWidget<'_>);
+impl_widget!("outro_server_ranking.j2", OutroServerRankingWidget<'_>);
 impl_widget!("popup.j2", PopupWidget<'_>);
 impl_widget!("race_live_ranks.j2", LiveRanksWidget);
 impl_widget!("race_run_outro.j2", RunOutroWidget);

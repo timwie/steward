@@ -467,7 +467,7 @@ pub struct Score {
 }
 
 /// A string with in-game formatting.
-#[derive(PartialEq, Clone)]
+#[derive(PartialEq, Eq, Clone)]
 pub struct GameString {
     /// The formatted string.
     pub formatted: String,

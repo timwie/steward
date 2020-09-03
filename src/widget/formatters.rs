@@ -1,14 +1,16 @@
 use chrono::{NaiveDateTime, Utc};
 use serde::Serializer;
 
+use gbx::GameString;
+
 use crate::widget::QueueEntryAnnotation;
 
 /// Remove formatting to make a text more narrow.
-pub(super) fn format_narrow<S>(p: &str, s: S) -> Result<S::Ok, S::Error>
+pub(super) fn format_narrow<S>(p: &GameString, s: S) -> Result<S::Ok, S::Error>
 where
     S: Serializer,
 {
-    s.serialize_str(&p.replace("$o", "").replace("$w", ""))
+    s.serialize_str(&p.formatted.replace("$o", "").replace("$w", ""))
 }
 
 pub(super) fn format_map_age<S>(x: &NaiveDateTime, s: S) -> Result<S::Ok, S::Error>

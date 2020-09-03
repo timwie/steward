@@ -21,6 +21,7 @@ pub struct WidgetController {
     state: Arc<RwLock<WidgetState>>,
     server: Arc<dyn Server>,
     db: Arc<dyn Database>,
+    live_config: Arc<dyn LiveConfig>,
     live_playlist: Arc<dyn LivePlaylist>,
     live_players: Arc<dyn LivePlayers>,
     live_race: Arc<dyn LiveRace>,
@@ -44,6 +45,7 @@ impl WidgetController {
     pub async fn init(
         server: &Arc<dyn Server>,
         db: &Arc<dyn Database>,
+        live_config: &Arc<dyn LiveConfig>,
         live_playlist: &Arc<dyn LivePlaylist>,
         live_players: &Arc<dyn LivePlayers>,
         live_race: &Arc<dyn LiveRace>,
@@ -57,6 +59,7 @@ impl WidgetController {
             state: Arc::new(RwLock::new(WidgetState::Race)),
             server: server.clone(),
             db: db.clone(),
+            live_config: live_config.clone(),
             live_playlist: live_playlist.clone(),
             live_players: live_players.clone(),
             live_race: live_race.clone(),
@@ -76,11 +79,7 @@ impl WidgetController {
 
     /// Add widgets that are displayed during the intro.
     pub async fn begin_intro(&self) {
-        let mut widget_state = self.state.write().await;
-        *widget_state = WidgetState::Race;
-
-        self.show_intro_widgets().await;
-        self.show_menu().await;
+        // nothing to do here, we simply continue to display the outro widgets
     }
 
     /// For the specified player, remove widgets that are displayed during the intro,
@@ -88,7 +87,7 @@ impl WidgetController {
     pub async fn end_intro_for(&self, player_login: &str) {
         let players_state = self.live_players.lock().await;
         if let Some(info) = players_state.info(player_login) {
-            self.hide_intro_widgets_for(info.uid).await;
+            self.hide_outro_widgets_for(info.uid).await;
             self.show_race_widgets_for(info).await;
         }
     }
@@ -116,6 +115,14 @@ impl WidgetController {
         self.show_outro_widgets().await;
     }
 
+    /// Remove widgets displayed during the map's outro.
+    pub async fn end_outro(&self) {
+        let mut widget_state = self.state.write().await;
+        *widget_state = WidgetState::Race;
+
+        // nothing to do here, we simply continue to display the outro widgets during the intro
+    }
+
     /// Remove widgets that are displayed during the vote,
     /// and add ones that display the vote's results.
     pub async fn end_vote(&self, queued_next: Vec<QueueEntry>) {
@@ -128,14 +135,7 @@ impl WidgetController {
             },
         };
 
-        self.hide_outro_poll().await;
-        self.show_outro_poll_result(queued_next).await;
-    }
-
-    /// Hide all outro widgets ahead of loading the next map.
-    pub async fn end_outro(&self) {
-        self.hide_outro_widgets().await;
-        self.hide_menu().await;
+        self.show_outro_queue(queued_next).await;
     }
 
     /// Display appropriate widgets for (new or transitioning) players
@@ -163,7 +163,6 @@ impl WidgetController {
                 self.show_race_widgets_for(&diff.info).await;
             }
             MoveToSpectator | MoveToPureSpectator => {
-                self.hide_intro_widgets_for(diff.info.uid).await; // in case they moved during the intro
                 self.hide_race_widgets_for(diff.info.uid).await; // in case they moved during the race
             }
             _ => {}
@@ -252,6 +251,7 @@ impl WidgetController {
         check_send_res(res);
     }
 
+    #[allow(dead_code)]
     async fn show<T>(&self, widget: T)
     where
         T: Widget,
@@ -300,88 +300,40 @@ impl WidgetController {
         self.hide::<LiveRanksWidget>().await;
     }
 
-    async fn hide_menu(&self) {
-        self.hide::<MenuWidget>().await;
-        self.hide::<PlaylistWidget>().await;
-        self.hide::<ServerRankingWidget>().await;
-        self.hide::<MapRankingWidget>().await;
-        self.hide::<ScheduleWidget>().await;
-    }
-
     async fn show_outro_widgets(&self) {
-        self.show_outro_poll().await;
-        self.show_outro_scores().await;
-        self.show(OutroServerRankingPlaceholder {}).await;
-    }
-
-    async fn hide_outro_widgets(&self) {
-        self.hide::<OutroMapRankingsWidget>().await;
-        self.hide::<OutroServerRankingWidget>().await;
-        self.hide::<OutroQueueWidget>().await;
-    }
-
-    async fn hide_outro_poll(&self) {
-        self.hide::<OutroQueueVoteWidget>().await;
-    }
-
-    async fn show_intro_widgets(&self) {
-        let map = match self.live_playlist.current_map().await {
-            Some(map) => map,
-            None => return,
-        };
-
-        let author_nick_name = self
-            .db
-            .player(&map.author_login)
-            .await
-            .expect("failed to load player")
-            .map(|p| p.nick_name)
-            .unwrap_or_else(|| map.author_nick_name.clone());
-
-        let records_state = self.live_records.lock().await;
-        let preferences_state = self.live_prefs.lock().await;
-
-        let preference_counts: Vec<(PreferenceValue, usize)> = self
-            .db
-            .count_map_preferences(&map.uid)
-            .await
-            .expect("failed to count map preferences")
-            .into_iter()
-            .map(|(k, v)| (k, v as usize))
-            .collect();
-
-        // Do not show for pure spectators.
-        let id_playing = self.live_players.uid_playing().await;
-
-        for id in id_playing {
-            let widget = IntroWidget {
-                map_name: &map.name.formatted,
-                map_author_nick_name: &author_nick_name.formatted,
-                player_map_rank: records_state.pb(id).map(|rec| rec.map_rank as usize),
-                max_map_rank: records_state.nb_records,
-                player_preference: preferences_state.pref(id, &map.uid),
-                preference_counts: preference_counts.clone(),
-                last_played: preferences_state
-                    .history(id, &map.uid)
-                    .and_then(|h| h.last_played),
-            };
-            self.show_for(&widget, id).await;
-        }
-    }
-
-    async fn hide_intro_widgets_for(&self, for_uid: i32) {
-        self.hide_for_delayed::<IntroWidget>(
-            for_uid,
-            Duration::milliseconds(START_HIDE_WIDGET_DELAY_MILLIS),
-        )
-        .await;
-    }
-
-    async fn show_menu(&self) {
+        let config = self.live_config.lock().await;
         let players_state = self.live_players.lock().await;
-        for info in players_state.info_all() {
-            self.show_menu_for(&info).await;
+        let records_state = self.live_records.lock().await;
+
+        let min_restart_vote_ratio = self.live_queue.lock().await.min_restart_vote_ratio;
+        let prefs = self.live_prefs.current_map_prefs().await;
+
+        for player in players_state.info_all() {
+            let widget = OutroWidget {
+                map_ranking: self.curr_map_ranking(&*records_state, &player).await,
+                max_displayed_race_ranks: MAX_DISPLAYED_RACE_RANKS,
+                min_restart_vote_ratio,
+                init_preference: prefs.get(&player.uid).copied(),
+                outro_duration_secs: config.outro_duration_secs,
+                vote_duration_secs: config.vote_duration_secs(),
+            };
+            self.show_for(&widget, player.uid).await;
         }
+    }
+
+    async fn hide_outro_widgets_for(&self, for_uid: i32) {
+        macro_rules! hide_after_delay {
+            () => {};
+            ($typ:tt, $($tail:tt)*) => {
+                self.hide_for_delayed::<$typ>(
+                    for_uid,
+                    Duration::milliseconds(START_HIDE_WIDGET_DELAY_MILLIS),
+                ).await;
+                hide_after_delay!($($tail)*);
+            }
+        }
+
+        hide_after_delay!(OutroWidget, OutroServerRankingWidget, OutroQueueWidget,);
     }
 
     async fn show_menu_for(&self, player: &PlayerInfo) {
@@ -486,28 +438,30 @@ impl WidgetController {
         }
     }
 
-    async fn show_outro_poll(&self) {
-        let min_restart_vote_ratio = self.live_queue.lock().await.min_restart_vote_ratio;
-        let prefs = self.live_prefs.current_map_prefs().await;
+    async fn show_outro_queue(&self, queued_next: Vec<QueueEntry>) {
+        let next_map = &queued_next.first().expect("empty queue").map;
 
-        for id in self.live_players.uid_all().await {
-            let widget = OutroQueueVoteWidget {
-                min_restart_vote_ratio,
-                init_preference: prefs.get(&id).copied(),
-            };
-            self.show_for(&widget, id).await;
-        }
-    }
+        let next_map_author = self
+            .db
+            .player(&next_map.author_login)
+            .await
+            .expect("failed to load player")
+            .map(|p| p.nick_name)
+            .unwrap_or_else(|| next_map.author_nick_name.clone());
 
-    async fn show_outro_poll_result(&self, queued_next: Vec<QueueEntry>) {
-        let is_restart = match queued_next.first().map(|e| e.priority) {
-            Some(QueuePriority::VoteRestart) => true,
-            _ => false,
-        };
-        let next_maps = queued_next
+        let next_map_prefs: Vec<(PreferenceValue, usize)> = self
+            .db
+            .count_map_preferences(&next_map.uid)
+            .await
+            .expect("failed to count map preferences")
+            .into_iter()
+            .map(|(k, v)| (k, v as usize))
+            .collect();
+
+        let next_maps: Vec<OutroQueueEntry> = queued_next
             .iter()
             .map(|entry| OutroQueueEntry {
-                map_name: &entry.map.name.formatted,
+                map_name: &entry.map.name,
                 annotation: match entry.priority {
                     QueuePriority::Score(_) => QueueEntryAnnotation::None,
                     QueuePriority::VoteRestart => QueueEntryAnnotation::Restart,
@@ -516,11 +470,36 @@ impl WidgetController {
                 },
             })
             .collect();
-        let widget = OutroQueueWidget {
-            is_restart,
-            next_maps,
+
+        let is_restart = match queued_next.first().map(|e| e.priority) {
+            Some(QueuePriority::VoteRestart) => true,
+            _ => false,
         };
-        self.show(widget).await;
+
+        let players_state = self.live_players.lock().await;
+        let records_state = self.live_records.lock().await;
+        let preferences_state = self.live_prefs.lock().await;
+
+        for uid in players_state.uid_all() {
+            let preview = MapPreview {
+                map_name: &next_map.name,
+                map_author_nick_name: &next_map_author,
+                player_map_rank: records_state.pb(uid).map(|rec| rec.map_rank as usize),
+                max_map_rank: records_state.nb_records,
+                player_preference: preferences_state.pref(uid, &next_map.uid),
+                preference_counts: next_map_prefs.clone(),
+                last_played: preferences_state
+                    .history(uid, &next_map.uid)
+                    .and_then(|h| h.last_played),
+            };
+
+            let widget = OutroQueueWidget {
+                is_restart,
+                next_maps: next_maps.to_vec(),
+                next_map: preview,
+            };
+            self.show_for(&widget, uid).await;
+        }
     }
 
     async fn show_outro_ranking(&self, change: &ServerRankingDiff) {
@@ -542,19 +521,6 @@ impl WidgetController {
                     .await,
             };
             self.show_for(&widget, *id).await;
-        }
-    }
-
-    async fn show_outro_scores(&self) {
-        let players_state = self.live_players.lock().await;
-        let records_state = self.live_records.lock().await;
-
-        for info in players_state.info_all() {
-            let widget = OutroMapRankingsWidget {
-                map_ranking: self.curr_map_ranking(&*records_state, &info).await,
-                max_displayed_race_ranks: MAX_DISPLAYED_RACE_RANKS,
-            };
-            self.show_for(&widget, info.uid).await;
         }
     }
 
@@ -593,7 +559,7 @@ impl WidgetController {
         let to_entry = |r: &'a ServerRank| -> ServerRankingEntry {
             ServerRankingEntry {
                 pos: r.pos,
-                nick_name: &r.player_nick_name.formatted,
+                nick_name: &r.player_nick_name,
                 nb_wins: r.nb_wins,
                 nb_losses: r.nb_losses,
                 is_own: r.player_login == for_player.login,
@@ -622,7 +588,7 @@ impl WidgetController {
             .enumerate()
             .map(|(idx, rec)| MapRankingEntry {
                 pos: idx + 1,
-                nick_name: &rec.player_nick_name.formatted,
+                nick_name: &rec.player_nick_name,
                 millis: rec.millis as usize,
                 timestamp: rec.timestamp,
                 is_own: rec.player_login == for_player.login,
@@ -631,7 +597,7 @@ impl WidgetController {
 
         let personal_entry = records_state.pb(for_player.uid).map(|rec| MapRankingEntry {
             pos: rec.map_rank as usize,
-            nick_name: &rec.player_nick_name.formatted,
+            nick_name: &rec.player_nick_name,
             millis: rec.millis as usize,
             timestamp: rec.timestamp,
             is_own: rec.player_login == for_player.login,
@@ -667,8 +633,8 @@ impl WidgetController {
                 .map(|rec| rec.map_rank as usize);
             PlaylistWidgetEntry {
                 map_uid: &map.uid,
-                map_name: &map.name.formatted,
-                map_author_login: &map.author_login,
+                map_name: &map.name,
+                map_author_nick_name: &map.author_nick_name,
                 preference,
                 nb_records,
                 map_rank,

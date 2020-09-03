@@ -91,6 +91,7 @@ impl Controller {
         let widget = WidgetController::init(
             &server,
             &db,
+            &live_config,
             &live_playlist,
             &live_players,
             &live_race,

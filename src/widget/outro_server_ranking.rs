@@ -27,14 +27,3 @@ pub struct OutroServerRankingWidget<'a> {
     /// A selection of top ranked players.
     pub server_ranking: ServerRanking<'a>,
 }
-
-/// A placeholder for `OutroServerRankingWidget` that is displayed until
-/// that widget is available.
-///
-/// # Sending
-/// - Send this widget when a race ends.
-/// - Remove this widget when the new ranking was calculated.
-#[derive(Serialize, Debug)]
-pub struct OutroServerRankingPlaceholder {
-    // Tera cannot create a context from a struct like this: "pub struct _;"
-}
