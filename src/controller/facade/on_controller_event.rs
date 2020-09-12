@@ -104,10 +104,7 @@ impl Controller {
 
             ChangeMap => {
                 // Update the current map
-                let new_playlist_index = self
-                    .server
-                    .playlist_next_index()
-                    .await;
+                let new_playlist_index = self.server.playlist_next_index().await;
                 let next_map = self.playlist.set_index(new_playlist_index).await;
 
                 // Re-sort the queue: the current map will move to the back.

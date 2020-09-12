@@ -118,7 +118,7 @@ fn add_server_option_constraints(options: &mut ServerOptions) {
 /// be good to be aware of them.
 fn check_server_compat(info: ServerInfo) {
     const SERVER_KNOWN_VERSION: &str = "3.3.0";
-    const SERVER_KNOWN_BUILD: &str = "2020-07-20_12_19";
+    const SERVER_KNOWN_BUILD: &str = "2020-09-11_10_30";
 
     assert_eq!(&info.name, "Trackmania");
 
@@ -145,6 +145,10 @@ async fn prepare_mode(server: &Arc<dyn Server>) {
 /// It's unlikely that we get incompatibilities with newer Time Attack versions,
 /// but it might still be good to be aware of them.
 fn check_mode_compat(info: ModeInfo) -> bool {
+    const TA_SCRIPT: &str = "Trackmania/TM_TimeAttack_Online.Script.txt";
+    const TA_MAP_TYPE: &str = "TM_Race";
+    const TA_KNOWN_VERSION: &str = "2020-09-10";
+
     if info.file_name != TA_SCRIPT {
         log::warn!("mode is not Time Attack!");
         log::warn!("{:#?}", info);
@@ -379,7 +383,3 @@ fn read_to_bytes(file_path: &PathBuf) -> std::io::Result<Vec<u8>> {
     f.read_exact(&mut buffer)?;
     Ok(buffer)
 }
-
-const TA_SCRIPT: &str = "Trackmania/TM_TimeAttack_Online.Script.txt";
-const TA_MAP_TYPE: &str = "TM_Race";
-const TA_KNOWN_VERSION: &str = "2020-06-28";

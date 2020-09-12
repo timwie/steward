@@ -46,11 +46,14 @@
 {{ super() }}
 
 <frame id="popup" z-index="200">
-    <quad pos="-160 90" size="320 180" style="Bgs1" substyle="BgEmpty" z-index="-1"/>
-    <quad pos="-160 90" size="320 180" bgcolor="{{col_bg}}" opacity="0.8" z-index="-1"/>
+    <quad pos="-160 90" size="320 180" style="Bgs1" substyle="BgEmpty" z-index="-2"/>
+    <quad pos="-160 90" size="320 180" bgcolor="{{col_bg}}" opacity="0.8" z-index="-2"/>
 
     <label text="{{header_txt}}" textemboss="1" textfont="RajdhaniMono" textsize="4"
            size="{{width}} {{height}}" pos="{{width / -2}} {{height / 2 + button_pad}}" valign="bottom"/>
+
+    <quad bgcolor="000" z-index="-1"
+          size="{{width}} {{height}}" pos="{{width / -2}} {{height / 2}}"/>
 
     <textedit id="textedit" name="config_input"
               style="StyleTextScriptEditor" textcolor="{{col_white}}"
