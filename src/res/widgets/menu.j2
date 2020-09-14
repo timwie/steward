@@ -42,6 +42,12 @@ Void Toggle() {
 {# ============================= SCRIPT MAIN ============================= #}
 {% block main %}
 
+// Configure ClientUI here, since we always send this widget to all players.
+ClientUI.ScoreTableVisibility = CUIConfig::EVisibility::Manual; // hide scoreboard during outro
+ClientUI.OverlayChatLineCount = 10;
+ClientUI.OverlayHideChat = False;
+
+
 UI_Menu = (Page.GetFirstChild("menu") as CMlFrame);
 
 declare Integer P_ToggleMenuState for This;

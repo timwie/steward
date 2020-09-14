@@ -347,7 +347,7 @@ impl RpcClient {
 /// it should be a very rare error.
 const fn callback_timeout() -> Duration {
     Duration::from_secs(if cfg!(debug_assertions) {
-        1 // A short duration for quicker debugging.
+        2 // A short duration for quicker debugging.
     } else {
         30 // An arbitrary, long duration in production.
     })
