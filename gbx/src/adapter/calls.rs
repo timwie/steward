@@ -4,6 +4,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use async_trait::async_trait;
 use serde::Deserialize;
+use tokio::time::Duration;
 
 use crate::api::*;
 use crate::xml::*;
@@ -228,14 +229,74 @@ impl Calls for RpcClient {
             .await
     }
 
-    async fn request_scores(&self) {
-        let response_id = gen_response_id();
-        let arg_list = Value::Array(vec![Value::String(response_id.clone())]);
-        let call = Call {
-            name: "TriggerModeScriptEventArray".to_string(),
-            args: args!("Trackmania.GetScores", arg_list),
-        };
-        self.trigger_callback(response_id, call).await;
+    async fn scores(&self) -> Scores {
+        let cb = self
+            .call_script_result("Trackmania.GetScores", args!())
+            .await;
+
+        if let Callback::Scores { scores } = cb {
+            return scores;
+        }
+        panic!("unexpected callback {:?}", cb);
+    }
+
+    async fn pause_status(&self) -> WarmupOrPauseStatus {
+        let cb = self
+            .call_script_result("Maniaplanet.Pause.GetStatus", args!())
+            .await;
+
+        if let Callback::PauseStatus(status) = cb {
+            return status;
+        }
+        panic!("unexpected callback {:?}", cb);
+    }
+
+    async fn warmup_status(&self) -> WarmupOrPauseStatus {
+        let cb = self
+            .call_script_result("Trackmania.WarmUp.GetStatus", args!())
+            .await;
+
+        if let Callback::WarmupStatus(status) = cb {
+            return status;
+        }
+        panic!("unexpected callback {:?}", cb);
+    }
+
+    async fn pause(&self) -> WarmupOrPauseStatus {
+        let cb = self
+            .call_script_result("Maniaplanet.Pause.SetActive", args!("true"))
+            .await;
+
+        if let Callback::PauseStatus(status) = cb {
+            return status;
+        }
+        panic!("unexpected callback {:?}", cb);
+    }
+
+    async fn unpause(&self) -> WarmupOrPauseStatus {
+        let cb = self
+            .call_script_result("Maniaplanet.Pause.SetActive", args!("false"))
+            .await;
+
+        if let Callback::PauseStatus(status) = cb {
+            return status;
+        }
+        panic!("unexpected callback {:?}", cb);
+    }
+
+    async fn force_end_warmup(&self) {
+        self.call_script("Trackmania.WarmUp.ForceStop", args!())
+            .await;
+    }
+
+    async fn warmup_extend(&self, duration: Duration) {
+        let secs = duration.as_secs().to_string();
+        self.call_script("Maniaplanet.WarmUp.Extend", args!(secs))
+            .await;
+    }
+
+    async fn force_end_round(&self) {
+        self.call_script("Trackmania.ForceEndRound", args!()).await;
     }
 
     async fn blacklist_add(&self, player_login: &str) -> Result<()> {
@@ -328,6 +389,7 @@ impl RpcClient {
 
     /// Call an XML-RPC method that does not return a result,
     /// and do not expect any faults.
+    ///
     /// This will panic if a fault is encountered.
     async fn call_method_unwrap_unit(&self, method_name: &str, args: Vec<Value>) {
         assert!(
@@ -345,6 +407,20 @@ impl RpcClient {
     async fn call_script(&self, method_name: &str, args: Vec<Value>) {
         self.call_method_unwrap_unit("TriggerModeScriptEventArray", args!(method_name, args))
             .await;
+    }
+
+    /// Call a mode script XML-RPC method that returns a result through a callback.
+    async fn call_script_result(&self, method_name: &str, mut args: Vec<Value>) -> Callback {
+        let response_id = gen_response_id();
+        args.push(Value::String(response_id.clone()));
+        let args = Value::Array(args);
+
+        let call = Call {
+            name: "TriggerModeScriptEventArray".to_string(),
+            args: args!(method_name, args),
+        };
+
+        self.trigger_callback(response_id, call).await
     }
 }
 

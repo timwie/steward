@@ -1,4 +1,5 @@
 use std::path::PathBuf;
+use std::time::Duration;
 
 use async_trait::async_trait;
 
@@ -289,18 +290,79 @@ pub trait Calls: Send + Sync {
     /// - SpectatorReleasePlayerSlotId
     async fn force_pure_spectator(&self, player_uid: i32) -> Result<()>;
 
-    /// Triggers sending of the `Callback::Scores` callback,
-    /// which is otherwise called once a map finishes and scores
-    /// are final.
-    ///
-    /// Probably faults on a non-Trackmania game modes.
+    /// Fetch the current match/map/round scores.
     ///
     /// Calls script method:
     ///     Trackmania.GetScores
     ///
     /// Triggers script callback:
     ///     Trackmania.Scores
-    async fn request_scores(&self);
+    async fn scores(&self) -> Scores;
+
+    /// Check whether pauses are supported by the game mode, and if so,
+    /// whether there is currently a pause.
+    ///
+    /// Calls script methods:
+    ///     - Maniaplanet.Pause.GetStatus
+    ///
+    /// Triggers script callback:
+    ///     - Maniaplanet.Pause.Status
+    async fn pause_status(&self) -> WarmupOrPauseStatus;
+
+    /// Check whether warmups are supported by the game mode, and if so,
+    /// whether there is currently a warmup.
+    ///
+    /// Calls script methods:
+    ///     - Trackmania.WarmUp.GetStatus
+    ///
+    /// Triggers script callback:
+    ///     - Trackmania.WarmUp.Status
+    async fn warmup_status(&self) -> WarmupOrPauseStatus;
+
+    /// Pause the game mode, if it supports pauses.
+    ///
+    /// Does *not* fault if pauses are not supported by the game mode.
+    ///
+    /// Calls script method:
+    ///     Maniaplanet.Pause.SetActive
+    ///
+    /// Triggers script callback:
+    ///     Maniaplanet.Pause.Status
+    async fn pause(&self) -> WarmupOrPauseStatus;
+
+    /// Unpause the game mode, if it supports pauses.
+    ///
+    /// Calls script method:
+    ///     Maniaplanet.Pause.SetActive
+    ///
+    /// Triggers script callback:
+    ///     Maniaplanet.Pause.Status
+    async fn unpause(&self) -> WarmupOrPauseStatus;
+
+    /// Stop the warmup sequence, and skip all remaining warmup rounds.
+    ///
+    /// Does *not* fault if not in warmup.
+    ///
+    /// Calls script method:
+    ///     Trackmania.WarmUp.ForceStop
+    async fn force_end_warmup(&self);
+
+    /// Extend the duration of the ongoing warmup round.
+    ///
+    /// Does *not* fault if not in warmup.
+    ///
+    /// Calls script method:
+    ///     Maniaplanet.WarmUp.Extend
+    async fn warmup_extend(&self, duration: Duration);
+
+    /// Stop the current round.
+    ///
+    /// Only works for rounds based game modes. Does *not* fault when using
+    /// in non-rounds based game modes.
+    ///
+    /// Calls script method:
+    ///     Trackmania.ForceEndRound
+    async fn force_end_round(&self);
 
     /// Blacklist the player with the specified login.
     ///

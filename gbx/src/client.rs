@@ -15,7 +15,7 @@ use tokio::sync::oneshot;
 use tokio::sync::Mutex;
 use tokio::task::JoinHandle as TaskHandle;
 
-use crate::adapter::callbacks::{forward_callback, CallbackType};
+use crate::adapter::callbacks::{to_callback, ReceivedCallback};
 use crate::xml::*;
 use crate::Callback;
 
@@ -72,21 +72,12 @@ struct AwaitResponseData {
 /// and is contained in the callback parameters in some form.
 ///
 /// This struct contains the `response_id` that was used for the triggering method call,
-/// and a one-shot sender that receives a signal that the call was received.
-/// If the call is never received, it usually means that the triggered
-/// callback does not exist.
+/// and a one-shot sender that receives the callback after it was matched to the ID.
 #[derive(Debug)]
 struct AwaitCallbackData {
     response_id: String,
-    eventual_callback: oneshot::Sender<AwaitCallbackResult>,
+    eventual_callback: oneshot::Sender<Callback>,
 }
-
-/// Using a script method to trigger a callback *does* produce a result indirectly,
-/// but since these callbacks are also triggered by the script itself, it seems
-/// easier to not return this result to the triggering caller, but to simply
-/// "return" it via the callback. This result type is therefore empty.
-#[derive(Debug)]
-struct AwaitCallbackResult;
 
 /// Open a TCP connection to the game server.
 ///
@@ -306,12 +297,12 @@ impl RpcClient {
     /// # Panics
     /// - refer to `call` doc
     /// - when the requested callback doesn't exist
-    pub(super) async fn trigger_callback(&self, response_id: String, call: Call) {
-        let (res_out, res_in) = oneshot::channel::<AwaitCallbackResult>();
+    pub(super) async fn trigger_callback(&self, response_id: String, call: Call) -> Callback {
+        let (cb_out, cb_in) = oneshot::channel::<Callback>();
 
         let data = AwaitCallbackData {
             response_id: response_id.clone(),
-            eventual_callback: res_out,
+            eventual_callback: cb_out,
         };
         self.msg_out
             .send(Msg::AwaitCallback(data))
@@ -323,10 +314,10 @@ impl RpcClient {
 
         // ... Instead, we will add a timeout when waiting for the callback,
         // and assume it doesn't exist once that timeout was exceeded.
-        let await_callback = async { res_in.await.expect("callback result sender was dropped") };
-        tokio::time::timeout(callback_timeout(), await_callback)
+        let eventual_callback = async { cb_in.await.expect("callback result sender was dropped") };
+        tokio::time::timeout(callback_timeout(), eventual_callback)
             .await
-            .expect("callback was never triggered");
+            .expect("callback was never triggered")
     }
 
     async fn next_handle(&self) -> u32 {
@@ -380,13 +371,26 @@ fn msg_loop(mut msg_in: Receiver<Msg>, cb_out: Sender<Callback>) -> TaskHandle<(
                         .eventual_response
                         .send(response);
                 }
-                Msg::FulfillCallback { call } => match forward_callback(&cb_out, call) {
-                    CallbackType::Unprompted => {}
-                    CallbackType::Prompted { response_id } => {
+                Msg::FulfillCallback { call } => match to_callback(call) {
+                    ReceivedCallback::Ignored => {}
+                    ReceivedCallback::Unprompted(callback) => {
+                        cb_out
+                            .send(callback)
+                            .expect("callback receiver was dropped");
+                    }
+                    ReceivedCallback::Prompted {
+                        response_id,
+                        callback,
+                    } => {
                         let data = waiting_cbs
                             .remove(&response_id)
                             .expect("failed to match callback response_id");
-                        let _send_result = data.eventual_callback.send(AwaitCallbackResult {});
+
+                        let _send_result = data.eventual_callback.send(callback.clone());
+
+                        cb_out
+                            .send(callback)
+                            .expect("callback receiver was dropped");
                     }
                 },
             } // end match

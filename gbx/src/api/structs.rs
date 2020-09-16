@@ -208,13 +208,12 @@ pub struct NetStats {
 #[derive(Deserialize, Debug, PartialEq)]
 #[serde(rename_all = "PascalCase")]
 pub struct ModeInfo {
-    /// The name of the game mode script.
-    /// For the Time Attack mode, this should be "TimeAttack.Script.txt".
+    /// The name of the game mode script, f.e. "TrackMania/TM_TimeAttack_Online.Script.txt".
     #[serde(rename = "Name")]
     pub file_name: String,
 
-    /// Comma-delimited; indicates compatible map types for this mode.
-    /// For the Time Attack mode, this should be "Race,TrackMania\\Race".
+    /// Comma-delimited; indicates compatible map types for this mode,
+    /// f.e. "TrackMania\\TM_Race,TM_Race"
     pub compatible_map_types: String,
 
     /// Development: The version date of the mode script.
@@ -222,18 +221,39 @@ pub struct ModeInfo {
     pub version: String,
 }
 
+// TODO this is specific to TimeAttack!
 /// Game mode options.
 ///
-/// Reference: see result of `ModeInfo.param_descs`, or the mode script itself.
+/// References:
+/// - Libs/Nadeo/ModeLibs/Common/ModeBase.Script.txt (2020-06-23)
+/// - Libs/Nadeo/ModeLibs/Common/ModeMatchmaking.Script.txt (2020-06-09)
+/// - Libs/Nadeo/TMxSM/Race/ModeBase.Script.txt (2020-08-25)
+/// - Modes/TrackMania/TM_TimeAttack_Online.Script.txt (2020-09-10)
+/// - https://doc.maniaplanet.com/dedicated-server/references/settings-list-for-nadeo-gamemodes
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct ModeOptions {
-    /// S_TimeLimit
-    #[serde(rename = "S_TimeLimit")]
-    pub time_limit_secs: i32,
-
-    /// S_ChatTime
+    /// Chat time at the end of a map or match in seconds.
     #[serde(rename = "S_ChatTime")]
     pub chat_time_secs: i32,
+
+    /// Forced number of laps.
+    ///
+    /// Set to -1 to use laps from map validation.
+    /// Set to 0 to use "independent" laps (default in TimeAttack).
+    #[serde(rename = "S_ForceLapsNb")]
+    pub forced_nb_laps: i32,
+
+    /// The number of rounds per warmup.
+    #[serde(rename = "S_WarmUpNb")]
+    pub nb_warmup_rounds: i32,
+
+    /// The duration of one warmup round in seconds.
+    #[serde(rename = "S_WarmUpDuration")]
+    pub warmup_duration_secs: i32,
+
+    /// Time limit before going to the next map in seconds.
+    #[serde(rename = "S_TimeLimit")]
+    pub time_limit_secs: i32,
 }
 
 /// Player information.
@@ -429,23 +449,51 @@ pub struct CheckpointEvent {
 #[derive(Deserialize, Debug, PartialEq, Clone)]
 pub struct Scores {
     /// Empty, or an ID that was used when explicitly triggering the callback.
-    #[serde(rename = "responseid")]
-    pub(in crate) response_id: String,
-
-    /// "" | "PreEndRound" | "EndRound" | "EndMap" | "EndMatch"
-    pub section: String,
+    #[serde(rename = "responseid", deserialize_with = "deserialize_response_id")]
+    pub(in crate) response_id: Option<String>,
 
     /// Race ranking sorted from best to worst.
-    #[serde(rename = "players")]
-    pub entries: Vec<Score>,
+    pub players: Vec<PlayerScore>,
+
+    /// Race ranking sorted from best to worst.
+    pub teams: Vec<TeamScore>,
+
+    /// Current progress of the match.
+    #[serde(deserialize_with = "deserialize_section")]
+    pub section: ScoresSection,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum ScoresSection {
+    Other,
+    PreEndRound,
+    EndRound,
+    EndMap,
+    EndMatch,
+}
+
+fn deserialize_section<'de, D>(deserializer: D) -> Result<ScoresSection, D::Error>
+where
+    D: serde::de::Deserializer<'de>,
+{
+    use ScoresSection::*;
+
+    let s = String::deserialize(deserializer)?;
+    Ok(match s.as_ref() {
+        "" => Other,
+        "PreEndRound" => PreEndRound,
+        "EndRound" => EndRound,
+        "EndMap" => EndMap,
+        "EndMatch" => EndMatch,
+        _ => panic!("unexpected scores section {}", s),
+    })
 }
 
 /// A player's ranking in the current race.
 ///
 /// Reference: https://github.com/maniaplanet/script-xmlrpc/blob/master/XmlRpcListing.md#trackmaniascores
-///
 #[derive(Deserialize, Debug, PartialEq, Clone)]
-pub struct Score {
+pub struct PlayerScore {
     /// The player's login.
     pub login: String,
 
@@ -464,6 +512,42 @@ pub struct Score {
     /// Checkpoints times during the best run in milliseconds (or empty if no completed run).
     #[serde(rename = "bestracecheckpoints")]
     pub best_time_cp_millis: Vec<i32>,
+
+    /// Best lap time in milliseconds (or -1 if no completed lap).
+    #[serde(rename = "bestlaptime")]
+    pub best_lap_time_millis: i32,
+
+    /// Checkpoints times during the best lap in milliseconds (or empty if no completed lap).
+    #[serde(rename = "bestlapcheckpoints")]
+    pub best_lap_time_cp_millis: Vec<i32>,
+
+    #[serde(rename = "roundpoints")]
+    pub points_round: i32,
+
+    #[serde(rename = "mappoints")]
+    pub points_map: i32,
+
+    #[serde(rename = "matchpoints")]
+    pub points_match: i32,
+}
+
+/// A team's ranking in the current race.
+///
+/// Reference: https://github.com/maniaplanet/script-xmlrpc/blob/master/XmlRpcListing.md#trackmaniascores
+#[derive(Deserialize, Debug, PartialEq, Clone)]
+pub struct TeamScore {
+    pub id: i32,
+
+    pub name: GameString,
+
+    #[serde(rename = "roundpoints")]
+    pub points_round: i32,
+
+    #[serde(rename = "mappoints")]
+    pub points_map: i32,
+
+    #[serde(rename = "matchpoints")]
+    pub points_match: i32,
 }
 
 /// A string with in-game formatting.
@@ -522,7 +606,7 @@ impl Serialize for GameString {
 }
 
 /// See `Callback::PlayerAnswered`.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct PlayerAnswer {
     /// The answer string, either from a Manialink (`<quad action="my_action"/>`),
     /// or from ManiaScript (`TriggerPageAction("my_action");`)
@@ -531,4 +615,61 @@ pub struct PlayerAnswer {
     /// The current values of Manialink inputs like `<entry name="...">`
     /// or `<textedit name="...">`.
     pub entries: HashMap<String, String>,
+}
+
+/// TODO doc
+///
+/// Reference: https://github.com/maniaplanet/script-xmlrpc/blob/master/XmlRpcListing.md#maniaplanetwarmupstatus
+#[derive(Deserialize, Debug, PartialEq, Clone)]
+pub struct WarmupOrPauseStatus {
+    /// Empty, or an ID that was used when explicitly triggering the callback.
+    #[serde(rename = "responseid", deserialize_with = "deserialize_response_id")]
+    pub(in crate) response_id: Option<String>,
+
+    /// True if a warmup is available in the game mode, false otherwise.
+    pub available: bool,
+
+    /// True if a warmup is ongoing, false otherwise.
+    pub active: bool,
+}
+
+/// TODO doc
+///
+/// Reference: https://github.com/maniaplanet/script-xmlrpc/blob/master/XmlRpcListing.md#trackmaniawarmupstartround
+#[derive(Deserialize, Debug, PartialEq, Clone)]
+pub struct WarmupRoundStatus {
+    /// The number of the current warmup round.
+    #[serde(rename = "current")]
+    pub current_round: i32,
+
+    /// The total number of warmup rounds.
+    #[serde(rename = "total")]
+    pub nb_total_rounds: i32,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub(in crate) struct ManialinkEntry {
+    pub name: std::string::String,
+    pub value: std::string::String,
+}
+
+/// Reference: https://github.com/maniaplanet/script-xmlrpc/blob/master/XmlRpcListing.md#trackmaniaeventgiveup
+#[derive(Deserialize, Debug, PartialEq, Clone)]
+pub(in crate) struct GenericScriptEvent {
+    pub login: std::string::String,
+}
+
+/// Reference: https://github.com/maniaplanet/script-xmlrpc/blob/master/XmlRpcListing.md#maniaplanetloadingmap_start
+#[derive(Deserialize, Debug, PartialEq, Clone)]
+pub(in crate) struct LoadingMapEvent {
+    pub restarted: bool,
+}
+
+fn deserialize_response_id<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>
+where
+    D: serde::de::Deserializer<'de>,
+{
+    let s = String::deserialize(deserializer)?;
+    Ok(if s.is_empty() { None } else { Some(s) })
 }

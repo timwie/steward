@@ -10,8 +10,7 @@ use crate::constants::MAX_DISPLAYED_MAP_RANKS;
 use crate::controller::{LivePlayers, LivePlaylist};
 use crate::database::{Database, Map, Record, RecordEvidence, RecordSector};
 use crate::event::{PbDiff, PlayerDiff, PlayerTransition};
-use crate::server::PlayerInfo;
-use crate::server::{CheckpointEvent, Server};
+use crate::server::{CheckpointEvent, PlayerInfo, Server};
 
 /// Shared component that allows to look up records
 /// of the current map.

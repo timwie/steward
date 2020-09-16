@@ -100,12 +100,17 @@ impl Controller {
                 }
             }
 
-            ServerEvent::MapScores { scores } => {
+            ServerEvent::Scores { scores } => {
                 // This event is only useful when triggering it to get the score
                 // at controller start. Otherwise, we can update it whenever
                 // a player finishes a run.
                 self.race.set(&scores).await;
             }
+
+            ServerEvent::PauseStatus(_) => {}  // TODO
+            ServerEvent::WarmupStatus(_) => {} // TODO
+            ServerEvent::WarmupBegin(_) => {}  // TODO
+            ServerEvent::WarmupEnd(_) => {}    // TODO
         }
     }
 }

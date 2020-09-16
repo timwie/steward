@@ -46,6 +46,8 @@ async fn main() {
     };
     log::info!("got dedicated server connection");
 
+    let server = Arc::new(conn.client.clone()) as Arc<dyn Server>;
+
     log::info!("waiting for database connection...");
     let db = loop {
         match db_connect(&config.postgres_connection, retry_after).await {
@@ -54,8 +56,6 @@ async fn main() {
         }
     };
     log::info!("got database connection");
-
-    let server = Arc::new(conn.client.clone()) as Arc<dyn Server>;
 
     compat::prepare(&server, &db, &config).await;
 

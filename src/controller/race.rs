@@ -55,7 +55,7 @@ impl RaceController {
             live_players: live_players.clone(),
         };
         controller.reset().await;
-        server.request_scores().await;
+        controller.set(&server.scores().await).await;
         controller
     }
 
@@ -77,7 +77,7 @@ impl RaceController {
         let mut race_state = self.state.write().await;
 
         scores
-            .entries
+            .players
             .iter()
             .filter_map(|game_score| {
                 players_state.info(&game_score.login).map(|info| RaceRank {

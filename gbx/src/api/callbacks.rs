@@ -5,7 +5,7 @@ use crate::api::*;
 /// References:
 ///  - https://doc.maniaplanet.com/dedicated-server/references/xml-rpc-callbacks
 ///  - https://github.com/maniaplanet/script-xmlrpc/blob/master/XmlRpcListing.md
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Callback {
     /// Sent when player info changes, f.e. when entering or leaving spectator
     /// mode. Sent on connect, but not sent on disconnect.
@@ -33,13 +33,6 @@ pub enum Callback {
     ///
     /// Triggered by `Maniaplanet.UnloadingMap_Start`
     MapUnload,
-
-    /// Sent alongside `RaceEnd` and `MapUnload`.
-    ///
-    /// Triggered by `Trackmania.Scores`
-    ///
-    /// Can also be triggered on demand with `Calls::request_scores`
-    MapScores { scores: Scores },
 
     /// Sent when the countdown is displayed for the player.
     ///
@@ -93,4 +86,27 @@ pub enum Callback {
         from_login: String,
         answer: PlayerAnswer,
     },
+
+    /// Sent when a warmup round starts.
+    ///
+    /// Triggered by `Trackmania.WarmUp.StartRound`
+    WarmupBegin(WarmupRoundStatus),
+
+    /// Sent when a warmup round ends.
+    ///
+    /// Triggered by `Trackmania.WarmUp.EndRound`
+    WarmupEnd(WarmupRoundStatus),
+
+    /// Sent when a round, map or match ends.
+    ///
+    /// Triggered by `Trackmania.Scores`, with `Calls::scores`
+    Scores { scores: Scores },
+
+    // TODO is this also sent when pausing/unpausing?
+    /// Triggered by `Maniaplanet.Pause.Status`, with `Calls::pause_status`
+    PauseStatus(WarmupOrPauseStatus),
+
+    // TODO is this also sent when warmup starts/ends?
+    /// Triggered by `Trackmania.WarmUp.Status`, with `Calls::warmup_status`
+    WarmupStatus(WarmupOrPauseStatus),
 }
