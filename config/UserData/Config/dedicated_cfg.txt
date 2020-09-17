@@ -26,8 +26,9 @@
 		<password></password>
 	</masterserver_account>
 
-	<! -- Be sure to at least set your server name, and set the desired number of max_players -->
+	<!-- Be sure to at least set your server name, and set the desired number of max_players -->
 	<server_options>
+		<name>My Steward Server</name>
 		<comment></comment>
         <hide_server>0</hide_server>					<!-- value is 0 (always shown), 1 (always hidden), 2 (hidden from nations) -->
 
@@ -60,49 +61,50 @@
         <use_changing_validation_seed>False</use_changing_validation_seed>
 
         <disable_horns>False</disable_horns>
-        <clientinputs_maxlatency>0</clientinputs_maxlatency>		<!-- 0 mean automatic adjustement -->
+		<clientinputs_maxlatency>200</clientinputs_maxlatency>      <!-- players with c2s-latency greater than this value will experience difficulties playing, but a lower value reduce overall clients CPU usage (max 540ms) -->
 	</server_options>
+	
+	<system_config>
+		<connection_uploadrate>102400</connection_uploadrate>						<!-- Kbits per second -->
+		<connection_downloadrate>102400</connection_downloadrate>					<!-- Kbits per second -->
 
-    <system_config>
-        <connection_uploadrate>102400</connection_uploadrate>						<!-- Kbits per second -->
-        <connection_downloadrate>102400</connection_downloadrate>					<!-- Kbits per second -->
-        <workerthreadcount>1</workerthreadcount>									<!-- Thread count for multithread -->
-        <packetassembly_multithread>True</packetassembly_multithread>				<!-- Use multithreading for sending packet -->
-        <packetassembly_packetsperframe>0</packetassembly_packetsperframe>			<!-- How many packets we send per frame (0 = unlimited)-->
-        <packetassembly_fullpacketsperframe>10</packetassembly_fullpacketsperframe>	<!-- How many full packets we send per frame (they cost CPU and bandwith)  -->
+		<workerthreadcount>2</workerthreadcount>
+		<packetassembly_multithread>True</packetassembly_multithread>
+		<packetassembly_packetsperframe>60</packetassembly_packetsperframe>                 <!-- Number of reduced SIMU-packets sent each frame (=10ms) -->
+		<packetassembly_fullpacketsperframe>30</packetassembly_fullpacketsperframe>         <!-- Number of full SIMU-packets sent each frame (=10ms) -->
+		<delayedvisuals_s2c_sendingrate>32</delayedvisuals_s2c_sendingrate>                 <!-- proportion of frames when the server sends DELAYEDVISUAL-packets to everyone. 255 means every frame, 128 means every other frame, 64 means every fourth frame... -->
 
-        <trustclientsimu_c2s_sendingrate>127</trustclientsimu_c2s_sendingrate>		<!-- How often the clients will send their state history (255 = everyframe, 64=every fourth frame, etc)  -->
-        <delayedvisuals_s2c_sendingrate>127</delayedvisuals_s2c_sendingrate>		<!-- How often the server will send visual states (255 = everyframe, 64=every fourth frame, etc)  -->
+		<trustclientsimu_c2s_sendingrate>64</trustclientsimu_c2s_sendingrate>               <!-- proportion of frames when the clients send TRUSTCLIENTSIMU-packets to the server.  255 means every frame, 128 means every other frame, 64 means every fourth frame... -->
 
-        <allow_spectator_relays>False</allow_spectator_relays>
+		<allow_spectator_relays>False</allow_spectator_relays>
 
-        <p2p_cache_size>600</p2p_cache_size>
+		<p2p_cache_size>600</p2p_cache_size>
 
-        <force_ip_address></force_ip_address>
-        <server_port>2350</server_port>
-        <client_port>0</client_port>
-        <bind_ip_address></bind_ip_address>
-        <use_nat_upnp></use_nat_upnp>
+		<force_ip_address></force_ip_address>
+		<server_port>2350</server_port>
+		<client_port>0</client_port>
+		<bind_ip_address></bind_ip_address>
+		<use_nat_upnp></use_nat_upnp>
 
-        <gsp_name></gsp_name>						<!-- Game Server Provider name and info url -->
-        <gsp_url></gsp_url>						<!-- If you're a server hoster, you can use this to advertise your services -->
+		<gsp_name></gsp_name>						<!-- Game Server Provider name and info url -->
+		<gsp_url></gsp_url>						<!-- If you're a server hoster, you can use this to advertise your services -->
 
-        <xmlrpc_port>5000</xmlrpc_port>
-        <xmlrpc_allowremote>False</xmlrpc_allowremote>			<!-- If you specify an ip adress here, it'll be the only accepted adress. this will improve security. -->
+		<xmlrpc_port>5000</xmlrpc_port>
+		<xmlrpc_allowremote>False</xmlrpc_allowremote>			<!-- If you specify an ip adress here, it'll be the only accepted adress. this will improve security. -->
 
+		
+		<blacklist_url></blacklist_url>
+		<guestlist_filename></guestlist_filename>
+		<blacklist_filename></blacklist_filename>
+		
+		<minimum_client_build></minimum_client_build>			<!-- Only accept updated client to a specific version. ex: 2011-10-06 -->
 
-        <blacklist_url></blacklist_url>
-        <guestlist_filename></guestlist_filename>
-        <blacklist_filename></blacklist_filename>
+		<disable_coherence_checks>False</disable_coherence_checks>	<!-- disable internal checks to detect issues/cheats, and reject race times -->
 
-        <minimum_client_build></minimum_client_build>			<!-- Only accept updated client to a specific version. ex: 2011-10-06 -->
+		<disable_replay_recording>False</disable_replay_recording>	<!-- disable replay recording in memory during the game to lower memory usage. -->
+		<save_all_individual_runs>False</save_all_individual_runs>	<!-- Save all the ghosts from the match replay to individual ghost.gbx files, in folder {servername}/Autosaves/Runs_{mapname}/  -->
 
-        <disable_coherence_checks>False</disable_coherence_checks>	<!-- disable internal checks to detect issues/cheats, and reject race times -->
-
-        <disable_replay_recording>False</disable_replay_recording>	<!-- disable replay recording in memory during the game to lower memory usage. -->
-        <save_all_individual_runs>False</save_all_individual_runs>	<!-- Save all the ghosts from the match replay to individual ghost.gbx files, in folder {servername}/Autosaves/Runs_{mapname}/  -->
-
-        <use_proxy>False</use_proxy>
-        <proxy_url></proxy_url>
-    </system_config>
+		<use_proxy>False</use_proxy>
+		<proxy_url></proxy_url>
+	</system_config>
 </dedicated>
