@@ -76,6 +76,18 @@ pub enum ControllerEvent<'a> {
 
     /// Signals that a player has issued an `Action`.
     IssueAction { from_login: &'a str, action: Action },
+
+    /// Signals that the warmup section ahead of a match has begun.
+    BeginWarmup,
+
+    /// Signals that the warmup section ahead of a match has ended.
+    EndWarmup,
+
+    /// Signals that the match was paused.
+    BeginPause,
+
+    /// Signals that the match was unpaused.
+    EndPause,
 }
 
 /// Contains information of a player that is either joining, leaving, or

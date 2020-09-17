@@ -206,6 +206,11 @@ impl Controller {
             NewConfig { change, from_login } => {
                 self.on_config_change(from_login, change).await;
             }
+
+            BeginWarmup => {}
+            EndWarmup => {}
+            BeginPause => {}
+            EndPause => {}
         }
     }
 

@@ -95,8 +95,8 @@ impl Controller {
                 ..
             } => {
                 if let Some(cmd) = self.chat.forward(&message, &from_login).await {
-                    self.on_controller_event(ControllerEvent::IssueCommand(cmd))
-                        .await;
+                    let ev = ControllerEvent::IssueCommand(cmd);
+                    self.on_controller_event(ev).await;
                 }
             }
 
@@ -104,13 +104,42 @@ impl Controller {
                 // This event is only useful when triggering it to get the score
                 // at controller start. Otherwise, we can update it whenever
                 // a player finishes a run.
-                self.race.set(&scores).await;
+                self.race.set_scores(&scores).await;
             }
 
-            ServerEvent::PauseStatus(_) => {}  // TODO
-            ServerEvent::WarmupStatus(_) => {} // TODO
-            ServerEvent::WarmupBegin(_) => {}  // TODO
-            ServerEvent::WarmupEnd(_) => {}    // TODO
+            ServerEvent::PauseStatus(status) => {
+                if self.race.set_pause(status.active).await {
+                    let ev = if status.active {
+                        ControllerEvent::BeginPause
+                    } else {
+                        ControllerEvent::EndPause
+                    };
+                    self.on_controller_event(ev).await;
+                }
+            }
+
+            ServerEvent::WarmupStatus(status) => {
+                if self.race.set_warmup(status.active).await {
+                    let ev = if status.active {
+                        ControllerEvent::BeginWarmup
+                    } else {
+                        ControllerEvent::EndWarmup
+                    };
+                    self.on_controller_event(ev).await;
+                }
+            }
+
+            ServerEvent::WarmupBegin(_) => {
+                let ev = ControllerEvent::BeginWarmup;
+                self.on_controller_event(ev).await;
+            }
+
+            ServerEvent::WarmupEnd(status) => {
+                if status.current_round == status.nb_total_rounds {
+                    let ev = ControllerEvent::EndWarmup;
+                    self.on_controller_event(ev).await;
+                }
+            }
         }
     }
 }

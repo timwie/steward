@@ -18,21 +18,17 @@ pub trait LiveRace: Send + Sync {
     async fn rank_of(&self, player_uid: i32) -> Option<usize>;
 }
 
+#[derive(Default)]
 pub struct RaceState {
     pub ranking: Vec<RaceRank>,
 
     /// Lists UIDs of non-spectators that are still in the intro phase.
     /// The server does not wait for every player to start the race.
     pre_race: HashSet<i32>,
-}
 
-impl RaceState {
-    fn init() -> Self {
-        RaceState {
-            ranking: vec![],
-            pre_race: HashSet::new(),
-        }
-    }
+    pub warmup: bool,
+
+    pub paused: bool,
 }
 
 #[derive(Clone)]
@@ -50,12 +46,18 @@ pub struct RaceRank {
 
 impl RaceController {
     pub async fn init(server: &Arc<dyn Server>, live_players: &Arc<dyn LivePlayers>) -> Self {
+        let mut state: RaceState = Default::default();
+        state.warmup = server.warmup_status().await.active;
+        state.paused = server.pause_status().await.active;
+
         let controller = RaceController {
-            state: Arc::new(RwLock::new(RaceState::init())),
+            state: Arc::new(RwLock::new(state)),
             live_players: live_players.clone(),
         };
+
         controller.reset().await;
-        controller.set(&server.scores().await).await;
+        controller.set_scores(&server.scores().await).await;
+
         controller
     }
 
@@ -72,7 +74,7 @@ impl RaceController {
     }
 
     /// Replace the entire ranking.
-    pub async fn set(&self, scores: &Scores) {
+    pub async fn set_scores(&self, scores: &Scores) {
         let players_state = self.live_players.lock().await;
         let mut race_state = self.state.write().await;
 
@@ -91,6 +93,22 @@ impl RaceController {
                 race_state.ranking.retain(|s| s.login != score.login); // remove previous entry
                 race_state.ranking.insert(idx, score);
             });
+    }
+
+    /// Set whether the current race is paused.
+    pub async fn set_pause(&self, active: bool) -> bool {
+        let mut race_state = self.state.write().await;
+        let res = race_state.paused != active;
+        race_state.paused = active;
+        res
+    }
+
+    /// Set whether the current race is in warmup.
+    pub async fn set_warmup(&self, active: bool) -> bool {
+        let mut race_state = self.state.write().await;
+        let res = race_state.warmup != active;
+        race_state.warmup = active;
+        res
     }
 
     /// Clear the ranking for a new race.
@@ -120,12 +138,16 @@ impl RaceController {
         if !ev.is_finish {
             return;
         }
+
         let player_info = match self.live_players.info(&ev.player_login).await {
             Some(info) => info,
             None => return,
         };
 
         let mut race_state = self.state.write().await;
+        if race_state.warmup || race_state.paused {
+            return;
+        }
 
         let prev_idx = race_state
             .ranking
