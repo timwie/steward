@@ -8,6 +8,17 @@ Version numbers consist of `MAJOR.MINOR.PATCH`:
 
 <br>
 
+## 0.1.0-alpha6
+All `0.1.0-alpha` releases are unstable, and have missing widgets.
+
+### Added
+- **Chat**: Admin Commands
+  - `/pause` toggles a match pause, if supported by the game mode.
+  - `/warmup add <seconds>` extends an active warmup round.
+  - `/warmup skip` ends the remaining warmup.
+
+<br>
+
 ## [0.1.0-alpha5] - 2020-09-01
 All `0.1.0-alpha` releases are unstable, and have missing widgets.
 
