@@ -3,7 +3,7 @@ use std::fmt::Display;
 use chrono::Duration;
 use serde::export::Formatter;
 
-use crate::chat::message::{fmt_time, HIGHLIGHT, NOTICE, RESET};
+use crate::chat::message::{fmt_time, write_and_reset, write_highlighted, write_start_message};
 
 /// Chat announcements from the controller to all players.
 ///
@@ -110,19 +110,25 @@ impl Display for ServerMessage<'_> {
             _ => {}
         }
 
-        write!(f, "{}{}🔊 ", RESET, NOTICE)?;
-        match self {
-            Joining { nick_name } => write!(f, "{}{}{} joined.", nick_name, RESET, NOTICE),
+        write_start_message(f)?;
 
-            Leaving { nick_name } => write!(f, "{}{}{} left.", nick_name, RESET, NOTICE),
+        match self {
+            Joining { nick_name } => {
+                write_and_reset(f, nick_name)?;
+                write!(f, " joined.")
+            }
+
+            Leaving { nick_name } => {
+                write_and_reset(f, nick_name)?;
+                write!(f, " left.")
+            }
 
             NewTopRanks(top_ranks) => {
                 for tr in top_ranks {
-                    writeln!(
-                        f,
-                        "{}{}{} reaches rank {}!",
-                        tr.nick_name, RESET, NOTICE, tr.rank
-                    )?;
+                    write_and_reset(f, tr.nick_name)?;
+                    writeln!(f, " reaches rank ")?;
+                    write_highlighted(f, tr.rank)?;
+                    writeln!(f, "!")?;
                 }
                 Ok(())
             }
@@ -131,143 +137,147 @@ impl Display for ServerMessage<'_> {
                 player_nick_name: nick_name,
                 new_map_rank: new_record_rank,
                 millis,
-            } => write!(
-                f,
-                "{}{}{} sets the {}. record! {}{}",
-                nick_name,
-                RESET,
-                NOTICE,
-                new_record_rank,
-                HIGHLIGHT,
-                fmt_time(*millis)
-            ),
+            } => {
+                write_and_reset(f, nick_name)?;
+                writeln!(f, " sets the ")?;
+                write_highlighted(f, format!("{}.", new_record_rank))?;
+                writeln!(f, " record! ")?;
+                write_highlighted(f, fmt_time(*millis))
+            }
 
             TopRecordImproved {
                 player_nick_name: nick_name,
                 map_rank: record_rank,
                 millis,
-            } => write!(
-                f,
-                "{}{}{} improved the {}. record! {}{}",
-                nick_name,
-                RESET,
-                NOTICE,
-                record_rank,
-                HIGHLIGHT,
-                fmt_time(*millis)
-            ),
+            } => {
+                write_and_reset(f, nick_name)?;
+                writeln!(f, " improved the ")?;
+                write_highlighted(f, format!("{}.", record_rank))?;
+                writeln!(f, " record! ")?;
+                write_highlighted(f, fmt_time(*millis))
+            }
 
-            NewMap { name, author } => write!(
-                f,
-                "A new map was added: {}{}{}{} by {}{}{}",
-                RESET, name, RESET, NOTICE, RESET, author, RESET
-            ),
+            NewMap { name, author } => {
+                writeln!(f, "A new map was added: ")?;
+                write_and_reset(f, name)?;
+                writeln!(f, " by ")?;
+                write_and_reset(f, author)
+            }
 
-            AddedMap { name } => write!(
-                f,
-                "{}{}{} was added back into the playlist.",
-                name, RESET, NOTICE
-            ),
+            AddedMap { name } => {
+                write_and_reset(f, name)?;
+                writeln!(f, " was added back into the playlist.")
+            }
 
-            RemovedMap { name } => write!(
-                f,
-                "{}{}{} was removed from the playlist.",
-                name, RESET, NOTICE
-            ),
+            RemovedMap { name } => {
+                write_and_reset(f, name)?;
+                writeln!(f, " was removed from the playlist.")
+            }
 
-            NextMap { name, author } => write!(
-                f,
-                "Next map will be {}{}{}{} by {}{}{}",
-                RESET, name, RESET, NOTICE, RESET, author, RESET
-            ),
+            NextMap { name, author } => {
+                writeln!(f, "Next map will be ")?;
+                write_and_reset(f, name)?;
+                writeln!(f, " by ")?;
+                write_and_reset(f, author)
+            }
 
             VoteNow { threshold, .. } if *threshold > 1f32 => {
                 write!(f, "This map will not be restarted.")
             }
 
-            VoteNow { duration, .. } => write!(
-                f,
-                "Vote for a restart in the next {} seconds.",
-                duration.num_seconds()
-            ),
+            VoteNow { duration, .. } => {
+                write!(f, "Vote for a restart in the next ")?;
+                write_highlighted(f, format!("{} seconds", duration.num_seconds()))?;
+                write!(f, "!")
+            }
 
-            CurrentMapSkipped { admin_name } => write!(
-                f,
-                "Admin {}{}{} skipped the current map!",
-                admin_name, RESET, NOTICE
-            ),
+            CurrentMapSkipped { admin_name } => {
+                writeln!(f, "Admin ")?;
+                write_and_reset(f, admin_name)?;
+                writeln!(f, " skipped the current map!")
+            }
 
             MapDeleted {
                 admin_name,
                 map_name,
-            } => write!(
-                f,
-                "Admin {}{}{} deleted {}{}{} and all of its records!",
-                admin_name, RESET, NOTICE, map_name, RESET, NOTICE
-            ),
+            } => {
+                writeln!(f, "Admin ")?;
+                write_and_reset(f, admin_name)?;
+                writeln!(f, " deleted map ")?;
+                write_and_reset(f, map_name)?;
+                writeln!(f, " and all of its records!")
+            }
 
             PlayerBlacklisted {
                 admin_name,
                 player_name,
-            } => write!(
-                f,
-                "Admin {}{}{} blacklisted player {}{}{}!",
-                admin_name, RESET, NOTICE, player_name, RESET, NOTICE
-            ),
+            } => {
+                writeln!(f, "Admin ")?;
+                write_and_reset(f, admin_name)?;
+                writeln!(f, " blacklisted player ")?;
+                write_and_reset(f, player_name)?;
+                writeln!(f, "!")
+            }
 
             PlayerUnblacklisted {
                 admin_name,
                 player_name,
-            } => write!(
-                f,
-                "Admin {}{}{} un-blacklisted player {}{}{}!",
-                admin_name, RESET, NOTICE, player_name, RESET, NOTICE
-            ),
+            } => {
+                writeln!(f, "Admin ")?;
+                write_and_reset(f, admin_name)?;
+                writeln!(f, " un-blacklisted player ")?;
+                write_and_reset(f, player_name)?;
+                writeln!(f, "!")
+            }
 
-            ForceRestart { admin_name } => write!(
-                f,
-                "Admin {}{}{} forced a map restart!",
-                admin_name, RESET, NOTICE
-            ),
+            ForceRestart { admin_name } => {
+                writeln!(f, "Admin ")?;
+                write_and_reset(f, admin_name)?;
+                writeln!(f, " forced a map restart!")
+            }
 
             ForceQueued {
                 admin_name,
                 map_name,
-            } => write!(
-                f,
-                "Admin {}{}{} queued map {}{}{}!",
-                admin_name, RESET, NOTICE, map_name, RESET, NOTICE
-            ),
+            } => {
+                writeln!(f, "Admin ")?;
+                write_and_reset(f, admin_name)?;
+                writeln!(f, " queued map ")?;
+                write_and_reset(f, map_name)?;
+                writeln!(f, "!")
+            }
 
-            TimeLimitChanged { admin_name } => write!(
-                f,
-                "Admin {}{}{} changed the time limit settings!",
-                admin_name, RESET, NOTICE
-            ),
+            TimeLimitChanged { admin_name } => {
+                writeln!(f, "Admin ")?;
+                write_and_reset(f, admin_name)?;
+                writeln!(f, " changed the time limit settings!")
+            }
 
-            MatchPaused { admin_name } => write!(
-                f,
-                "Admin {}{}{} paused the match!",
-                admin_name, RESET, NOTICE
-            ),
+            MatchPaused { admin_name } => {
+                writeln!(f, "Admin ")?;
+                write_and_reset(f, admin_name)?;
+                writeln!(f, " paused the match!")
+            }
 
-            MatchUnpaused { admin_name } => write!(
-                f,
-                "Admin {}{}{} unpaused the match!",
-                admin_name, RESET, NOTICE
-            ),
+            MatchUnpaused { admin_name } => {
+                writeln!(f, "Admin ")?;
+                write_and_reset(f, admin_name)?;
+                writeln!(f, " unpaused the match!")
+            }
 
-            WarmupRoundExtended { admin_name, secs } => write!(
-                f,
-                "Admin {}{}{} extended the warmup by {} seconds!",
-                admin_name, RESET, NOTICE, secs
-            ),
+            WarmupRoundExtended { admin_name, secs } => {
+                writeln!(f, "Admin ")?;
+                write_and_reset(f, admin_name)?;
+                writeln!(f, " extended the warmup by ")?;
+                write_highlighted(f, format!("{} seconds", secs))?;
+                writeln!(f, "!")
+            }
 
-            WarmupSkipped { admin_name } => write!(
-                f,
-                "Admin {}{}{} skipped the warmup!",
-                admin_name, RESET, NOTICE
-            ),
+            WarmupSkipped { admin_name } => {
+                writeln!(f, "Admin ")?;
+                write_and_reset(f, admin_name)?;
+                writeln!(f, " skipped the warmup!")
+            }
         }
     }
 }

@@ -1,3 +1,4 @@
+use std::fmt::Formatter;
 pub use to_player::*;
 pub use to_server::*;
 
@@ -25,11 +26,29 @@ pub(self) fn pluralize(word: &str, amount: usize) -> String {
     format!("{} {}{}", prefix, word, suffix)
 }
 
-pub(self) const HIGHLIGHT: &str = "$fff";
+pub(self) fn write_start_message(f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(f, "{}{}🔊 ", RESET, NOTICE)
+}
 
-pub(self) const NOTICE: &str = "$fc0";
+pub(self) fn write_and_reset<T>(f: &mut Formatter<'_>, text: T) -> std::fmt::Result
+where
+    T: std::fmt::Display,
+{
+    write!(f, "{}{}{}{}", RESET, text, RESET, NOTICE)
+}
 
-pub(self) const RESET: &str = "$z$s";
+pub(self) fn write_highlighted<T>(f: &mut Formatter<'_>, text: T) -> std::fmt::Result
+where
+    T: std::fmt::Display,
+{
+    write!(f, "{}{}{}{}{}", RESET, HIGHLIGHT, text, RESET, NOTICE)
+}
+
+const HIGHLIGHT: &str = "$fff$o";
+
+const NOTICE: &str = "$fc0";
+
+const RESET: &str = "$z$fff$s";
 
 #[cfg(test)]
 mod test {

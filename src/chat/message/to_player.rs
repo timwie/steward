@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use serde::export::Formatter;
 
-use crate::chat::message::{pluralize, NOTICE, RESET};
+use crate::chat::message::{pluralize, write_start_message};
 
 /// Chat messages from the controller to a specific player.
 ///
@@ -17,7 +17,8 @@ impl Display for PlayerMessage {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         use PlayerMessage::*;
 
-        write!(f, "{}{}🔊 ", RESET, NOTICE)?;
+        write_start_message(f)?;
+
         match self {
             PreferenceReminder {
                 nb_active_preferences: 0,
