@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 /// Chat commands that can only be executed by admins.
 #[derive(Debug)]
 pub enum AdminCommand<'a> {
@@ -72,6 +74,21 @@ pub enum AdminCommand<'a> {
     ///
     /// Usage: `/unblacklist <login>`
     BlacklistRemove { login: &'a str },
+
+    /// Pause or unpause the match.
+    ///
+    /// Usage: `/pause`
+    TogglePause,
+
+    /// Extend the current warmup round.
+    ///
+    /// Usage: `/warmup add <seconds>`
+    ExtendWarmup { secs: u64 },
+
+    /// End the current warmup section.
+    ///
+    /// Usage: `/warmup skip`
+    SkipWarmup,
 }
 
 impl AdminCommand<'_> {
@@ -87,6 +104,7 @@ impl AdminCommand<'_> {
             ["/help"] => Some(Help),
             ["/map_import", id] => Some(ImportMap { id: *id }),
             ["/maps"] => Some(ListMaps),
+            ["/pause"] => Some(TogglePause),
             ["/players"] => Some(ListPlayers),
             ["/playlist", "add", uid] => Some(PlaylistAdd { uid: *uid }),
             ["/playlist", "remove", uid] => Some(PlaylistRemove { uid: *uid }),
@@ -94,6 +112,11 @@ impl AdminCommand<'_> {
             ["/restart"] => Some(RestartCurrentMap),
             ["/skip"] => Some(SkipCurrentMap),
             ["/unblacklist", login] => Some(BlacklistRemove { login: *login }),
+            ["/warmup", "add", secs] => match u64::from_str(secs) {
+                Ok(secs) => Some(ExtendWarmup { secs }),
+                Err(_) => None,
+            },
+            ["/warmup", "skip"] => Some(SkipWarmup),
             _ => None,
         }
     }
@@ -113,6 +136,11 @@ pub(in crate::chat) const ADMIN_COMMAND_REFERENCE: &str = "
 /skip            Start the next map immediately.
 /restart         Restart the current map after this race.
 /queue <uid>     Set the map that will be played after the current one.
+
+/pause     Pause or unpause the current match, if supported by the game mode.
+
+/warmup add <seconds>     Extend the current warmup round.
+/warmup skip              End the current warmup section.
 
 /blacklist <login>       Add a player to the server's blacklist.
 /unblacklist <login>     Remove a player from the server's blacklist.

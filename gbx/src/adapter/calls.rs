@@ -306,8 +306,8 @@ impl Calls for RpcClient {
     }
 
     async fn warmup_extend(&self, duration: Duration) {
-        let secs = duration.as_secs().to_string();
-        self.call_script("Maniaplanet.WarmUp.Extend", args!(secs))
+        let millis = duration.as_millis().to_string();
+        self.call_script("Maniaplanet.WarmUp.Extend", args!(millis))
             .await;
     }
 

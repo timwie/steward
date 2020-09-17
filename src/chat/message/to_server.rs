@@ -81,6 +81,18 @@ pub enum ServerMessage<'a> {
 
     /// Tell players that an admin has changed the time limit config.
     TimeLimitChanged { admin_name: &'a str },
+
+    /// Tell players that an admin has paused the match.
+    MatchPaused { admin_name: &'a str },
+
+    /// Tell players that an admin has unpaused the match.
+    MatchUnpaused { admin_name: &'a str },
+
+    /// Tell players that an admin has extended the current warmup round.
+    WarmupRoundExtended { admin_name: &'a str, secs: u64 },
+
+    /// Tell players that an admin has skipped the remaining warmup.
+    WarmupSkipped { admin_name: &'a str },
 }
 
 /// A player improved their rank, and took one of the top spots.
@@ -230,6 +242,30 @@ impl Display for ServerMessage<'_> {
             TimeLimitChanged { admin_name } => write!(
                 f,
                 "Admin {}{}{} changed the time limit settings!",
+                admin_name, RESET, NOTICE
+            ),
+
+            MatchPaused { admin_name } => write!(
+                f,
+                "Admin {}{}{} paused the match!",
+                admin_name, RESET, NOTICE
+            ),
+
+            MatchUnpaused { admin_name } => write!(
+                f,
+                "Admin {}{}{} unpaused the match!",
+                admin_name, RESET, NOTICE
+            ),
+
+            WarmupRoundExtended { admin_name, secs } => write!(
+                f,
+                "Admin {}{}{} extended the warmup by {} seconds!",
+                admin_name, RESET, NOTICE, secs
+            ),
+
+            WarmupSkipped { admin_name } => write!(
+                f,
+                "Admin {}{}{} skipped the warmup!",
                 admin_name, RESET, NOTICE
             ),
         }

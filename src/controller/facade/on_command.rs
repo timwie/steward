@@ -1,4 +1,5 @@
 use semver::Version;
+use tokio::time::Duration;
 
 use crate::chat::{
     AdminCommand, CommandConfirmResponse, CommandErrorResponse, CommandOutputResponse,
@@ -51,10 +52,11 @@ impl Controller {
     pub(super) async fn on_admin_cmd(&self, from_login: &str, cmd: AdminCommand<'_>) {
         use AdminCommand::*;
 
-        let from_nick_name = match self.players.nick_name(from_login).await {
+        let admin_name = match self.players.nick_name(from_login).await {
             Some(name) => name,
             None => return,
         };
+        let admin_name = &admin_name.formatted;
 
         let or_nickname = |login: String| async move {
             self.db
@@ -120,9 +122,7 @@ impl Controller {
             SkipCurrentMap => {
                 self.server.end_map().await;
                 self.chat
-                    .announce(ServerMessage::CurrentMapSkipped {
-                        admin_name: &from_nick_name.formatted,
-                    })
+                    .announce(ServerMessage::CurrentMapSkipped { admin_name })
                     .await;
             }
 
@@ -132,9 +132,7 @@ impl Controller {
                     self.on_controller_event(ev).await;
 
                     self.chat
-                        .announce(ServerMessage::ForceRestart {
-                            admin_name: &from_nick_name.formatted,
-                        })
+                        .announce(ServerMessage::ForceRestart { admin_name })
                         .await;
                 }
             }
@@ -159,7 +157,7 @@ impl Controller {
 
                     self.chat
                         .announce(ServerMessage::ForceQueued {
-                            admin_name: &from_nick_name.formatted,
+                            admin_name,
                             map_name: &map.name.formatted,
                         })
                         .await;
@@ -182,7 +180,7 @@ impl Controller {
 
                 self.chat
                     .announce(ServerMessage::PlayerBlacklisted {
-                        admin_name: &from_nick_name.formatted,
+                        admin_name,
                         player_name: &or_nickname(login.to_string()).await,
                     })
                     .await;
@@ -204,10 +202,53 @@ impl Controller {
 
                 self.chat
                     .announce(ServerMessage::PlayerUnblacklisted {
-                        admin_name: &from_nick_name.formatted,
+                        admin_name,
                         player_name: &or_nickname(login.to_string()).await,
                     })
                     .await;
+            }
+
+            TogglePause => {
+                let status = self.server.pause_status().await;
+                if !status.available {
+                    // case 1: cannot pause
+                    let msg = CommandResponse::Error(CommandErrorResponse::CannotPause);
+                    self.widget.show_popup(msg, from_login).await;
+                } else if status.active {
+                    // case 2: unpause now
+                    assert!(self.server.pause().await.active);
+                    let msg = ServerMessage::MatchPaused { admin_name };
+                    self.chat.announce(msg).await;
+                } else {
+                    // case 3: pause now
+                    assert!(!self.server.pause().await.active);
+                    let msg = ServerMessage::MatchUnpaused { admin_name };
+                    self.chat.announce(msg).await;
+                }
+            }
+
+            ExtendWarmup { secs } => {
+                let status = self.server.warmup_status().await;
+                if status.active {
+                    self.server.warmup_extend(Duration::from_secs(secs)).await;
+                    let msg = ServerMessage::WarmupRoundExtended { admin_name, secs };
+                    self.chat.announce(msg).await;
+                } else {
+                    let msg = CommandResponse::Error(CommandErrorResponse::NotInWarmup);
+                    self.widget.show_popup(msg, from_login).await;
+                }
+            }
+
+            SkipWarmup => {
+                let status = self.server.warmup_status().await;
+                if status.active {
+                    self.server.force_end_warmup().await;
+                    let msg = ServerMessage::WarmupSkipped { admin_name };
+                    self.chat.announce(msg).await;
+                } else {
+                    let msg = CommandResponse::Error(CommandErrorResponse::NotInWarmup);
+                    self.widget.show_popup(msg, from_login).await;
+                }
             }
         };
     }
@@ -271,10 +312,11 @@ impl Controller {
 
         log::warn!("{}> {:#?}", from_login, &cmd);
 
-        let from_nick_name = match self.players.nick_name(from_login).await {
+        let admin_name = match self.players.nick_name(from_login).await {
             Some(name) => name,
             None => return,
         };
+        let admin_name = &admin_name.formatted;
 
         match cmd {
             DeleteMap { uid } => {
@@ -294,7 +336,7 @@ impl Controller {
 
                 self.chat
                     .announce(ServerMessage::MapDeleted {
-                        admin_name: &from_nick_name.formatted,
+                        admin_name,
                         map_name: &map.name.formatted,
                     })
                     .await;

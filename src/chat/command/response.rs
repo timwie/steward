@@ -107,6 +107,16 @@ pub enum CommandErrorResponse {
     ///
     /// Output for `/delete map`
     CannotDeletePlaylistMap,
+
+    /// Tell an admin that the current game mode does not support pauses.
+    ///
+    /// Output for `/pause`
+    CannotPause,
+
+    /// Tell an admin that the entered command only works during warmup.
+    ///
+    /// Output for any `/warmup *` command
+    NotInWarmup,
 }
 
 pub enum CommandConfirmResponse<'a> {
@@ -321,6 +331,10 @@ impl Display for CommandResponse<'_> {
                 f,
                 "Only maps outside of the playlist can be removed from the database!"
             ),
+
+            Error(CannotPause) => writeln!(f, "This game mode does not support pausing!"),
+
+            Error(NotInWarmup) => writeln!(f, "This command works only during warmup."),
 
             Confirm(ConfirmMapDeletion { file_name }) => writeln!(
                 f,
