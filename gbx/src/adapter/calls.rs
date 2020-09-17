@@ -70,8 +70,8 @@ impl Calls for RpcClient {
         self.call_method_unwrap("GetModeScriptInfo", args!()).await
     }
 
-    async fn set_mode(&self, script_text: &str) -> Result<()> {
-        self.call_method_unit("SetModeScriptText", args!(escape_xml(script_text)))
+    async fn set_mode(&self, script: ModeScript) -> Result<()> {
+        self.call_method_unit("SetScriptName", args!(script.file_name()))
             .await
     }
 
@@ -84,13 +84,29 @@ impl Calls for RpcClient {
     }
 
     async fn mode_options(&self) -> ModeOptions {
-        self.call_method_unwrap("GetModeScriptSettings", args!())
-            .await
+        let mode_info = self.mode().await;
+
+        macro_rules! get {
+            ($typ:ty) => {
+                self.call_method_unwrap::<$typ>("GetModeScriptSettings", args!())
+                    .await
+            };
+        }
+
+        match mode_info.script {
+            ModeScript::TimeAttack => ModeOptions::TimeAttack(get!(TimeAttackOptions)),
+            _ => panic!("modes other than TimeAttack are not supported"),
+        }
     }
 
-    async fn set_mode_options(&self, options: &ModeOptions) {
-        self.call_method_unwrap_unit("SetModeScriptSettings", args!(to_value(options)))
-            .await;
+    async fn set_mode_options(&self, options: &ModeOptions) -> Result<()> {
+        let options = match options {
+            ModeOptions::TimeAttack(options) => to_value(options),
+            _ => panic!("modes other than TimeAttack are not supported"),
+        };
+
+        self.call_method_unit("SetModeScriptSettings", args!(options))
+            .await
     }
 
     async fn players(&self) -> Vec<PlayerInfo> {

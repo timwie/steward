@@ -14,7 +14,7 @@ use crate::constants::{BLACKLIST_FILE, VERSION};
 use crate::database::{Database, Map, MapEvidence};
 use crate::network::exchange_id;
 use crate::server::{
-    ModeInfo, PlaylistMap, Server, ServerInfo, ServerOptions, SCRIPT_API_VERSION,
+    ModeInfo, ModeScript, PlaylistMap, Server, ServerInfo, ServerOptions, SCRIPT_API_VERSION,
     SERVER_API_VERSION,
 };
 
@@ -145,21 +145,10 @@ async fn prepare_mode(server: &Arc<dyn Server>) {
 /// It's unlikely that we get incompatibilities with newer Time Attack versions,
 /// but it might still be good to be aware of them.
 fn check_mode_compat(info: ModeInfo) -> bool {
-    const TA_SCRIPT: &str = "Trackmania/TM_TimeAttack_Online.Script.txt";
-    const TA_MAP_TYPE: &str = "TM_Race";
     const TA_KNOWN_VERSION: &str = "2020-09-10";
 
-    if info.file_name != TA_SCRIPT {
+    if info.script != ModeScript::TimeAttack {
         log::warn!("mode is not Time Attack!");
-        log::warn!("{:#?}", info);
-        return false;
-    }
-    if !info
-        .compatible_map_types
-        .split(',')
-        .any(|typ| typ == TA_MAP_TYPE)
-    {
-        log::warn!("mode does not support TM_Race map type!");
         log::warn!("{:#?}", info);
         return false;
     }

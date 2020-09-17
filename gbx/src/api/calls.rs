@@ -97,20 +97,19 @@ pub trait Calls: Send + Sync {
     /// Fetch some info about the running mode script, which can help
     /// identifying possible incompatibilities.
     ///
-    /// Faults in edge cases with message "No current script",
-    /// f.e. when `set_mode` failed.
-    ///
     /// Calls method:
     ///     GetModeScriptInfo
     async fn mode(&self) -> ModeInfo;
 
     /// Set the mode script and restart.
     ///
-    /// Faults if the script contains syntax errors.
+    /// Requires a map skip/restart to be take effect.
+    ///
+    /// Faults for `ModeScript::Other` if there is no script with the given file name.
     ///
     /// Calls method:
-    ///     SetModeScriptText
-    async fn set_mode(&self, script_text: &str) -> Result<()>;
+    ///     SetScriptName
+    async fn set_mode(&self, script: ModeScript) -> Result<()>;
 
     /// Fetch the absolute path of the server's `UserData` directory.
     ///
@@ -129,9 +128,11 @@ pub trait Calls: Send + Sync {
     /// Overwrite game mode settings, that default to the match
     /// settings in `/UserData/Maps/MatchSettings/*.txt`.
     ///
+    /// Faults when the given options are for a different game mode.
+    ///
     /// Calls method:
     ///     SetModeScriptSettings
-    async fn set_mode_options(&self, options: &ModeOptions);
+    async fn set_mode_options(&self, options: &ModeOptions) -> Result<()>;
 
     /// Get the list of connected players.
     ///

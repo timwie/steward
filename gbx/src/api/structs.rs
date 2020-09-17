@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use lazy_static::lazy_static;
 use regex::Regex;
@@ -208,21 +208,139 @@ pub struct NetStats {
 #[derive(Deserialize, Debug, PartialEq)]
 #[serde(rename_all = "PascalCase")]
 pub struct ModeInfo {
-    /// The name of the game mode script, f.e. "TrackMania/TM_TimeAttack_Online.Script.txt".
+    /// The script that implements this mode.
     #[serde(rename = "Name")]
-    pub file_name: String,
+    pub script: ModeScript,
 
-    /// Comma-delimited; indicates compatible map types for this mode,
-    /// f.e. "TrackMania\\TM_Race,TM_Race"
-    pub compatible_map_types: String,
+    /// All compatible map types for this mode.
+    #[serde(deserialize_with = "deserialize_map_types")]
+    pub compatible_map_types: HashSet<MapType>,
 
     /// Development: The version date of the mode script.
     /// A change in version might be of note.
     pub version: String,
 }
 
-// TODO this is specific to TimeAttack!
-/// Game mode options.
+/// Map types are scripts that set certain requirements for a map.
+/// The default `Race` type f.e. requires exactly one start block and at
+/// least one finish block.
+#[derive(Debug, PartialEq, Eq, Hash)]
+pub enum MapType {
+    /// The default Trackmania map type that is compatible with all default game modes.
+    Race,
+}
+
+fn deserialize_map_types<'de, D>(deserializer: D) -> Result<HashSet<MapType>, D::Error>
+where
+    D: serde::de::Deserializer<'de>,
+{
+    use MapType::*;
+
+    // "TrackMania\\TM_Race" or just "TM_Race" is the only default map type,
+    // and is supported by all default modes.
+
+    let comma_delimited: String = serde::de::Deserialize::deserialize(deserializer)?;
+
+    Ok(comma_delimited
+        .split(',')
+        .map(|name| match name {
+            "TrackMania\\TM_Race" => Race,
+            "TM_Race" => Race,
+            _ => panic!("custom map types are not supported"),
+        })
+        .collect())
+}
+
+/// Game modes that the server can play.
+#[derive(Debug, PartialEq)]
+pub enum ModeScript {
+    Champion,
+    Cup,
+    Knockout,
+    Laps,
+    Rounds,
+    Teams,
+    TimeAttack,
+    Other {
+        /// The relative script file name in `/UserData/Scripts/Modes`.
+        file_name: String,
+    },
+}
+
+impl ModeScript {
+    pub fn file_name(&self) -> &str {
+        use ModeScript::*;
+
+        match self {
+            Champion => "Trackmania/TM_Champion_Online.Script.txt",
+            Cup => "Trackmania/TM_Cup_Online.Script.txt",
+            Knockout => "Trackmania/TM_Knockout_Online.Script.txt",
+            Laps => "Trackmania/TM_Laps_Online.Script.txt",
+            Rounds => "Trackmania/TM_Rounds_Online.Script.txt",
+            Teams => "Trackmania/TM_Teams_Online.Script.txt",
+            TimeAttack => "Trackmania/TM_TimeAttack_Online.Script.txt",
+            Other { file_name } => file_name,
+        }
+    }
+
+    pub fn name(&self) -> &str {
+        match self {
+            ModeScript::Other { file_name } => file_name
+                .trim_start_matches("Trackmania/")
+                .trim_end_matches(".Script.txt"),
+            _ => self
+                .file_name()
+                .trim_start_matches("Trackmania/TM_")
+                .trim_end_matches("_Online.Script.txt"),
+        }
+    }
+
+    /// All game modes that come with the dedicated server, and do not have to be
+    /// added to the `/UserData/Scripts/Modes` directory.
+    pub fn default_modes() -> Vec<ModeScript> {
+        use ModeScript::*;
+        vec![Champion, Cup, Knockout, Laps, Rounds, Teams, TimeAttack]
+    }
+}
+
+impl<'de> Deserialize<'de> for ModeScript {
+    fn deserialize<D>(deserializer: D) -> Result<Self, <D as Deserializer<'de>>::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let file_name: String = serde::de::Deserialize::deserialize(deserializer)?;
+
+        let default_mode = ModeScript::default_modes()
+            .into_iter()
+            .find(|mode| mode.file_name() == file_name);
+
+        Ok(match default_mode {
+            Some(mode) => mode,
+            None => ModeScript::Other { file_name },
+        })
+    }
+}
+
+/// Game mode settings.
+///
+/// Every mode script has a different set of possible settings.
+#[derive(Debug, PartialEq)]
+pub enum ModeOptions {
+    TimeAttack(TimeAttackOptions),
+
+    // TODO add support for other default game mode options
+    Champion,
+    Cup,
+    Knockout,
+    Laps,
+    Rounds,
+    Teams,
+
+    // TODO add support for custom game mode options
+    Other,
+}
+
+/// Setting for the TimeAttack game mode.
 ///
 /// References:
 /// - Libs/Nadeo/ModeLibs/Common/ModeBase.Script.txt (2020-06-23)
@@ -231,7 +349,7 @@ pub struct ModeInfo {
 /// - Modes/TrackMania/TM_TimeAttack_Online.Script.txt (2020-09-10)
 /// - https://doc.maniaplanet.com/dedicated-server/references/settings-list-for-nadeo-gamemodes
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
-pub struct ModeOptions {
+pub struct TimeAttackOptions {
     /// Chat time at the end of a map or match in seconds.
     #[serde(rename = "S_ChatTime")]
     pub chat_time_secs: i32,
@@ -617,7 +735,7 @@ pub struct PlayerAnswer {
     pub entries: HashMap<String, String>,
 }
 
-/// TODO doc
+/// Event data sent when starting or ending a warmup or pause.
 ///
 /// Reference: https://github.com/maniaplanet/script-xmlrpc/blob/master/XmlRpcListing.md#maniaplanetwarmupstatus
 #[derive(Deserialize, Debug, PartialEq, Clone)]
@@ -626,14 +744,14 @@ pub struct WarmupOrPauseStatus {
     #[serde(rename = "responseid", deserialize_with = "deserialize_response_id")]
     pub(in crate) response_id: Option<String>,
 
-    /// True if a warmup is available in the game mode, false otherwise.
+    /// True if a warmup/pause is available in the game mode, false otherwise.
     pub available: bool,
 
-    /// True if a warmup is ongoing, false otherwise.
+    /// True if a warmup/pause is ongoing, false otherwise.
     pub active: bool,
 }
 
-/// TODO doc
+/// Event data sent when a warmup round starts or ends.
 ///
 /// Reference: https://github.com/maniaplanet/script-xmlrpc/blob/master/XmlRpcListing.md#trackmaniawarmupstartround
 #[derive(Deserialize, Debug, PartialEq, Clone)]

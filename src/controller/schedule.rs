@@ -11,7 +11,7 @@ use crate::config::PublicConfig;
 use crate::controller::{LiveConfig, LivePlaylist, LiveQueue, LiveRecords};
 use crate::database::Database;
 use crate::event::PlaylistDiff;
-use crate::server::Server;
+use crate::server::{ModeOptions, Server};
 
 /// Use to lookup when a playlist map will be played.
 #[async_trait]
@@ -107,9 +107,14 @@ impl ScheduleController {
 
         // Set the server's time limit
         let new_time_limit = self.to_limit(schedule_state.reference_millis[idx], &public_config);
-        let mut mode_options = self.server.mode_options().await;
-        mode_options.time_limit_secs = new_time_limit.num_seconds() as i32;
-        self.server.set_mode_options(&mode_options).await;
+        let mode_options = self.server.mode_options().await;
+        if let ModeOptions::TimeAttack(mut options) = mode_options {
+            options.time_limit_secs = new_time_limit.num_seconds() as i32;
+            self.server
+                .set_mode_options(&ModeOptions::TimeAttack(options))
+                .await
+                .expect("failed to set mode options");
+        }
     }
 
     /// Update the cached reference times for playlist maps.

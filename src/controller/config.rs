@@ -7,7 +7,7 @@ use tokio::sync::{RwLock, RwLockReadGuard};
 
 use crate::config::{Config, PublicConfig};
 use crate::event::ConfigDiff;
-use crate::server::Server;
+use crate::server::{ModeOptions, Server};
 
 /// Use to look up controller and server configs.
 #[async_trait]
@@ -103,9 +103,14 @@ impl ConfigController {
 }
 
 async fn set_mode_options(server: &Arc<dyn Server>, config: &Config) {
-    let mut mode_options = server.mode_options().await;
-    mode_options.chat_time_secs = config.outro_duration_secs as i32;
-    server.set_mode_options(&mode_options).await;
+    let mode_options = server.mode_options().await;
+    if let ModeOptions::TimeAttack(mut options) = mode_options {
+        options.chat_time_secs = config.outro_duration_secs as i32;
+        server
+            .set_mode_options(&ModeOptions::TimeAttack(options))
+            .await
+            .expect("failed to set mode options");
+    }
 }
 
 #[async_trait]

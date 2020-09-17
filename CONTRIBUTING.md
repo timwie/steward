@@ -157,6 +157,7 @@ is a bug. The following list contains many of the potential runtime errors when 
 | Intro & Outro  | • Refers to the stages before and after a race, respectively.<br> • During the intro, the server briefly waits for players to load, and the map's MediaTracker intro is shown as a cutscene.<br> • During the outro, the game gives players some time to chat, and to inspect the scores. |
 | Manialink      | In-game "web pages", written in XML with specific tags.                               |
 | ManiaScript    | In-game scripting language, that can, among other things, be used to make Manialinks interactive. |
+| Map Type       | Map types are scripts that set certain requirements for a map. The default `TM_Race` type f.e. requires exactly one start block and at least one finish block.|
 | Match Settings | These settings include game mode, mode script settings, and playlist. Initialized with the file passed to the `/game_settings` launcher option, then modified by the controller, overriding the file. |
 | MediaTracker   | In-game editor for map authors that can add effects to intros & outros of maps, as well as during runs and replays. |
 | Mode Script    | The ManiaScript that implements game mode logic, and mode-specific XML-RPC methods & callbacks. |
