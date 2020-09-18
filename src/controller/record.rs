@@ -251,7 +251,7 @@ impl RecordController {
                 .entry(player_info.uid)
                 .or_insert_with(Vec::new)
                 .push(RecordSector {
-                    index: ev.cp_index,
+                    index: ev.race_cp_index,
                     cp_millis: ev.race_time_millis,
                     cp_speed: ev.speed.abs(), // driving backwards gives negative speed
                 });

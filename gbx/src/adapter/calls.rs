@@ -6,6 +6,7 @@ use async_trait::async_trait;
 use serde::Deserialize;
 use tokio::time::Duration;
 
+use crate::api::structs::*;
 use crate::api::*;
 use crate::xml::*;
 use crate::RpcClient;
@@ -307,7 +308,7 @@ impl Calls for RpcClient {
 
     async fn warmup_extend(&self, duration: Duration) {
         let millis = duration.as_millis().to_string();
-        self.call_script("Maniaplanet.WarmUp.Extend", args!(millis))
+        self.call_script("Trackmania.WarmUp.Extend", args!(millis))
             .await;
     }
 
@@ -364,7 +365,7 @@ impl Calls for RpcClient {
         self.call_method_unwrap("GetNetworkStats", args!()).await
     }
 
-    async fn stop_server(&self) {
+    async fn shutdown_server(&self) {
         self.call_method_unwrap_unit("StopServer", args!()).await;
         self.call_method_unwrap_unit("QuitGame", args!()).await;
     }

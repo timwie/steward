@@ -70,11 +70,6 @@ fn to_regular_callback(call: Call) -> Option<Callback> {
     }
 
     match call.name.as_ref() {
-        "ManiaPlanet.EndMatch" => {
-            if let [Array(_rankings), Int(_winner_team)] = &call.args[..] {
-                return Some(RaceEnd);
-            }
-        }
         "ManiaPlanet.PlayerChat" => {
             if let [Int(uid), String(login), String(msg), Bool(_is_registered_cmd)] = &call.args[..]
             {
@@ -131,6 +126,7 @@ fn to_regular_callback(call: Call) -> Option<Callback> {
         }
         "ManiaPlanet.BeginMap"
         | "ManiaPlanet.BeginMatch"
+        | "ManiaPlanet.EndMatch"
         | "ManiaPlanet.EndMap"
         | "ManiaPlanet.MapListModified"
         | "ManiaPlanet.PlayerConnect"
@@ -150,6 +146,7 @@ fn to_regular_callback(call: Call) -> Option<Callback> {
 }
 
 fn forward_script_callback(call: Call) -> Option<Callback> {
+    use crate::api::ModeScriptSection::*;
     use Callback::*;
     use Value::*;
 
@@ -173,23 +170,43 @@ fn forward_script_callback(call: Call) -> Option<Callback> {
             .collect();
 
         return match cb_name.as_ref() {
+            "Maniaplanet.StartServer_Start" => {
+                let data: StartServerEvent = de!(&str_args[0]);
+                Some(ModeScriptSection(PreStartServer {
+                    restarted_script: data.restarted,
+                    changed_script: data.mode.updated,
+                }))
+            }
+            "Maniaplanet.StartServer_End" => Some(ModeScriptSection(PostStartServer)),
+            "Maniaplanet.StartMatch_Start" => Some(ModeScriptSection(PreStartMatch)),
+            "Maniaplanet.StartMatch_End" => Some(ModeScriptSection(PostStartMatch)),
             "Maniaplanet.LoadingMap_Start" => {
                 let data: LoadingMapEvent = de!(&str_args[0]);
-                Some(MapLoad {
+                Some(ModeScriptSection(PreLoadMap {
                     is_restart: data.restarted,
-                })
+                }))
             }
+            "Maniaplanet.LoadingMap_End" => Some(ModeScriptSection(PostLoadMap)),
+            "Maniaplanet.StartMap_Start" => Some(ModeScriptSection(PreStartMap)),
+            "Maniaplanet.StartMap_End" => Some(ModeScriptSection(PostStartMap)),
+            "Maniaplanet.StartRound_Start" => Some(ModeScriptSection(PreStartRound)),
+            "Maniaplanet.StartRound_End" => Some(ModeScriptSection(PostStartRound)),
+            "Maniaplanet.StartPlayLoop" => Some(ModeScriptSection(PrePlayloop)),
+            "Maniaplanet.EndPlayLoop" => Some(ModeScriptSection(PostPlayloop)),
+            "Maniaplanet.EndRound_Start" => Some(ModeScriptSection(PreEndRound)),
+            "Maniaplanet.EndRound_End" => Some(ModeScriptSection(PostEndRound)),
+            "Maniaplanet.EndMap_Start" => Some(ModeScriptSection(PreEndMap)),
+            "Maniaplanet.EndMap_End" => Some(ModeScriptSection(PostEndMap)),
+            "Maniaplanet.UnloadingMap_Start" => Some(ModeScriptSection(PreUnloadMap)),
+            "Maniaplanet.UnloadingMap_End" => Some(ModeScriptSection(PostUnloadMap)),
+            "Maniaplanet.EndMatch_Start" => Some(ModeScriptSection(PreEndMatch)),
+            "Maniaplanet.EndMatch_End" => Some(ModeScriptSection(PostEndMatch)),
+            "Maniaplanet.EndServer_Start" => Some(ModeScriptSection(PreEndServer)),
+            "Maniaplanet.EndServer_End" => Some(ModeScriptSection(PostEndServer)),
 
             "Maniaplanet.Pause.Status" => {
                 let status: WarmupOrPauseStatus = de!(&str_args[0]);
                 Some(PauseStatus(status))
-            }
-
-            "Maniaplanet.UnloadingMap_Start" => Some(MapUnload),
-
-            "ManiaPlanet.WarmUp.Status" | "Trackmania.WarmUp.Status" => {
-                let status: WarmupOrPauseStatus = de!(&str_args[0]);
-                Some(WarmupStatus(status))
             }
 
             "Trackmania.Event.GiveUp" | "Trackmania.Event.SkipOutro" => {
@@ -240,36 +257,19 @@ fn forward_script_callback(call: Call) -> Option<Callback> {
                 Some(WarmupBegin(status))
             }
 
-            "Maniaplanet.ChannelProgression_End"
-            | "Maniaplanet.ChannelProgression_Start"
-            | "Maniaplanet.EndMap_End"
-            | "Maniaplanet.EndMap_Start"
-            | "Maniaplanet.EndMatch_End"
-            | "Maniaplanet.EndMatch_Start"
-            | "Maniaplanet.EndPlayLoop"
-            | "Maniaplanet.EndRound_End"
-            | "Maniaplanet.EndRound_Start"
-            | "Maniaplanet.EndTurn_End"
-            | "Maniaplanet.EndTurn_Start"
-            | "Maniaplanet.LoadingMap_End"
-            | "Maniaplanet.Podium_End"
-            | "Maniaplanet.Podium_Start"
-            | "Maniaplanet.StartMap_End"
-            | "Maniaplanet.StartMap_Start"
-            | "Maniaplanet.StartMatch_End"
-            | "Maniaplanet.StartMatch_Start"
-            | "Maniaplanet.StartPlayLoop"
-            | "Maniaplanet.StartRound_End"
-            | "Maniaplanet.StartRound_Start"
-            | "Maniaplanet.StartServer_End"
+            "Trackmania.WarmUp.Status" => {
+                let status: WarmupOrPauseStatus = de!(&str_args[0]);
+                Some(WarmupStatus(status))
+            }
+
+            "Maniaplanet.StartTurn_Start"
             | "Maniaplanet.StartTurn_End"
-            | "Maniaplanet.StartTurn_Start"
-            | "Maniaplanet.UnloadingMap_End"
+            | "Maniaplanet.EndTurn_Start"
+            | "Maniaplanet.EndTurn_End"
             | "Trackmania.Event.OnPlayerAdded"
             | "Trackmania.Event.OnPlayerRemoved"
             | "Trackmania.Event.Respawn"
-            | "Trackmania.Event.Stunt"
-            | "Maniaplanet.StartServer_Start" => {
+            | "Trackmania.Event.Stunt" => {
                 // ignore without logging
                 None
             }

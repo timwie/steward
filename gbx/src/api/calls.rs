@@ -3,7 +3,7 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 
-use crate::api::*;
+use crate::api::structs::*;
 use crate::Fault;
 
 pub(in crate) type Result<T> = std::result::Result<T, Fault>;
@@ -353,7 +353,7 @@ pub trait Calls: Send + Sync {
     /// Does *not* fault if not in warmup.
     ///
     /// Calls script method:
-    ///     Maniaplanet.WarmUp.Extend
+    ///     Trackmania.WarmUp.Extend
     async fn warmup_extend(&self, duration: Duration);
 
     /// Stop the current round.
@@ -425,5 +425,5 @@ pub trait Calls: Send + Sync {
     /// Calls methods:
     ///     - StopServer
     ///     - QuitGame
-    async fn stop_server(&self);
+    async fn shutdown_server(&self);
 }

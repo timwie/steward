@@ -1,4 +1,4 @@
-use crate::api::*;
+use crate::api::structs::*;
 
 /// Remote procedure calls to be executed on controller-side.
 ///
@@ -17,22 +17,6 @@ pub enum Callback {
     ///
     /// Triggered by `ManiaPlanet.PlayerDisconnect`
     PlayerDisconnect { login: String },
-
-    /// Sent when a map is being loaded, or restarted.
-    ///
-    /// Triggered by `Maniaplanet.LoadingMap_Start`
-    MapLoad { is_restart: bool },
-
-    /// Sent when the race ends - `S_TimeLimit` seconds after `RaceBegin`.
-    ///
-    /// Triggered by `ManiaPlanet.EndMatch`
-    RaceEnd,
-
-    /// Sent when the map is unloaded - `S_ChatTime` seconds  after `RaceEnd`.
-    /// A map is not unloaded when restarted.
-    ///
-    /// Triggered by `Maniaplanet.UnloadingMap_Start`
-    MapUnload,
 
     /// Sent when the countdown is displayed for the player.
     ///
@@ -87,6 +71,9 @@ pub enum Callback {
         answer: PlayerAnswer,
     },
 
+    /// Sent when the game mode script enters or exits a certain section.
+    ModeScriptSection(ModeScriptSection),
+
     /// Sent when a warmup round starts.
     ///
     /// Triggered by `Trackmania.WarmUp.StartRound`
@@ -102,11 +89,69 @@ pub enum Callback {
     /// Triggered by `Trackmania.Scores`, with `Calls::scores`
     Scores { scores: Scores },
 
-    // TODO is this also sent when pausing/unpausing?
-    /// Triggered by `Maniaplanet.Pause.Status`, with `Calls::pause_status`
+    /// Triggered by `Maniaplanet.Pause.Status` with `Calls::pause_status`,
+    /// and by `Maniaplanet.Pause.SetActive` with `Calls::pause` or `Calls::unpause`.
     PauseStatus(WarmupOrPauseStatus),
 
-    // TODO is this also sent when warmup starts/ends?
-    /// Triggered by `Trackmania.WarmUp.Status`, with `Calls::warmup_status`
+    /// Triggered by `Trackmania.WarmUp.Status` with `Calls::warmup_status`.
     WarmupStatus(WarmupOrPauseStatus),
+}
+
+/// All game modes build on a template (`Libs/Nadeo/TMxSM/Race/ModeTrackmania.Script.txt`)
+/// using a structure with several nested loops representing the progression of the game mode.
+///
+/// Server -> Match -> Map -> Round -> Turn -> PlayLoop
+///
+/// The server can launch a match.
+/// This match can be played on several maps.
+/// Each map can be divided into several rounds.
+/// Each round can be further divided into several turns.
+///
+/// The playloop is executed repeatedly until an upper level section
+/// (turn, round, map, match or server) is requested to stop.
+///
+/// The template has several plugs for each loop at the beginning and the end, which
+/// allow game modes to implement their logic.
+///
+/// The template also triggers callbacks when entering or leaving one of the loops;
+/// these callbacks are represented by this enum.
+#[derive(Debug, Clone)]
+pub enum ModeScriptSection {
+    PreStartServer {
+        restarted_script: bool,
+        changed_script: bool,
+    },
+    PostStartServer,
+
+    PreStartMatch,
+    PostStartMatch,
+
+    PreLoadMap {
+        is_restart: bool,
+    },
+    PostLoadMap,
+
+    PreStartMap,
+    PostStartMap,
+
+    PreStartRound,
+    PostStartRound,
+
+    PrePlayloop,
+    PostPlayloop,
+
+    PreEndRound,
+    PostEndRound,
+
+    PreEndMap,
+    PostEndMap,
+
+    PreUnloadMap,
+    PostUnloadMap,
+
+    PreEndMatch,
+    PostEndMatch,
+
+    PreEndServer,
+    PostEndServer,
 }

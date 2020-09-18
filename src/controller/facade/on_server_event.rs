@@ -1,12 +1,14 @@
 use crate::controller::Controller;
 use crate::event::ControllerEvent;
-use crate::server::ServerEvent;
+use crate::server::{ModeScriptSection, ServerEvent};
 use crate::widget::Action;
 
 impl Controller {
     /// Server events are converted to controller events with the
     /// help of one or more controllers.
     pub async fn on_server_event(&self, event: ServerEvent) {
+        use ModeScriptSection::*;
+
         log::debug!("{:#?}", &event);
         match event {
             ServerEvent::PlayerInfoChanged { info } => {
@@ -21,29 +23,6 @@ impl Controller {
                     let ev = ControllerEvent::NewPlayerList(diff);
                     self.on_controller_event(ev).await;
                 }
-            }
-
-            ServerEvent::MapLoad { is_restart } => {
-                if is_restart {
-                    let ev = ControllerEvent::EndOutro;
-                    self.on_controller_event(ev).await;
-                }
-
-                let ev = ControllerEvent::BeginIntro;
-                self.on_controller_event(ev).await;
-            }
-
-            ServerEvent::MapUnload => {
-                let ev = ControllerEvent::ChangeMap;
-                self.on_controller_event(ev).await;
-
-                let ev = ControllerEvent::EndOutro;
-                self.on_controller_event(ev).await;
-            }
-
-            ServerEvent::RaceEnd => {
-                let outro_ev = ControllerEvent::BeginOutro;
-                self.on_controller_event(outro_ev).await;
             }
 
             ServerEvent::RunCountdown { player_login } => {
@@ -140,6 +119,59 @@ impl Controller {
                     self.on_controller_event(ev).await;
                 }
             }
+
+            ServerEvent::ModeScriptSection(PreStartServer { .. }) => {}
+            ServerEvent::ModeScriptSection(PostStartServer) => {}
+
+            ServerEvent::ModeScriptSection(PreStartMatch) => {}
+            ServerEvent::ModeScriptSection(PostStartMatch) => {}
+
+            ServerEvent::ModeScriptSection(PreLoadMap { is_restart }) => {
+                if is_restart {
+                    let ev = ControllerEvent::EndOutro;
+                    self.on_controller_event(ev).await;
+                }
+
+                let ev = ControllerEvent::BeginIntro;
+                self.on_controller_event(ev).await;
+            }
+
+            ServerEvent::ModeScriptSection(PostLoadMap) => {}
+
+            ServerEvent::ModeScriptSection(PreStartMap) => {}
+            ServerEvent::ModeScriptSection(PostStartMap) => {}
+
+            ServerEvent::ModeScriptSection(PreStartRound) => {}
+            ServerEvent::ModeScriptSection(PostStartRound) => {}
+
+            ServerEvent::ModeScriptSection(PrePlayloop) => {}
+            ServerEvent::ModeScriptSection(PostPlayloop) => {}
+
+            ServerEvent::ModeScriptSection(PreEndRound) => {}
+            ServerEvent::ModeScriptSection(PostEndRound) => {}
+
+            ServerEvent::ModeScriptSection(PreEndMap) => {}
+            ServerEvent::ModeScriptSection(PostEndMap) => {}
+
+            ServerEvent::ModeScriptSection(PreUnloadMap) => {
+                let ev = ControllerEvent::ChangeMap;
+                self.on_controller_event(ev).await;
+
+                let ev = ControllerEvent::EndOutro;
+                self.on_controller_event(ev).await;
+            }
+
+            ServerEvent::ModeScriptSection(PostUnloadMap) => {}
+
+            ServerEvent::ModeScriptSection(PreEndMatch) => {}
+
+            ServerEvent::ModeScriptSection(PostEndMatch) => {
+                let outro_ev = ControllerEvent::BeginOutro;
+                self.on_controller_event(outro_ev).await;
+            }
+
+            ServerEvent::ModeScriptSection(PreEndServer) => {}
+            ServerEvent::ModeScriptSection(PostEndServer) => {}
         }
     }
 }

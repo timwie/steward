@@ -340,6 +340,21 @@ pub enum ModeOptions {
     Other,
 }
 
+impl ModeOptions {
+    pub fn script(&self) -> ModeScript {
+        match self {
+            ModeOptions::Champion => ModeScript::Champion,
+            ModeOptions::Cup => ModeScript::Cup,
+            ModeOptions::Knockout => ModeScript::Knockout,
+            ModeOptions::Laps => ModeScript::Laps,
+            ModeOptions::Rounds => ModeScript::Rounds,
+            ModeOptions::Teams => ModeScript::Teams,
+            ModeOptions::TimeAttack(_) => ModeScript::TimeAttack,
+            ModeOptions::Other => unimplemented!(),
+        }
+    }
+}
+
 /// Setting for the TimeAttack game mode.
 ///
 /// References:
@@ -399,6 +414,8 @@ pub struct PlayerInfo {
     /// (see functions)
     #[serde(rename = "SpectatorStatus")]
     pub spectator_digit_mask: i32,
+
+    pub team_id: i32,
 }
 
 impl PlayerInfo {
@@ -542,19 +559,27 @@ pub struct CheckpointEvent {
     #[serde(rename = "racetime")]
     pub race_time_millis: i32,
 
-    /// The total durations of this run at the time of passing each checkpoint.
-    /// The last element will be equal to `race_time_millis`.
-    #[serde(rename = "curracecheckpoints")]
-    pub race_time_cp_millis: Vec<i32>,
+    /// Total duration of the lap up to this checkpoint.
+    #[serde(rename = "laptime")]
+    pub lap_time_millis: i32,
 
     /// Checkpoint index; or the number of unique checkpoints crossed
     /// since the beginning of this run minus one.
     #[serde(rename = "checkpointinrace")]
-    pub cp_index: i32,
+    pub race_cp_index: i32,
+
+    /// Lap checkpoint index; or the number of unique checkpoints crossed
+    /// since the beginning of this lap minus one.
+    #[serde(rename = "checkpointinlap")]
+    pub lap_cp_index: i32,
 
     /// `True` if the player has crossed the finish line.
     #[serde(rename = "isendrace")]
     pub is_finish: bool,
+
+    /// `True` if the player has crossed the multilap line.
+    #[serde(rename = "isendlap")]
+    pub is_lap_finish: bool,
 
     /// Speed of the player in km/h at the time of passing this checkpoint.
     /// This is negative if they are driving backwards!
@@ -776,6 +801,20 @@ pub(in crate) struct ManialinkEntry {
 #[derive(Deserialize, Debug, PartialEq, Clone)]
 pub(in crate) struct GenericScriptEvent {
     pub login: std::string::String,
+}
+
+/// Reference: https://github.com/maniaplanet/script-xmlrpc/blob/master/XmlRpcListing.md#maniaplanetstartserver_start
+#[derive(Deserialize, Debug, PartialEq, Clone)]
+pub(in crate) struct StartServerEvent {
+    pub restarted: bool,
+    pub mode: StartServerEventMode,
+}
+
+/// Reference: https://github.com/maniaplanet/script-xmlrpc/blob/master/XmlRpcListing.md#maniaplanetstartserver_start
+#[derive(Deserialize, Debug, PartialEq, Clone)]
+pub(in crate) struct StartServerEventMode {
+    pub updated: bool,
+    pub name: String,
 }
 
 /// Reference: https://github.com/maniaplanet/script-xmlrpc/blob/master/XmlRpcListing.md#maniaplanetloadingmap_start

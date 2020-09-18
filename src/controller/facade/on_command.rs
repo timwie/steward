@@ -355,7 +355,7 @@ impl Controller {
             }
 
             Shutdown => {
-                self.server.stop_server().await;
+                self.server.shutdown_server().await;
             }
         }
     }
