@@ -130,11 +130,10 @@ impl Controller {
                 if let Some(diff) = self.queue.force_restart().await {
                     let ev = ControllerEvent::NewQueue(diff);
                     self.on_controller_event(ev).await;
-
-                    self.chat
-                        .announce(ServerMessage::ForceRestart { admin_name })
-                        .await;
                 }
+                self.chat
+                    .announce(ServerMessage::ForceRestart { admin_name })
+                    .await;
             }
 
             ForceQueue { uid } => {
