@@ -1,6 +1,17 @@
 # gbx
+This crate provides Rust bindings for Trackmania's dedicated server API.
 
-## XML-RPC Reference
+##### Modules
+- [`gbx::client`](src/client.rs) implements the `GBXRemote 2` protocol to talk to the game server
+- [`gbx::api`](src/api/) contains server and script API definitions
+- [`gbx::adapter`](src/adapter/) is the glue code between `gbx::client` and `gbx::api`,
+  that implements the calls, and matches callbacks
+- [`gbx::xml`](src/xml/) implements parsing and composing of XML-RPC calls and responses
+- [`gbx::file`](src/file.rs) implements parsing `*.Gbx` files
+
+<br>
+
+## XML-RPC Bindings
 
 ##### Legend
 ```
@@ -11,7 +22,15 @@
 [!] broken, deprecated, or has a better alternative
 ```
 
-### XML-RPC Methods
+##### Contents
+- [Methods](#methods)
+- [Callbacks](#callbacks)
+- [Script Methods](#script-methods)
+- [Script Callbacks](#script-callbacks)
+
+<br>
+
+### Methods
 As of server API version `2013-04-16`:
 ```
 [/] system.listMethods
@@ -337,7 +356,9 @@ As of server API version `2013-04-16`:
 [!] ManualFlowControlGetCurTransition
 ```
 
-### XML-RPC Callbacks
+<br>
+
+### Callbacks
 As of server API version `2013-04-16`:
 ```
 [x] ManiaPlanet.ModeScriptCallback
@@ -377,7 +398,9 @@ As of server API version `2013-04-16`:
 [?] ScriptCloud.SaveData
 ```
 
-### XML-RPC Script Methods
+<br>
+
+### Script Methods
 As of script API version `3.1.0`:
 
 ```
@@ -421,7 +444,9 @@ As of script API version `3.1.0`:
 [!] Maniaplanet.WarmUp.GetStatus  // use Trackmania.WarmUp.GetStatus
 ```
 
-### XML-RPC Script Callbacks
+<br>
+
+### Script Callbacks
 As of script API version `3.1.0`:
 
 ```
