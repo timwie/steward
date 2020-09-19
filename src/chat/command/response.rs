@@ -5,8 +5,8 @@ use semver::Version;
 use crate::chat::{
     ADMIN_COMMAND_REFERENCE, PLAYER_COMMAND_REFERENCE, SUPER_ADMIN_COMMAND_REFERENCE,
 };
-use crate::config::{Config, PublicConfig};
-use crate::database::Map;
+use crate::config::PublicConfig;
+use crate::database::{Map, Player};
 use crate::server::{NetStats, PlayerInfo, ServerInfo};
 
 /// Possible responses for chat commands.
@@ -64,15 +64,16 @@ pub enum CommandOutputResponse<'a> {
     /// Information about server & controller.
     ///
     /// Output for `/info`
-    Info {
-        controller_version: &'a Version,
-        most_recent_controller_version: &'a Version,
-        private_config: &'a Config,
-        public_config: &'a PublicConfig,
-        server_info: &'a ServerInfo,
-        net_stats: &'a NetStats,
-        blacklist: &'a Vec<String>,
-    },
+    Info(Box<InfoResponse>),
+}
+
+pub struct InfoResponse {
+    pub controller_version: Version,
+    pub most_recent_controller_version: Version,
+    pub public_config: PublicConfig,
+    pub server_info: ServerInfo,
+    pub net_stats: NetStats,
+    pub admins: Vec<Player>,
 }
 
 pub enum CommandErrorResponse {
@@ -279,39 +280,30 @@ impl Display for CommandResponse<'_> {
                 Ok(())
             }
 
-            Output(Info {
-                controller_version,
-                most_recent_controller_version,
-                private_config,
-                public_config,
-                server_info,
-                net_stats,
-                blacklist,
-            }) => {
+            Output(Info(info)) => {
                 writeln!(
                     f,
                     "This server uses the 'Steward' controller (https://github.com/timwie/steward)"
                 )?;
                 writeln!(f)?;
-                writeln!(f, "Controller version: {}", controller_version)?;
-                writeln!(f, "Most recent version: {}", most_recent_controller_version)?;
+                writeln!(f, "Controller version: {}", info.controller_version)?;
+                writeln!(
+                    f,
+                    "Most recent version: {}",
+                    info.most_recent_controller_version
+                )?;
                 writeln!(f)?;
 
-                writeln!(f, "Uptime: {} hours", net_stats.uptime_secs / 60 / 60)?;
-                writeln!(f, "{:#?}", server_info)?;
+                writeln!(f, "Uptime: {} hours", info.net_stats.uptime_secs / 60 / 60)?;
+                writeln!(f, "{:#?}", info.server_info)?;
                 writeln!(f)?;
 
                 writeln!(f, "Config:")?;
-                write!(f, "{}", public_config.write())?;
+                write!(f, "{}", info.public_config.write())?;
                 writeln!(f)?;
 
-                writeln!(
-                    f,
-                    "Super Admins: {}",
-                    private_config.super_admin_whitelist.join(", ")
-                )?;
-                writeln!(f, "Admins: {}", private_config.admin_whitelist.join(", "))?;
-                writeln!(f, "Blacklisted: {}", blacklist.join(", "))
+                let names: Vec<String> = info.admins.iter().map(|p| p.nick_name.plain()).collect();
+                writeln!(f, "Admins: {}", names.join(", "))
             }
 
             Error(UnknownPlayer) => writeln!(f, "There is no player with that login!"),

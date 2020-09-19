@@ -13,6 +13,9 @@ pub trait Queries: Send + Sync {
     /// Return the specified player, or `None` if no such player exists in the database.
     async fn player(&self, login: &str) -> Result<Option<Player>>;
 
+    /// Return players for every input login that exists in the database.
+    async fn players(&self, logins: Vec<&str>) -> Result<Vec<Player>>;
+
     /// Insert a player into the database.
     /// Update their nick name if the player already exists.
     async fn upsert_player(&self, player: &PlayerInfo) -> Result<()>;

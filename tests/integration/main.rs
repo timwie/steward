@@ -553,6 +553,7 @@ fn player_info(login: &str, nick_name: &str) -> PlayerInfo {
         nick_name: GameString::from(nick_name.to_string()),
         flag_digit_mask: 101_000_000,
         spectator_digit_mask: 2_551_010,
+        team_id: 0,
     }
 }
 

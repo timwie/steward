@@ -16,6 +16,9 @@ All `0.1.0-alpha` releases are unstable, and have missing widgets.
   - `/pause` toggles a match pause, if supported by the game mode.
   - `/warmup add <seconds>` extends an active warmup round.
   - `/warmup skip` ends the remaining warmup.
+  
+### Changed
+- `/info` now lists admins with their display name, rather than their login
 
 <br>
 

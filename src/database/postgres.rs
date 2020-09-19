@@ -116,6 +116,17 @@ impl Queries for PostgresClient {
         Ok(row.map(Player::from))
     }
 
+    async fn players(&self, logins: Vec<&str>) -> Result<Vec<Player>> {
+        let conn = self.0.get().await?;
+        let stmt = r#"
+            SELECT *
+            FROM steward.player
+            WHERE login = ANY($1::text[])
+        "#;
+        let rows = conn.query(stmt, &[&logins]).await?;
+        Ok(rows.into_iter().map(Player::from).collect())
+    }
+
     async fn upsert_player(&self, player: &PlayerInfo) -> Result<()> {
         let conn = self.0.get().await?;
         let stmt = r#"

@@ -3,8 +3,8 @@ use tokio::time::Duration;
 
 use crate::chat::{
     AdminCommand, CommandConfirmResponse, CommandErrorResponse, CommandOutputResponse,
-    CommandResponse, DangerousCommand, PlayerCommand, PlaylistCommandError, ServerMessage,
-    SuperAdminCommand,
+    CommandResponse, DangerousCommand, InfoResponse, PlayerCommand, PlaylistCommandError,
+    ServerMessage, SuperAdminCommand,
 };
 use crate::constants::BLACKLIST_FILE;
 use crate::constants::VERSION;
@@ -26,23 +26,38 @@ impl Controller {
                 let controller = self.clone(); // 'self' with 'static lifetime
                 let from_login = from_login.to_string(); // allow data to outlive the current scope
                 let _ = tokio::spawn(async move {
-                    let most_recent_controller_version = &most_recent_controller_version()
+                    let private_config = &*controller.config.lock().await;
+                    let public_config = controller.config.public_config().await;
+                    let server_info = controller.server.server_info().await;
+                    let net_stats = controller.server.net_stats().await;
+
+                    let most_recent_controller_version = most_recent_controller_version()
                         .await
                         .unwrap_or_else(|_| Version::new(0, 0, 0));
-                    let private_config = &*controller.config.lock().await;
-                    let public_config = &controller.config.public_config().await;
-                    let server_info = &controller.server.server_info().await;
-                    let net_stats = &controller.server.net_stats().await;
-                    let blacklist = &controller.server.blacklist().await;
-                    let msg = CommandResponse::Output(CommandOutputResponse::Info {
-                        controller_version: &VERSION,
+
+                    let admin_logins = [
+                        &private_config.super_admin_whitelist[..],
+                        &private_config.admin_whitelist[..],
+                    ]
+                    .concat();
+                    let admin_logins = admin_logins.iter().map(std::ops::Deref::deref).collect();
+
+                    let admins = controller
+                        .db
+                        .players(admin_logins)
+                        .await
+                        .expect("failed to load players");
+
+                    let info = InfoResponse {
+                        controller_version: VERSION.clone(),
                         most_recent_controller_version,
-                        private_config,
                         public_config,
                         server_info,
                         net_stats,
-                        blacklist,
-                    });
+                        admins,
+                    };
+
+                    let msg = CommandResponse::Output(CommandOutputResponse::Info(Box::new(info)));
                     controller.widget.show_popup(msg, &from_login).await;
                 });
             }
