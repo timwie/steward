@@ -11,7 +11,7 @@ use crate::constants::MAX_DISPLAYED_SERVER_RANKS;
 use crate::controller::LivePlayers;
 use crate::database::Database;
 use crate::event::{ServerRankDiff, ServerRankingDiff};
-use crate::server::GameString;
+use crate::server::DisplayString;
 
 /// Use to lookup the current server rankings.
 /// They are updated after every race.
@@ -52,7 +52,7 @@ impl ServerRankingState {
 pub struct ServerRank {
     pub pos: usize,
     pub player_login: String,
-    pub player_nick_name: GameString,
+    pub player_display_name: DisplayString,
 
     /// The number of beaten records summed for every map.
     pub nb_wins: usize,
@@ -110,7 +110,7 @@ async fn calc_server_ranking(db: &Arc<dyn Database>) -> IndexMap<Cow<'static, st
         .expect("failed to load map rankings");
 
     let mut nb_wins = IndexMap::<&str, usize>::new(); // player login -> nb of wins
-    let mut nick_names = HashMap::<&str, GameString>::new(); // player login -> nick name
+    let mut display_names = HashMap::<&str, DisplayString>::new(); // player login -> display name
 
     for map_rank in map_ranks.iter() {
         if !map_rank.in_playlist {
@@ -120,8 +120,8 @@ async fn calc_server_ranking(db: &Arc<dyn Database>) -> IndexMap<Cow<'static, st
         let nb_map_wins = nb_ranked_players - map_rank.pos as usize;
         *nb_wins.entry(&map_rank.player_login).or_insert(0) += nb_map_wins;
 
-        if !nick_names.contains_key(map_rank.player_login.as_str()) {
-            nick_names.insert(&map_rank.player_login, map_rank.player_nick_name.clone());
+        if !display_names.contains_key(map_rank.player_login.as_str()) {
+            display_names.insert(&map_rank.player_login, map_rank.player_display_name.clone());
         }
     }
 
@@ -135,7 +135,7 @@ async fn calc_server_ranking(db: &Arc<dyn Database>) -> IndexMap<Cow<'static, st
             let rank = ServerRank {
                 pos: idx + 1,
                 player_login: login.to_string(),
-                player_nick_name: nick_names.remove(login).unwrap(),
+                player_display_name: display_names.remove(login).unwrap(),
                 nb_wins,
                 nb_losses: max_total_wins - nb_wins,
             };
@@ -194,7 +194,7 @@ impl ServerRankController {
                 Some(uid) => {
                     let new_rank = new_ranking.get(key).unwrap();
                     let diff = ServerRankDiff {
-                        player_nick_name: old_rank.player_nick_name.clone(),
+                        player_display_name: old_rank.player_display_name.clone(),
                         new_pos: new_rank.pos,
                         gained_pos: old_rank.pos as i32 - new_rank.pos as i32,
                         gained_wins: old_rank.nb_wins as i32 - new_rank.nb_wins as i32,
@@ -208,7 +208,7 @@ impl ServerRankController {
             diffs.insert(
                 login,
                 ServerRankDiff {
-                    player_nick_name: rank.player_nick_name.clone(),
+                    player_display_name: rank.player_display_name.clone(),
                     new_pos: rank.pos,
                     gained_pos: new_ranking.len() as i32 - rank.pos as i32,
                     gained_wins: rank.nb_wins as i32,
@@ -260,7 +260,7 @@ mod test {
         let expected = ServerRank {
             pos: 1,
             player_login: "login1".to_string(),
-            player_nick_name: GameString::from("nick1".to_string()),
+            player_display_name: DisplayString::from("nick1".to_string()),
             nb_wins: 0,
             nb_losses: 0,
         };
@@ -284,7 +284,7 @@ mod test {
         let expected = ServerRank {
             pos: 1,
             player_login: "login1".to_string(),
-            player_nick_name: GameString::from("nick1".to_string()),
+            player_display_name: DisplayString::from("nick1".to_string()),
             nb_wins: 2,
             nb_losses: 0,
         };
@@ -294,7 +294,7 @@ mod test {
         let expected = ServerRank {
             pos: 2,
             player_login: "login2".to_string(),
-            player_nick_name: GameString::from("nick2".to_string()),
+            player_display_name: DisplayString::from("nick2".to_string()),
             nb_wins: 1,
             nb_losses: 1,
         };
@@ -304,7 +304,7 @@ mod test {
         let expected = ServerRank {
             pos: 3,
             player_login: "login3".to_string(),
-            player_nick_name: GameString::from("nick3".to_string()),
+            player_display_name: DisplayString::from("nick3".to_string()),
             nb_wins: 0,
             nb_losses: 2,
         };
@@ -332,7 +332,7 @@ mod test {
         let expected = ServerRank {
             pos: 1,
             player_login: "login1".to_string(),
-            player_nick_name: GameString::from("nick1".to_string()),
+            player_display_name: DisplayString::from("nick1".to_string()),
             nb_wins: 2,
             nb_losses: 1,
         };
@@ -342,7 +342,7 @@ mod test {
         let expected = ServerRank {
             pos: 2,
             player_login: "login2".to_string(),
-            player_nick_name: GameString::from("nick2".to_string()),
+            player_display_name: DisplayString::from("nick2".to_string()),
             nb_wins: 1,
             nb_losses: 2,
         };
@@ -367,7 +367,7 @@ mod test {
         let expected = ServerRank {
             pos: 1,
             player_login: "login1".to_string(),
-            player_nick_name: GameString::from("nick1".to_string()),
+            player_display_name: DisplayString::from("nick1".to_string()),
             nb_wins: 1,
             nb_losses: 0,
         };
@@ -377,7 +377,7 @@ mod test {
         let expected = ServerRank {
             pos: 2,
             player_login: "login2".to_string(),
-            player_nick_name: GameString::from("nick2".to_string()),
+            player_display_name: DisplayString::from("nick2".to_string()),
             nb_wins: 0,
             nb_losses: 1,
         };

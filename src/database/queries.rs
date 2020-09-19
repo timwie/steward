@@ -17,7 +17,7 @@ pub trait Queries: Send + Sync {
     async fn players(&self, logins: Vec<&str>) -> Result<Vec<Player>>;
 
     /// Insert a player into the database.
-    /// Update their nick name if the player already exists.
+    /// Update their display name if the player already exists.
     async fn upsert_player(&self, player: &PlayerInfo) -> Result<()>;
 
     /// Update a player's history, setting *now* as the time they most recently
@@ -152,7 +152,7 @@ pub mod test {
     use chrono::Utc;
 
     use crate::database::Database;
-    use crate::server::GameString;
+    use crate::server::DisplayString;
 
     use super::*;
 
@@ -175,10 +175,10 @@ pub mod test {
             Arc::new(self) as Arc<dyn Database>
         }
 
-        pub fn push_player(&mut self, login: &str, nick_name: &str) {
+        pub fn push_player(&mut self, login: &str, display_name: &str) {
             self.players.push(Player {
                 login: login.to_string(),
-                nick_name: GameString::from(nick_name.to_string()),
+                display_name: DisplayString::from(display_name.to_string()),
             });
         }
 
@@ -187,9 +187,9 @@ pub mod test {
                 metadata: Map {
                     uid: uid.to_string(),
                     file_name: "".to_string(),
-                    name: GameString::from("".to_string()),
+                    name: DisplayString::from("".to_string()),
                     author_login: "".to_string(),
-                    author_nick_name: GameString::from("".to_string()),
+                    author_display_name: DisplayString::from("".to_string()),
                     added_since: Utc::now().naive_utc(),
                     author_millis: 0,
                     in_playlist,
@@ -233,6 +233,10 @@ pub mod test {
         }
 
         async fn player(&self, _login: &str) -> Result<Option<Player>> {
+            unimplemented!()
+        }
+
+        async fn players(&self, logins: Vec<&str>) -> Result<Vec<Player>> {
             unimplemented!()
         }
 
@@ -348,13 +352,13 @@ pub mod test {
                 .flat_map(|(map_uid, map_recs)| {
                     let max_pos = map_recs.len() as i64;
                     map_recs.into_iter().enumerate().map(move |(idx, rec)| {
-                        let player_nick_name =
-                            self.expect_player(&rec.player_login).nick_name.clone();
+                        let player_display_name =
+                            self.expect_player(&rec.player_login).display_name.clone();
                         let in_playlist = self.expect_map(&rec.map_uid).in_playlist;
                         MapRank {
                             map_uid: map_uid.to_string(),
                             player_login: rec.player_login.clone(),
-                            player_nick_name,
+                            player_display_name,
                             pos: idx as i64 + 1,
                             max_pos,
                             in_playlist,

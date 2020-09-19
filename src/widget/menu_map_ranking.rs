@@ -1,7 +1,7 @@
 use chrono::NaiveDateTime;
 use serde::Serialize;
 
-use gbx::GameString;
+use gbx::DisplayString;
 
 use crate::widget::formatters::{format_narrow, format_record_age};
 
@@ -35,9 +35,9 @@ pub struct MapRankingEntry<'a> {
     /// The map rank.
     pub pos: usize,
 
-    /// The player's nick name.
+    /// The player's formatted display name.
     #[serde(serialize_with = "format_narrow")]
-    pub nick_name: &'a GameString,
+    pub display_name: &'a DisplayString,
 
     /// The player's personal best.
     pub millis: usize,

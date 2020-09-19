@@ -63,7 +63,7 @@
                    size="{{w_map_name}} 4" pos="{{x}} -{{h_map/2}}" valign="center" textsize="3"/>
 
             {% set x = x + w_map_name %}
-            <label z-index="2" textemboss="1" textfont="RajdhaniMono" text="{{map.map_author_nick_name}}"
+            <label z-index="2" textemboss="1" textfont="RajdhaniMono" text="{{map.map_author_display_name}}"
                    size="{{w_map_author}} 4" pos="{{x}} -{{h_map/2}}"  valign="center" textsize="2"/>
 
             {# TODO display map rank #}
@@ -190,7 +190,7 @@ UI_ScrollDown = (Page.GetFirstChild("scroll-down") as CMlQuad);
     G_Maps.add(SMapEntry {
         Uid = "{{entry.map_uid}}",
         Name = "{{entry.map_name}}",
-        Author = "{{entry.map_author_nick_name}}",
+        Author = "{{entry.map_author_display_name}}",
         Preference = {{entry.preference}},
         Rank = {{entry.map_rank | default(value=0) }},
         MaxRank = {{entry.nb_records}},

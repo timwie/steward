@@ -56,7 +56,7 @@ pub enum CommandOutputResponse<'a> {
     /// Output for `/maps`
     MapList(Vec<&'a Map>),
 
-    /// Lists logins and nicknames of connected players.
+    /// Lists logins and display names of connected players.
     ///
     /// Output for `/players`
     PlayerList(Vec<&'a PlayerInfo>),
@@ -273,7 +273,7 @@ impl Display for CommandResponse<'_> {
                     writeln!(
                         f,
                         "{} | {}",
-                        fill(&player.nick_name.plain(), 30),
+                        fill(&player.display_name.plain(), 30),
                         &player.login
                     )?;
                 }
@@ -302,7 +302,8 @@ impl Display for CommandResponse<'_> {
                 write!(f, "{}", info.public_config.write())?;
                 writeln!(f)?;
 
-                let names: Vec<String> = info.admins.iter().map(|p| p.nick_name.plain()).collect();
+                let names: Vec<String> =
+                    info.admins.iter().map(|p| p.display_name.plain()).collect();
                 writeln!(f, "Admins: {}", names.join(", "))
             }
 

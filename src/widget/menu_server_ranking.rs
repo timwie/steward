@@ -1,6 +1,6 @@
 use serde::Serialize;
 
-use gbx::GameString;
+use gbx::DisplayString;
 
 use crate::widget::formatters::format_narrow;
 
@@ -33,9 +33,9 @@ pub struct ServerRankingEntry<'a> {
     /// The server rank.
     pub pos: usize,
 
-    /// Formatted nick name of the player at this server rank.
+    /// Formatted display name of the player at this server rank.
     #[serde(serialize_with = "format_narrow")]
-    pub nick_name: &'a GameString,
+    pub display_name: &'a DisplayString,
 
     /// The number of beaten records, summed up for every map.
     pub nb_wins: usize,

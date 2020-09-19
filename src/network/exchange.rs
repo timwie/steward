@@ -3,7 +3,7 @@ use serde::Deserialize;
 use thiserror::Error;
 
 use crate::network::HTTP_CLIENT;
-use crate::server::GameString;
+use crate::server::DisplayString;
 
 /// Possible errors when querying Trackmania Exchange.
 #[derive(Error, Debug)]
@@ -40,7 +40,7 @@ pub struct ExchangeMetadata {
     pub exchange_id: i32,
 
     /// The formatted map name.
-    pub name: GameString,
+    pub name: DisplayString,
 
     /// The map author's in-game login.
     pub author_login: String,

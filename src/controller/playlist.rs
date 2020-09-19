@@ -288,7 +288,7 @@ impl PlaylistController {
             file_name,
             name: import_map.metadata.name,
             author_login: header.author_login,
-            author_nick_name: header.author_nick,
+            author_display_name: header.author_display_name,
             added_since: Utc::now().naive_utc(),
             author_millis: header.millis_author,
             in_playlist: true,

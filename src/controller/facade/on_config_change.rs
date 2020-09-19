@@ -6,7 +6,7 @@ impl Controller {
     pub(super) async fn on_config_change(&self, from_login: &str, diff: ConfigDiff) {
         use ConfigDiff::*;
 
-        let from_nick_name = match self.players.nick_name(from_login).await {
+        let from_display_name = match self.players.display_name(from_login).await {
             Some(name) => name,
             None => return,
         };
@@ -18,7 +18,7 @@ impl Controller {
 
                 self.chat
                     .announce(ServerMessage::TimeLimitChanged {
-                        admin_name: &from_nick_name.formatted,
+                        admin_name: &from_display_name.formatted,
                     })
                     .await;
             }

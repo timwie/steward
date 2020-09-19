@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use crate::chat::{AdminCommand, PlayerCommand, SuperAdminCommand};
 use crate::database::{Map, Record};
 use crate::server::CheckpointEvent;
-use crate::server::{GameString, PlayerInfo};
+use crate::server::{DisplayString, PlayerInfo};
 use crate::widget::Action;
 
 /// This data type is introduced to complement `ServerEvent`s,
@@ -164,8 +164,8 @@ pub struct ServerRankingDiff {
 /// The difference in a player's server rank after a race, if any.
 #[derive(Debug, Clone)]
 pub struct ServerRankDiff {
-    /// The player's formatted nick name.
-    pub player_nick_name: GameString,
+    /// The player's formatted display name.
+    pub player_display_name: DisplayString,
 
     /// The server rank.
     pub new_pos: usize,

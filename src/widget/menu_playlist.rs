@@ -4,7 +4,7 @@ use core::option::Option::Some;
 use chrono::NaiveDateTime;
 use serde::Serialize;
 
-use gbx::GameString;
+use gbx::DisplayString;
 
 use crate::widget::formatters::{format_last_played, format_map_age, format_narrow};
 use crate::widget::ActivePreferenceValue;
@@ -30,11 +30,11 @@ pub struct PlaylistWidgetEntry<'a> {
 
     /// Display name of the map at this entry.
     #[serde(serialize_with = "format_narrow")]
-    pub map_name: &'a GameString,
+    pub map_name: &'a DisplayString,
 
     /// Author of the map at this entry.
     #[serde(serialize_with = "format_narrow")]
-    pub map_author_nick_name: &'a GameString,
+    pub map_author_display_name: &'a DisplayString,
 
     /// The player's preference for the map at this entry.
     pub preference: ActivePreferenceValue,

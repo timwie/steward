@@ -446,8 +446,8 @@ impl WidgetController {
             .player(&next_map.author_login)
             .await
             .expect("failed to load player")
-            .map(|p| p.nick_name)
-            .unwrap_or_else(|| next_map.author_nick_name.clone());
+            .map(|p| p.display_name)
+            .unwrap_or_else(|| next_map.author_display_name.clone());
 
         let next_map_prefs: Vec<(PreferenceValue, usize)> = self
             .db
@@ -483,7 +483,7 @@ impl WidgetController {
         for uid in players_state.uid_all() {
             let preview = MapPreview {
                 map_name: &next_map.name,
-                map_author_nick_name: &next_map_author,
+                map_author_display_name: &next_map_author,
                 player_map_rank: records_state.pb(uid).map(|rec| rec.map_rank as usize),
                 max_map_rank: records_state.nb_records,
                 player_preference: preferences_state.pref(uid, &next_map.uid),
@@ -559,7 +559,7 @@ impl WidgetController {
         let to_entry = |r: &'a ServerRank| -> ServerRankingEntry {
             ServerRankingEntry {
                 pos: r.pos,
-                nick_name: &r.player_nick_name,
+                display_name: &r.player_display_name,
                 nb_wins: r.nb_wins,
                 nb_losses: r.nb_losses,
                 is_own: r.player_login == for_player.login,
@@ -588,7 +588,7 @@ impl WidgetController {
             .enumerate()
             .map(|(idx, rec)| MapRankingEntry {
                 pos: idx + 1,
-                nick_name: &rec.player_nick_name,
+                display_name: &rec.player_display_name,
                 millis: rec.millis as usize,
                 timestamp: rec.timestamp,
                 is_own: rec.player_login == for_player.login,
@@ -597,7 +597,7 @@ impl WidgetController {
 
         let personal_entry = records_state.pb(for_player.uid).map(|rec| MapRankingEntry {
             pos: rec.map_rank as usize,
-            nick_name: &rec.player_nick_name,
+            display_name: &rec.player_display_name,
             millis: rec.millis as usize,
             timestamp: rec.timestamp,
             is_own: rec.player_login == for_player.login,
@@ -634,7 +634,7 @@ impl WidgetController {
             PlaylistWidgetEntry {
                 map_uid: &map.uid,
                 map_name: &map.name,
-                map_author_nick_name: &map.author_nick_name,
+                map_author_display_name: &map.author_display_name,
                 preference,
                 nb_records,
                 map_rank,

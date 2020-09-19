@@ -11,10 +11,10 @@ use crate::chat::message::{fmt_time, write_and_reset, write_highlighted, write_s
 /// not already conveyed by widgets.
 pub enum ServerMessage<'a> {
     /// A player connected.
-    Joining { nick_name: &'a str },
+    Joining { display_name: &'a str },
 
     /// A player disconnected.
-    Leaving { nick_name: &'a str },
+    Leaving { display_name: &'a str },
 
     /// At least one player improved their rank, and took one of the top spots.
     NewTopRanks(Vec<TopRankMessage<'a>>),
@@ -22,14 +22,14 @@ pub enum ServerMessage<'a> {
     /// A player improved their record on the current map,
     /// and took one of the top spots.
     TopRecord {
-        player_nick_name: &'a str,
+        player_display_name: &'a str,
         new_map_rank: usize,
         millis: usize,
     },
 
     /// A player improved their map record, but kept the same record rank.
     TopRecordImproved {
-        player_nick_name: &'a str,
+        player_display_name: &'a str,
         map_rank: usize,
         millis: usize,
     },
@@ -97,7 +97,7 @@ pub enum ServerMessage<'a> {
 
 /// A player improved their rank, and took one of the top spots.
 pub struct TopRankMessage<'a> {
-    pub nick_name: &'a str,
+    pub display_name: &'a str,
     pub rank: usize,
 }
 
@@ -113,19 +113,19 @@ impl Display for ServerMessage<'_> {
         write_start_message(f)?;
 
         match self {
-            Joining { nick_name } => {
-                write_and_reset(f, nick_name)?;
+            Joining { display_name } => {
+                write_and_reset(f, display_name)?;
                 write!(f, " joined.")
             }
 
-            Leaving { nick_name } => {
-                write_and_reset(f, nick_name)?;
+            Leaving { display_name } => {
+                write_and_reset(f, display_name)?;
                 write!(f, " left.")
             }
 
             NewTopRanks(top_ranks) => {
                 for tr in top_ranks {
-                    write_and_reset(f, tr.nick_name)?;
+                    write_and_reset(f, tr.display_name)?;
                     write!(f, " reaches rank ")?;
                     write_highlighted(f, tr.rank)?;
                     write!(f, "!")?;
@@ -134,11 +134,11 @@ impl Display for ServerMessage<'_> {
             }
 
             TopRecord {
-                player_nick_name: nick_name,
+                player_display_name: display_name,
                 new_map_rank: new_record_rank,
                 millis,
             } => {
-                write_and_reset(f, nick_name)?;
+                write_and_reset(f, display_name)?;
                 write!(f, " sets the ")?;
                 write_highlighted(f, format!("{}.", new_record_rank))?;
                 write!(f, " record! ")?;
@@ -146,11 +146,11 @@ impl Display for ServerMessage<'_> {
             }
 
             TopRecordImproved {
-                player_nick_name: nick_name,
+                player_display_name: display_name,
                 map_rank: record_rank,
                 millis,
             } => {
-                write_and_reset(f, nick_name)?;
+                write_and_reset(f, display_name)?;
                 write!(f, " improved the ")?;
                 write_highlighted(f, format!("{}.", record_rank))?;
                 write!(f, " record! ")?;

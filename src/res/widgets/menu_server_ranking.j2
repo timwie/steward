@@ -22,7 +22,7 @@
 
 #Struct SServerRank {
     Integer Pos;
-    Text    NickName;
+    Text    DisplayName;
     Integer NbWins;
     Integer NbLosses;
     Boolean IsOwn;
@@ -52,7 +52,7 @@ G_MaxPos = {{max_pos}};
 {% for entry in entries %}
     G_Ranking.add(SServerRank {
         Pos = {{entry.pos}},
-        NickName = "{{entry.nick_name}}",
+        DisplayName = "{{entry.display_name}}",
         NbWins = {{entry.nb_wins}},
         NbLosses = {{entry.nb_losses}},
         IsOwn = {% if entry.is_own %}True{% else %}False{% endif %}
@@ -65,7 +65,7 @@ G_MaxPos = {{max_pos}};
     G_PersonalPos = {{personal_entry.pos}};
     G_Ranking.add(SServerRank {
         Pos = {{personal_entry.pos}},
-        NickName = "{{personal_entry.nick_name}}",
+        DisplayName = "{{personal_entry.display_name}}",
         NbWins = {{personal_entry.nb_wins}},
         NbLosses = {{personal_entry.nb_losses}},
         IsOwn = {% if personal_entry.is_own %}True{% else %}False{% endif %}

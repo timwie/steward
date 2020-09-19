@@ -2,7 +2,7 @@ use chrono::NaiveDateTime;
 use postgres_types::{FromSql, ToSql};
 use serde_repr::Serialize_repr;
 
-use crate::server::GameString;
+use crate::server::DisplayString;
 
 /// Database player that has joined the server at least once.
 #[derive(Debug, PartialEq)]
@@ -10,8 +10,8 @@ pub struct Player {
     /// Player login.
     pub login: String,
 
-    /// Formatted nick name.
-    pub nick_name: GameString,
+    /// Formatted display name.
+    pub display_name: DisplayString,
 }
 
 /// Stores the most recent time a player has played a specific map.
@@ -38,16 +38,16 @@ pub struct Map {
     pub file_name: String,
 
     /// The formatted map name.
-    pub name: GameString,
+    pub name: DisplayString,
 
     /// The map author's login.
     pub author_login: String,
 
-    /// The map author's nick name.
+    /// The map author's display name.
     ///
-    /// Since TMNext this is the UPlay username, but formatted nick names might be possible
+    /// Since TMNext this is the UPlay username, but formatted names might be possible
     /// again at some point.
-    pub author_nick_name: GameString,
+    pub author_display_name: DisplayString,
 
     /// The "author time" in milliseconds. This is the time the map
     /// was validated with in the map editor.
@@ -130,8 +130,8 @@ pub struct Record {
     /// The login of the player that has set this record.
     pub player_login: String,
 
-    /// The formatted nick name of the player that has set this record.
-    pub player_nick_name: GameString,
+    /// The formatted display name of the player that has set this record.
+    pub player_display_name: DisplayString,
 
     /// The duration of this record run in milliseconds.
     pub millis: i32,
@@ -148,7 +148,7 @@ pub struct Record {
 pub struct MapRank {
     pub map_uid: String,
     pub player_login: String,
-    pub player_nick_name: GameString,
+    pub player_display_name: DisplayString,
 
     /// The player's map rank; if a player has set the best record on a map,
     /// their `pos` is `1`, and so on.

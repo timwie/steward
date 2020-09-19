@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use tokio::sync::{RwLock, RwLockReadGuard};
 
 use crate::controller::LivePlayers;
-use crate::server::{CheckpointEvent, GameString, Scores, Server};
+use crate::server::{CheckpointEvent, DisplayString, Scores, Server};
 
 /// Use to lookup the ranking of the current race.
 #[async_trait]
@@ -40,7 +40,7 @@ pub struct RaceController {
 #[derive(Clone)]
 pub struct RaceRank {
     pub login: String,
-    pub nick_name: GameString,
+    pub display_name: DisplayString,
     pub millis: Option<usize>,
 }
 
@@ -84,7 +84,7 @@ impl RaceController {
             .filter_map(|game_score| {
                 players_state.info(&game_score.login).map(|info| RaceRank {
                     login: info.login.clone(),
-                    nick_name: game_score.nick_name.clone(),
+                    display_name: game_score.display_name.clone(),
                     millis: Some(game_score.best_time_millis as usize).filter(|millis| *millis > 0),
                 })
             })
@@ -124,7 +124,7 @@ impl RaceController {
             .into_iter()
             .map(|info| RaceRank {
                 login: info.login,
-                nick_name: info.nick_name,
+                display_name: info.display_name,
                 millis: None,
             })
             .for_each(|score| race_state.ranking.push(score));
@@ -170,7 +170,7 @@ impl RaceController {
 
         let new_ranking = RaceRank {
             login: player_info.login,
-            nick_name: player_info.nick_name,
+            display_name: player_info.display_name,
             millis: Some(ev.race_time_millis as usize),
         };
 

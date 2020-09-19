@@ -7,23 +7,23 @@
 -- unlikely mistake, since that data is produced by the game itself.
 
 CREATE TABLE steward.player (
-    login     TEXT,
-    nick_name TEXT    NOT NULL,
+    login        TEXT,
+    display_name TEXT    NOT NULL,
 
     PRIMARY KEY (login)
 );
 
 CREATE TABLE steward.map (
-    uid              TEXT,
-    file_name        TEXT      NOT NULL,     -- relative path in /UserData/Maps/
-    file             BYTEA     NOT NULL,
-    name             TEXT      NOT NULL,
-    author_login     TEXT      NOT NULL,     -- in TMNext this is an ID
-    author_nick_name TEXT      NOT NULL,     -- in TMNext this is the UPlay username
-    author_millis    INTEGER   NOT NULL,
-    added_since      TIMESTAMP NOT NULL,
-    in_playlist      BOOLEAN   NOT NULL DEFAULT true,
-    exchange_id      INTEGER   DEFAULT NULL, -- for maps imported from trackmania.exchange
+    uid                 TEXT,
+    file_name           TEXT      NOT NULL,     -- relative path in /UserData/Maps/
+    file                BYTEA     NOT NULL,
+    name                TEXT      NOT NULL,
+    author_login        TEXT      NOT NULL,     -- in TMNext this is an ID
+    author_display_name TEXT      NOT NULL,     -- in TMNext this is the UPlay username
+    author_millis       INTEGER   NOT NULL,
+    added_since         TIMESTAMP NOT NULL,
+    in_playlist         BOOLEAN   NOT NULL DEFAULT true,
+    exchange_id         INTEGER   DEFAULT NULL, -- for maps imported from trackmania.exchange
 
     PRIMARY KEY (uid),
     UNIQUE (file_name)

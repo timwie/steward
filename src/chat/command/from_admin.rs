@@ -20,7 +20,7 @@ pub enum AdminCommand<'a> {
     /// Usage: `/maps`
     ListMaps,
 
-    /// List the connected players with login and nickname.
+    /// List the connected players with login and display names.
     ///
     /// Usage: `/players`
     ListPlayers,
@@ -127,7 +127,7 @@ pub(in crate::chat) const ADMIN_COMMAND_REFERENCE: &str = "
 /config     Open the config editor.
 
 /maps        List the server's maps and their UIDs.
-/players     List the connected players with login and nickname.
+/players     List the connected players with login and name.
 
 /map_import <id/uid>       Import the trackmania.exchange map with the given id.
 /playlist add <uid>        Add the specified map to the playlist.

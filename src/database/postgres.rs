@@ -11,7 +11,7 @@ use tokio_postgres::Row;
 
 use crate::database::queries::Queries;
 use crate::database::structs::*;
-use crate::server::{GameString, PlayerInfo};
+use crate::server::{DisplayString, PlayerInfo};
 
 /// Connect to the Postgres database and open a connection pool.
 pub async fn db_connect(conn: &str, timeout: Duration) -> Option<Arc<dyn Queries>> {
@@ -59,7 +59,7 @@ impl PostgresClient {
             UPDATE steward.map
             SET in_playlist = $2
             WHERE uid = $1
-            RETURNING uid, file_name, name, author_login, author_nick_name, added_since, in_playlist, exchange_id
+            RETURNING uid, file_name, name, author_login, author_display_name, added_since, in_playlist, exchange_id
         "#;
         let row = conn.query_opt(stmt, &[&map_uid, &in_playlist]).await?;
         Ok(row.map(Map::from))
@@ -131,15 +131,18 @@ impl Queries for PostgresClient {
         let conn = self.0.get().await?;
         let stmt = r#"
             INSERT INTO steward.player
-                (login, nick_name)
+                (login, display_name)
             VALUES
                 ($1, $2)
             ON CONFLICT (login)
             DO UPDATE SET
-                nick_name = excluded.nick_name
+                display_name = excluded.display_name
         "#;
         let _ = conn
-            .execute(stmt, &[&player.login, &player.nick_name.formatted.trim()])
+            .execute(
+                stmt,
+                &[&player.login, &player.display_name.formatted.trim()],
+            )
             .await?;
         Ok(())
     }
@@ -207,7 +210,7 @@ impl Queries for PostgresClient {
     async fn maps(&self) -> Result<Vec<Map>> {
         let conn = self.0.get().await?;
         let stmt = r#"
-            SELECT uid, file_name, name, author_login, author_nick_name, author_millis, added_since, in_playlist, exchange_id
+            SELECT uid, file_name, name, author_login, author_display_name, author_millis, added_since, in_playlist, exchange_id
             FROM steward.map
         "#;
         let rows = conn.query(stmt, &[]).await?;
@@ -218,7 +221,7 @@ impl Queries for PostgresClient {
     async fn playlist(&self) -> Result<Vec<Map>> {
         let conn = self.0.get().await?;
         let stmt = r#"
-            SELECT uid, file_name, name, author_login, author_nick_name, author_millis, added_since, in_playlist, exchange_id
+            SELECT uid, file_name, name, author_login, author_display_name, author_millis, added_since, in_playlist, exchange_id
             FROM steward.map
             WHERE in_playlist
         "#;
@@ -230,7 +233,7 @@ impl Queries for PostgresClient {
     async fn map(&self, map_uid: &str) -> Result<Option<Map>> {
         let conn = self.0.get().await?;
         let stmt = r#"
-            SELECT uid, file_name, name, author_login, author_nick_name, author_millis, added_since, in_playlist, exchange_id
+            SELECT uid, file_name, name, author_login, author_display_name, author_millis, added_since, in_playlist, exchange_id
             FROM steward.map
             WHERE uid = $1
         "#;
@@ -243,7 +246,7 @@ impl Queries for PostgresClient {
         let stmt = r#"
             INSERT INTO steward.map
                 (uid, file_name, file,
-                 name, author_login, author_nick_name,
+                 name, author_login, author_display_name,
                  author_millis, added_since, in_playlist,
                  exchange_id)
             VALUES
@@ -265,7 +268,7 @@ impl Queries for PostgresClient {
                     &map.data,
                     &map.metadata.name.formatted.trim(),
                     &map.metadata.author_login,
-                    &map.metadata.author_nick_name.formatted.trim(),
+                    &map.metadata.author_display_name.formatted.trim(),
                     &map.metadata.author_millis,
                     &map.metadata.added_since,
                     &map.metadata.in_playlist,
@@ -305,7 +308,7 @@ impl Queries for PostgresClient {
         let stmt = r#"
             SELECT
                 r.map_uid, r.pos, r.millis, r.timestamp,
-                p.login, p.nick_name,
+                p.login, p.display_name,
                 s.cp_millis, s.cp_speed
             FROM (
                 SELECT
@@ -354,7 +357,7 @@ impl Queries for PostgresClient {
                     map_uid: row.get("map_uid"),
                     map_rank: row.get("pos"),
                     player_login: row.get("login"),
-                    player_nick_name: GameString::from(row.get("nick_name")),
+                    player_display_name: DisplayString::from(row.get("display_name")),
                     timestamp: row.get("timestamp"),
                     millis: row.get("millis"),
                     sectors,
@@ -515,7 +518,7 @@ impl Queries for PostgresClient {
             SELECT
                 r.map_uid,
                 p.login,
-                p.nick_name,
+                p.display_name,
                 RANK () OVER (
                     PARTITION BY r.map_uid
                     ORDER BY r.millis ASC
@@ -532,7 +535,7 @@ impl Queries for PostgresClient {
             .map(|row| MapRank {
                 map_uid: row.get("map_uid"),
                 player_login: row.get("login"),
-                player_nick_name: GameString::from(row.get("nick_name")),
+                player_display_name: DisplayString::from(row.get("display_name")),
                 pos: row.get("pos"),
                 max_pos: row.get("max_pos"),
                 in_playlist: row.get("in_playlist"),
@@ -588,9 +591,9 @@ impl From<Row> for Map {
         Map {
             uid: row.get("uid"),
             file_name: row.get("file_name"),
-            name: GameString::from(row.get("name")),
+            name: DisplayString::from(row.get("name")),
             author_login: row.get("author_login"),
-            author_nick_name: GameString::from(row.get("author_nick_name")),
+            author_display_name: DisplayString::from(row.get("author_display_name")),
             author_millis: row.get("author_millis"),
             added_since: row.get("added_since"),
             in_playlist: row.get("in_playlist"),
@@ -612,7 +615,7 @@ impl From<Row> for Player {
     fn from(row: Row) -> Self {
         Player {
             login: row.get("login"),
-            nick_name: GameString::from(row.get("nick_name")),
+            display_name: DisplayString::from(row.get("display_name")),
         }
     }
 }

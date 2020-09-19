@@ -6,7 +6,7 @@ use tokio::sync::{RwLock, RwLockReadGuard};
 
 use crate::database::Database;
 use crate::event::{PlayerDiff, PlayerTransition};
-use crate::server::{GameString, PlayerInfo, PlayerSlot, Server};
+use crate::server::{DisplayString, PlayerInfo, PlayerSlot, Server};
 
 /// Use to lookup information of connected players.
 #[async_trait]
@@ -50,13 +50,13 @@ pub trait LivePlayers: Send + Sync {
             .map(|login| login.to_string())
     }
 
-    /// Return the nick name of the player with the specified login, or `None` if no
+    /// Return the display name of the player with the specified login, or `None` if no
     /// player with that login is connected.
-    async fn nick_name(&self, login: &str) -> Option<GameString> {
+    async fn display_name(&self, login: &str) -> Option<DisplayString> {
         self.lock()
             .await
             .info(login)
-            .map(|info| info.nick_name.clone())
+            .map(|info| info.display_name.clone())
     }
 }
 
@@ -195,13 +195,13 @@ impl PlayerController {
         let mut players_state = self.state.write().await;
         let uid = info.uid;
 
-        let (is_new, has_new_nick_name) = {
+        let (is_new, has_new_display_name) = {
             let maybe_old_info = players_state.uid_to_info.get(&uid);
             let is_new = maybe_old_info.is_none();
-            let has_new_nick_name = maybe_old_info
-                .map(|old_info| info.nick_name != old_info.nick_name)
+            let has_new_display_name = maybe_old_info
+                .map(|old_info| info.display_name != old_info.display_name)
                 .unwrap_or(true);
-            (is_new, has_new_nick_name)
+            (is_new, has_new_display_name)
         };
 
         // If player connected
@@ -212,8 +212,8 @@ impl PlayerController {
             let _ = players_state.uid_to_info.insert(info.uid, info.clone());
         }
 
-        // Update persisted nick name
-        if has_new_nick_name {
+        // Update persisted display name
+        if has_new_display_name {
             self.db
                 .upsert_player(&info)
                 .await

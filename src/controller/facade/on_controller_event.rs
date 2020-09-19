@@ -149,7 +149,7 @@ impl Controller {
 
                 let msg = ServerMessage::NextMap {
                     name: &next_map.name.formatted,
-                    author: &next_map.author_nick_name.formatted,
+                    author: &next_map.author_display_name.formatted,
                 };
                 self.chat.announce(msg).await;
             }
@@ -228,10 +228,10 @@ impl Controller {
 
                 match diff.transition {
                     AddPlayer | AddSpectator | AddPureSpectator => Some(Joining {
-                        nick_name: &diff.info.nick_name.formatted,
+                        display_name: &diff.info.display_name.formatted,
                     }),
                     RemovePlayer | RemoveSpectator | RemovePureSpectator => Some(Leaving {
-                        nick_name: &diff.info.nick_name.formatted,
+                        display_name: &diff.info.display_name.formatted,
                     }),
                     _ => None,
                 }
@@ -252,7 +252,7 @@ impl Controller {
                 new_record: Some(new_record),
                 ..
             }) if *pos_gained > 0 && *new_pos <= MAX_ANNOUNCED_RECORD => Some(TopRecord {
-                player_nick_name: &new_record.player_nick_name.formatted,
+                player_display_name: &new_record.player_display_name.formatted,
                 new_map_rank: *new_pos,
                 millis: new_record.millis as usize,
             }),
@@ -265,7 +265,7 @@ impl Controller {
                 ..
             }) if *pos_gained == 0 && *diff < 0 && *new_pos <= MAX_ANNOUNCED_RECORD_IMPROVEMENT => {
                 Some(TopRecordImproved {
-                    player_nick_name: &new_record.player_nick_name.formatted,
+                    player_display_name: &new_record.player_display_name.formatted,
                     map_rank: *new_pos,
                     millis: new_record.millis as usize,
                 })
@@ -273,7 +273,7 @@ impl Controller {
 
             NewPlaylist(PlaylistDiff::AppendNew(map)) => Some(NewMap {
                 name: &map.name.formatted,
-                author: &map.author_nick_name.formatted,
+                author: &map.author_display_name.formatted,
             }),
 
             NewPlaylist(PlaylistDiff::Append(map)) => Some(AddedMap {
@@ -290,7 +290,7 @@ impl Controller {
                     .filter_map(|diff| {
                         if diff.gained_pos > 0 && diff.new_pos <= MAX_ANNOUNCED_RANK {
                             Some(TopRankMessage {
-                                nick_name: &diff.player_nick_name.formatted,
+                                display_name: &diff.player_display_name.formatted,
                                 rank: diff.new_pos,
                             })
                         } else {

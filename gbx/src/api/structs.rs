@@ -38,12 +38,12 @@ pub struct ServerOptions {
     /// The server name, as displayed in the server browser.
     ///
     /// Config: `<name>` in `<server_options>`
-    pub name: GameString,
+    pub name: DisplayString,
 
     /// The server comment, as displayed in the server browser.
     ///
     /// Config: `<comment>` in `<server_options>`
-    pub comment: GameString,
+    pub comment: DisplayString,
 
     /// The password needed to connect as a player.
     ///
@@ -404,8 +404,9 @@ pub struct PlayerInfo {
     /// Player-unique login.
     pub login: String,
 
-    /// Formatted nick name.
-    pub nick_name: GameString,
+    /// Formatted display name.
+    #[serde(rename = "NickName")]
+    pub display_name: DisplayString,
 
     /// (see functions)
     #[serde(rename = "Flags")]
@@ -531,7 +532,7 @@ pub struct MapInfo {
     pub uid: String,
 
     /// The formatted map name.
-    pub name: GameString,
+    pub name: DisplayString,
 
     /// The map's file name in `.../UserData/Maps`.
     pub file_name: String,
@@ -640,9 +641,9 @@ pub struct PlayerScore {
     /// The player's login.
     pub login: String,
 
-    /// The player's formatted nick name.
+    /// The player's formatted display name.
     #[serde(rename = "name")]
-    pub nick_name: GameString,
+    pub display_name: DisplayString,
 
     /// Rank of the player in the current race.
     #[serde(rename = "rank")]
@@ -681,7 +682,7 @@ pub struct PlayerScore {
 pub struct TeamScore {
     pub id: i32,
 
-    pub name: GameString,
+    pub name: DisplayString,
 
     #[serde(rename = "roundpoints")]
     pub points_round: i32,
@@ -695,14 +696,14 @@ pub struct TeamScore {
 
 /// A string with in-game formatting.
 #[derive(PartialEq, Eq, Clone)]
-pub struct GameString {
+pub struct DisplayString {
     /// The formatted string.
     pub formatted: String,
 }
 
-impl GameString {
+impl DisplayString {
     pub fn from(str: String) -> Self {
-        GameString { formatted: str }
+        DisplayString { formatted: str }
     }
 
     /// Removes all text formatting.
@@ -723,23 +724,23 @@ impl GameString {
     }
 }
 
-impl std::fmt::Debug for GameString {
+impl std::fmt::Debug for DisplayString {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.serialize_str(&self.plain())
     }
 }
 
-impl<'de> Deserialize<'de> for GameString {
+impl<'de> Deserialize<'de> for DisplayString {
     fn deserialize<D>(deserializer: D) -> Result<Self, <D as Deserializer<'de>>::Error>
     where
         D: Deserializer<'de>,
     {
         let formatted: String = serde::de::Deserialize::deserialize(deserializer)?;
-        Ok(GameString { formatted })
+        Ok(DisplayString { formatted })
     }
 }
 
-impl Serialize for GameString {
+impl Serialize for DisplayString {
     fn serialize<S>(&self, serializer: S) -> Result<<S as Serializer>::Ok, <S as Serializer>::Error>
     where
         S: Serializer,

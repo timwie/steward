@@ -6,7 +6,7 @@ use chrono::{Duration, NaiveDateTime, SubsecRound, Utc};
 use testcontainers::*;
 
 use steward::database::*;
-use steward::server::{GameString, PlayerInfo};
+use steward::server::{DisplayString, PlayerInfo};
 
 // TODO add database tests
 // [x] migrate
@@ -87,7 +87,7 @@ async fn test_player_insert() -> Result<()> {
     let expected_info = player_info("login", "nickname");
     let expected = Player {
         login: "login".to_string(),
-        nick_name: GameString::from("nickname".to_string()),
+        display_name: DisplayString::from("nickname".to_string()),
     };
 
     db.upsert_player(&expected_info).await?;
@@ -104,7 +104,7 @@ async fn test_player_update() -> Result<()> {
     let new_info = player_info("login", "new nickname");
     let expected = Player {
         login: "login".to_string(),
-        nick_name: GameString::from("new nickname".to_string()),
+        display_name: DisplayString::from("new nickname".to_string()),
     };
 
     db.upsert_player(&old_info).await?;
@@ -546,11 +546,11 @@ async fn test_record_preview() -> Result<()> {
     Ok(())
 }
 
-fn player_info(login: &str, nick_name: &str) -> PlayerInfo {
+fn player_info(login: &str, display_name: &str) -> PlayerInfo {
     PlayerInfo {
         uid: 0,
         login: login.to_string(),
-        nick_name: GameString::from(nick_name.to_string()),
+        display_name: DisplayString::from(display_name.to_string()),
         flag_digit_mask: 101_000_000,
         spectator_digit_mask: 2_551_010,
         team_id: 0,
@@ -562,9 +562,9 @@ fn map_evidence(uid: &str, file_name: &str) -> MapEvidence {
         metadata: Map {
             uid: uid.to_string(),
             file_name: file_name.to_string(),
-            name: GameString::from("".to_string()),
+            name: DisplayString::from("".to_string()),
             author_login: "".to_string(),
-            author_nick_name: GameString::from("".to_string()),
+            author_display_name: DisplayString::from("".to_string()),
             author_millis: 0,
             added_since: now(),
             in_playlist: true,
@@ -590,12 +590,12 @@ fn record_evidence(login: &str, map_uid: &str, millis: i32) -> RecordEvidence {
     }
 }
 
-fn record(pos: i64, nick_name: &str, ev: RecordEvidence) -> Record {
+fn record(pos: i64, display_name: &str, ev: RecordEvidence) -> Record {
     Record {
         map_uid: ev.map_uid,
         map_rank: pos,
         player_login: ev.player_login,
-        player_nick_name: GameString::from(nick_name.to_string()),
+        player_display_name: DisplayString::from(display_name.to_string()),
         millis: ev.millis,
         timestamp: ev.timestamp,
         sectors: ev.sectors,

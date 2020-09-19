@@ -1,7 +1,7 @@
 use chrono::NaiveDateTime;
 use serde::Serialize;
 
-use gbx::GameString;
+use gbx::DisplayString;
 
 use crate::database::PreferenceValue;
 use crate::widget::formatters::format_queue_annotation;
@@ -31,7 +31,7 @@ pub struct OutroQueueWidget<'a> {
 pub struct OutroQueueEntry<'a> {
     /// The formatted map name.
     #[serde(serialize_with = "format_narrow")]
-    pub map_name: &'a GameString,
+    pub map_name: &'a DisplayString,
 
     #[serde(serialize_with = "format_queue_annotation")]
     pub annotation: QueueEntryAnnotation,
@@ -49,12 +49,14 @@ pub enum QueueEntryAnnotation {
 pub struct MapPreview<'a> {
     /// The formatted map name.
     #[serde(serialize_with = "format_narrow")]
-    pub map_name: &'a GameString,
+    pub map_name: &'a DisplayString,
 
-    /// The map author's nick name, which can only be added & updated
-    /// whenever the author joins the server.
+    /// The map author's display name.
+    ///
+    /// This name is read from the map file and might consequently be outdated.
+    /// It will only be updated whenever the author joins the server.
     #[serde(serialize_with = "format_narrow")]
-    pub map_author_nick_name: &'a GameString,
+    pub map_author_display_name: &'a DisplayString,
 
     /// The player's map ranking, or `None` if they have not
     /// set any record.

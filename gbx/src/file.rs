@@ -5,20 +5,20 @@ use std::path::Path;
 use anyhow::{anyhow, bail, ensure};
 use byteorder::{ByteOrder, LittleEndian};
 
-use crate::GameString;
+use crate::DisplayString;
 
 /// Selected information stored in the header of a `*.Map.Gbx` file.
 #[derive(Debug)]
 pub struct MapFileHeader {
     pub uid: String,
-    pub name: GameString,
+    pub name: DisplayString,
     pub millis_bronze: i32,
     pub millis_silver: i32,
     pub millis_gold: i32,
     pub millis_author: i32,
     pub is_multilap: bool,
     pub author_login: String,
-    pub author_nick: GameString,
+    pub author_display_name: DisplayString,
 }
 
 #[derive(Debug, PartialEq, Eq, Hash)]
@@ -222,7 +222,7 @@ pub fn parse_map_file<P: AsRef<Path>>(path: P) -> anyhow::Result<MapFileHeader> 
     let uid = read_lookback_str!().to_string();
     let _envi = read_lookback_str!();
     let _author = read_lookback_str!();
-    let name = GameString::from(read_str!().to_string());
+    let name = DisplayString::from(read_str!().to_string());
     let _kind = read_i8!();
 
     let _ = read_bytes!(4); // skip locked
@@ -252,7 +252,7 @@ pub fn parse_map_file<P: AsRef<Path>>(path: P) -> anyhow::Result<MapFileHeader> 
     let _author_version = read_i32!();
 
     let author_login = read_str!().to_string();
-    let author_nick = GameString::from(read_str!().to_string());
+    let author_display_name = DisplayString::from(read_str!().to_string());
     let _author_zone = read_str!().to_string();
     let _author_extra_info = read_str!().to_string();
 
@@ -265,6 +265,6 @@ pub fn parse_map_file<P: AsRef<Path>>(path: P) -> anyhow::Result<MapFileHeader> 
         millis_author,
         is_multilap,
         author_login,
-        author_nick,
+        author_display_name,
     })
 }

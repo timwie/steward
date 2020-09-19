@@ -67,18 +67,18 @@ impl Controller {
     pub(super) async fn on_admin_cmd(&self, from_login: &str, cmd: AdminCommand<'_>) {
         use AdminCommand::*;
 
-        let admin_name = match self.players.nick_name(from_login).await {
+        let admin_name = match self.players.display_name(from_login).await {
             Some(name) => name,
             None => return,
         };
         let admin_name = &admin_name.formatted;
 
-        let or_nickname = |login: String| async move {
+        let try_display_name = |login: String| async move {
             self.db
                 .player(&login)
                 .await
                 .expect("failed to load player")
-                .map(|p| p.nick_name.formatted)
+                .map(|p| p.display_name.formatted)
                 .unwrap_or_else(|| login)
         };
 
@@ -195,7 +195,7 @@ impl Controller {
                 self.chat
                     .announce(ServerMessage::PlayerBlacklisted {
                         admin_name,
-                        player_name: &or_nickname(login.to_string()).await,
+                        player_name: &try_display_name(login.to_string()).await,
                     })
                     .await;
             }
@@ -217,7 +217,7 @@ impl Controller {
                 self.chat
                     .announce(ServerMessage::PlayerUnblacklisted {
                         admin_name,
-                        player_name: &or_nickname(login.to_string()).await,
+                        player_name: &try_display_name(login.to_string()).await,
                     })
                     .await;
             }
@@ -326,7 +326,7 @@ impl Controller {
 
         log::warn!("{}> {:#?}", from_login, &cmd);
 
-        let admin_name = match self.players.nick_name(from_login).await {
+        let admin_name = match self.players.display_name(from_login).await {
             Some(name) => name,
             None => return,
         };

@@ -330,7 +330,7 @@ impl RecordController {
             map_uid: evidence.map_uid,
             map_rank: new_pos as i64,
             player_login: player.login.clone(),
-            player_nick_name: player.nick_name.clone(),
+            player_display_name: player.display_name.clone(),
             timestamp: evidence.timestamp,
             millis: evidence.millis,
             sectors: evidence.sectors,

@@ -259,7 +259,7 @@ async fn fs_maps_to_db(server: &Arc<dyn Server>, db: &Arc<dyn Database>) {
             file_name: server_map.file_name,
             name: header.name,
             author_login: header.author_login,
-            author_nick_name: header.author_nick,
+            author_display_name: header.author_display_name,
             added_since: Utc::now().naive_utc(),
             author_millis: header.millis_author,
             in_playlist: true,
