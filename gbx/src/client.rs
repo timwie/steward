@@ -371,7 +371,7 @@ fn msg_loop(mut msg_in: Receiver<Msg>, cb_out: Sender<Callback>) -> TaskHandle<(
                         .eventual_response
                         .send(response);
                 }
-                Msg::FulfillCallback { call } => match to_callback(call) {
+                Msg::FulfillCallback { call } => match to_callback(&call) {
                     ReceivedCallback::Ignored => {}
                     ReceivedCallback::Unprompted(callback) => {
                         cb_out
@@ -382,12 +382,9 @@ fn msg_loop(mut msg_in: Receiver<Msg>, cb_out: Sender<Callback>) -> TaskHandle<(
                         response_id,
                         callback,
                     } => {
-                        let data = waiting_cbs
-                            .remove(&response_id)
-                            .expect("failed to match callback response_id");
-
-                        let _send_result = data.eventual_callback.send(callback.clone());
-
+                        if let Some(data) = waiting_cbs.remove(&response_id) {
+                            let _send_result = data.eventual_callback.send(callback.clone());
+                        }
                         cb_out
                             .send(callback)
                             .expect("callback receiver was dropped");

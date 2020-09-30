@@ -48,7 +48,10 @@ async fn prepare_rpc(server: &Arc<dyn Server>, config: &Config) {
         .await;
     server.enable_callbacks().await;
     server.set_api_version().await;
-    server.enable_manual_chat_routing().await;
+    server
+        .enable_manual_chat_routing()
+        .await
+        .expect("another controller is already routing the chat");
 }
 
 /// Check server compatibility and override some server options in the
@@ -323,7 +326,7 @@ async fn db_maps_to_fs(server: &Arc<dyn Server>, db: &Arc<dyn Database>) {
 ///
 /// Panic if there are no maps in the database.
 async fn db_maps_to_match_settings(server: &Arc<dyn Server>, db: &Arc<dyn Database>) {
-    const MATCH_SETTINGS_PATH: &str = "MatchSettings/maplist.txt";
+    const MATCH_SETTINGS_FILE: &str = "maplist.txt";
 
     let db_maps = db.maps().await.expect("failed to fetch maps");
 
@@ -348,13 +351,17 @@ async fn db_maps_to_match_settings(server: &Arc<dyn Server>, db: &Arc<dyn Databa
     server.playlist_replace(playlist_files).await;
 
     // Overwrite playlist in the match settings file
-    server.playlist_save(MATCH_SETTINGS_PATH).await;
+    server
+        .save_match_settings(MATCH_SETTINGS_FILE)
+        .await
+        .expect("failed to save playlist");
 
     let match_settings_file = server
         .user_data_dir()
         .await
         .join("Maps")
-        .join(MATCH_SETTINGS_PATH);
+        .join("MatchSettings")
+        .join(MATCH_SETTINGS_FILE);
 
     let match_settings_xml =
         fs::read_to_string(&match_settings_file).expect("failed to read match settings file");

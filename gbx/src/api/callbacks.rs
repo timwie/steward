@@ -41,6 +41,11 @@ pub enum Callback {
     /// Triggered by `Trackmania.Event.WayPoint`
     RunCheckpoint { event: CheckpointEvent },
 
+    /// Sent when a player respawns at the previous checkpoint.
+    ///
+    /// Triggered by `Trackmania.Event.Respawn`
+    RunCheckpointRespawn(CheckpointRespawnEvent),
+
     /// Sent when client & server run times are out of sync. This is likely caused
     /// by connection issues, but could also be a cheating attempt.
     ///
@@ -71,6 +76,15 @@ pub enum Callback {
         answer: PlayerAnswer,
     },
 
+    /// Sent when either the playlist or playlist indexes changed.
+    ///
+    /// Triggered by `ManiaPlanet.MapListModified`
+    PlaylistChanged {
+        curr_idx: Option<i32>,
+        next_idx: i32,
+        playlist_modified: bool,
+    },
+
     /// Sent when the game mode script enters or exits a certain section.
     ModeScriptSection(ModeScriptSection),
 
@@ -88,6 +102,16 @@ pub enum Callback {
     ///
     /// Triggered by `Trackmania.Scores`, with `Calls::scores`
     Scores { scores: Scores },
+
+    /// Sent at the end of each round in the Champion game mode.
+    ///
+    /// Triggered by `Trackmania.Champion.Scores`
+    ChampionRoundEnd(ChampionScores),
+
+    /// Sent at the end of each round in the Knockout game mode.
+    ///
+    /// Triggered by `Trackmania.Knockout.Elimination`
+    KnockoutRoundEnd(KnockoutEliminations),
 
     /// Triggered by `Maniaplanet.Pause.Status` with `Calls::pause_status`,
     /// and by `Maniaplanet.Pause.SetActive` with `Calls::pause` or `Calls::unpause`.

@@ -26,9 +26,17 @@ async fn main() {
     use database::db_connect;
     use server::{RpcConnection, Server};
 
-    dotenv().ok(); // Read '.env' file in working directory
+    // Read environment variables from an '.env' file in the working directory.
+    // We use these env vars:
+    //  - RUST_LOG
+    //  - STEWARD_CONFIG
+    let using_env_file = dotenv().is_ok();
 
     env_logger::init(); // Use log::* to write to stderr
+
+    if using_env_file {
+        log::info!("using .env file")
+    }
 
     let config = Config::load();
 

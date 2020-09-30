@@ -5,13 +5,14 @@ use std::path::Path;
 use anyhow::{anyhow, bail, ensure};
 use byteorder::{ByteOrder, LittleEndian};
 
-use crate::DisplayString;
+use crate::{DisplayString, MapType};
 
 /// Selected information stored in the header of a `*.Map.Gbx` file.
 #[derive(Debug)]
 pub struct MapFileHeader {
     pub uid: String,
     pub name: DisplayString,
+    pub map_type: MapType,
     pub millis_bronze: i32,
     pub millis_silver: i32,
     pub millis_gold: i32,
@@ -236,8 +237,10 @@ pub fn parse_map_file<P: AsRef<Path>>(path: P) -> anyhow::Result<MapFileHeader> 
     let _ = read_bytes!(8); // skip mapOrigin
     let _ = read_bytes!(16); // skip unknown int128
 
-    let _type = read_str!();
-    let _style = read_str!();
+    let map_type = read_str!();
+    let map_type = MapType::from(map_type);
+
+    let _map_style = read_str!();
 
     let _ = read_bytes!(8); // skip lightmapCacheUID
     let _lightmap = read_i8!();
@@ -259,6 +262,7 @@ pub fn parse_map_file<P: AsRef<Path>>(path: P) -> anyhow::Result<MapFileHeader> 
     Ok(MapFileHeader {
         uid,
         name,
+        map_type,
         millis_bronze,
         millis_silver,
         millis_gold,

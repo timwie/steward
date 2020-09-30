@@ -53,13 +53,15 @@ pub trait Calls: Send + Sync {
     async fn set_api_version(&self);
 
     /// Chat messages are no longer dispatched to the players, but are instead
-    /// routed to `Callbacks.on_player_chat()`. The messages have to be manually
+    /// routed to `Callback::PlayerChat`. Player messages have to be manually
     /// forwarded with `chat_send_from_to()` for them to appear in the chat.
     /// Messages from the server are still forwarded automatically.
     ///
+    /// Faults if the server's chat is already manually routed by another controller.
+    ///
     /// Calls method:
     ///     ChatEnableManualRouting(true, true)
-    async fn enable_manual_chat_routing(&self);
+    async fn enable_manual_chat_routing(&self) -> Result<()>;
 
     /// Hides all Manialink pages for all players.
     ///
@@ -199,15 +201,6 @@ pub trait Calls: Send + Sync {
     /// - AddMapList
     async fn playlist_replace(&self, map_file_names: Vec<&str>);
 
-    /// Replace the playlist inside `UserData/Maps/MatchSettings/<file_name>.txt`
-    /// with the current playlist.
-    ///
-    /// Faults if the file name is not valid.
-    ///
-    /// Calls method:
-    ///     SaveMatchSettings
-    async fn playlist_save(&self, file_name: &str);
-
     /// Queue the map at the specified playlist index.
     /// This map will be played after the current concludes.
     /// A successful restart vote will still replay the current map though.
@@ -220,6 +213,25 @@ pub trait Calls: Send + Sync {
     ///     SetNextMapIndex
     async fn playlist_change_next(&self, map_index: i32) -> Result<()>;
 
+    /// Load the mode, mode settings, and playlist in `UserData/Maps/MatchSettings/<file_name>.txt`.
+    ///
+    /// Requires a map skip/restart to play the new game mode.
+    ///
+    /// Faults if the given file does not exist, is invalid,
+    /// or if not a single map file in the playlist exists
+    ///
+    /// Calls method:
+    ///     LoadMatchSettings
+    async fn load_match_settings(&self, file_name: &str) -> Result<()>;
+
+    /// Save the mode, mode settings, and playlist in `UserData/Maps/MatchSettings/<file_name>.txt`.
+    ///
+    /// Faults if the file name is not valid.
+    ///
+    /// Calls method:
+    ///     SaveMatchSettings
+    async fn save_match_settings(&self, file_name: &str) -> Result<()>;
+
     /// Restart the current map.
     ///
     /// This call will make sure that the current map is not unloaded, which means
@@ -231,13 +243,11 @@ pub trait Calls: Send + Sync {
 
     /// Switch to the next map.
     ///
-    /// This call is equivalent to setting the remaining time limit to zero.
-    /// All end-of-race callbacks will be invoked, and the chat time will
-    /// last the usual amount of time.
+    /// Faults if the map is currently changing.
     ///
     /// Calls method:
     ///     NextMap
-    async fn end_map(&self);
+    async fn end_map(&self) -> Result<()>;
 
     /// Send chat message to all players. This message will have no sender.
     ///
@@ -364,6 +374,32 @@ pub trait Calls: Send + Sync {
     /// Calls script method:
     ///     Trackmania.ForceEndRound
     async fn force_end_round(&self);
+
+    /// Stop the current match and start a new one.
+    ///
+    /// Only supported by the Champion mode.
+    /// Faults if the command does not exist for this mode script.
+    ///
+    /// Calls method:
+    ///     SendModeScriptCommands
+    ///
+    /// Triggers script command:
+    ///     Command_StartNewMatch
+    async fn start_new_match(&self) -> Result<()>;
+
+    /// Set the current round number.
+    ///
+    /// Stops the current round if it is a different number than the current one.
+    ///
+    /// Only supported by the Champion mode.
+    /// Faults if the command does not exist for this mode script.
+    ///
+    /// Calls method:
+    ///     SendModeScriptCommands
+    ///
+    /// Triggers script command:
+    ///     Command_StartNewMatch
+    async fn start_round_nb(&self, round_nb: i32) -> Result<()>;
 
     /// Blacklist the player with the specified login.
     ///

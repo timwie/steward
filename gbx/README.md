@@ -46,6 +46,8 @@ As of server API version `2013-04-16`:
 [/] GetStatus
 [x] QuitGame
 
+[ ] Echo  // trigger echo callback on other controllers
+
 [x] ChatSendServerMessage
 [/] ChatSendServerMessageToLanguage
 [x] ChatSendServerMessageToId/Login
@@ -76,13 +78,6 @@ As of server API version `2013-04-16`:
 [ ] LoadGuestList
 [ ] SaveGuestList
 
-[ ] Echo  // trigger echo callback on other controllers
-
-[ ] Ignore(Id)  // players on the ignore list are muted
-[ ] UnIgnore(Id)
-[ ] CleanIgnoreList
-[ ] GetIgnoreList
-
 [x] SetServerOptions
 [x] GetServerOptions
 
@@ -95,7 +90,7 @@ As of server API version `2013-04-16`:
 [x] GetModeScriptInfo
 [x] GetModeScriptSettings
 [x] SetModeScriptSettings
-[ ] SendModeScriptCommands  // for #Command directives in mode scripts
+[x] SendModeScriptCommands
 [/] SetModeScriptSettingsAndCommands
 [x] TriggerModeScriptEvent
 [x] TriggerModeScriptEventArray
@@ -109,7 +104,7 @@ As of server API version `2013-04-16`:
 [x] GetCurrentMapIndex
 [x] GetNextMapIndex
 [x] SetNextMapIndex/Ident
-[ ] JumpToMapIndex/Ident
+[/] JumpToMapIndex/Ident
 
 [/] GetCurrentMapInfo
 [/] GetNextMapInfo
@@ -120,15 +115,15 @@ As of server API version `2013-04-16`:
 [x] AddMapList
 [x] RemoveMap
 [x] RemoveMapList
-[ ] InsertMap
-[ ] InsertMapList
-[ ] ChooseNextMap
+[/] InsertMap
+[/] InsertMapList
+[/] ChooseNextMap
 [ ] ChooseNextMapList
 
-[ ] LoadMatchSettings
+[x] LoadMatchSettings
 [x] SaveMatchSettings
-[ ] AppendPlaylistFromMatchSettings
-[ ] InsertPlaylistFromMatchSettings
+[/] AppendPlaylistFromMatchSettings
+[/] InsertPlaylistFromMatchSettings
 
 [x] GetPlayerList
 [/] GetPlayerInfo
@@ -136,14 +131,19 @@ As of server API version `2013-04-16`:
 [/] GetMainServerPlayerInfo
 
 [x] ForceSpectator(Id)
-[ ] ForceSpectatorTarget(Id)
+[/] ForceSpectatorTarget(Id)
 [x] SpectatorReleasePlayerSlot(Id)
 
 [x] GetNetworkStats
 
 [/] StartServerLan
-[ ] StartServerInternet  // there might be a use case for stopping/starting servers, without shutting down the server program
-[ ] StopServer
+[/] StartServerInternet
+[/] StopServer
+
+[/] Ignore(Id)    // players on the ignore list are muted;
+[/] UnIgnore(Id)  // can also be done with manual chat routing
+[/] CleanIgnoreList
+[/] GetIgnoreList
 
 [/] GetSystemInfo  // pretty much "GetConnectionRates"; not much of interest here
 [/] SetConnectionRates  // doesn't seem like something you'd need to change on the fly
@@ -366,7 +366,7 @@ As of server API version `2013-04-16`:
 
 [ ] ManiaPlanet.Echo  // get echoes from other controllers
 
-[ ] ManiaPlanet.MapListModified  // usually the controller will make the modification; but might add to make sure we're always in sync
+[x] ManiaPlanet.MapListModified  // usually the controller will make the modification; but might add to make sure we're always in sync
 
 [/] ManiaPlanet.PlayerConnect
 [x] ManiaPlanet.PlayerDisconnect
@@ -470,42 +470,47 @@ As of script API version `3.1.0`:
 [x] Maniaplanet.StartMap_End
 [x] Maniaplanet.StartRound_Start
 [x] Maniaplanet.StartRound_End
-[?] Maniaplanet.StartTurn_Start  // does any mode use turns?
-[?] Maniaplanet.StartTurn_End
+[/] Maniaplanet.StartTurn_Start  // does any mode use turns?
+[/] Maniaplanet.StartTurn_End
 [x] Maniaplanet.StartPlayLoop
 [x] Maniaplanet.EndPlayLoop 
-[?] Maniaplanet.EndTurn_Start  // does any mode use turns?
-[?] Maniaplanet.EndTurn_End
+[/] Maniaplanet.EndTurn_Start  // does any mode use turns?
+[/] Maniaplanet.EndTurn_End
 [x] Maniaplanet.EndRound_Start
 [x] Maniaplanet.EndRound_End
 [x] Maniaplanet.EndMap_Start
 [x] Maniaplanet.EndMap_End
 [x] Maniaplanet.UnloadingMap_Start
 [x] Maniaplanet.UnloadingMap_End
+[/] Maniaplanet.Podium_Start  // no podium sequence in TMNext (yet)
+[/] Maniaplanet.Podium_End
 [x] Maniaplanet.EndMatch_Start
 [x] Maniaplanet.EndMatch_End
 [x] Maniaplanet.EndServer_Start
 [x] Maniaplanet.EndServer_End
 
 [/] Trackmania.Event.Default
-[ ] Trackmania.Event.OnCommand  // for #Command directives in mode scripts I assume
 [/] Trackmania.Event.OnPlayerAdded
 [/] Trackmania.Event.OnPlayerRemoved
 [x] Trackmania.Event.StartLine
 [x] Trackmania.Event.WayPoint
 [x] Trackmania.Event.GiveUp
 [x] Trackmania.Event.SkipOutro
-[ ] Trackmania.Event.Respawn
+[x] Trackmania.Event.Respawn
 
-[ ] Trackmania.WarmUp.Start
+[/] Trackmania.WarmUp.Start
 [x] Trackmania.WarmUp.StartRound
 [x] Trackmania.WarmUp.EndRound
-[ ] Trackmania.WarmUp.End
+[/] Trackmania.WarmUp.End
 [x] Trackmania.WarmUp.Status
 
 [x] Maniaplanet.Pause.Status
 
 [x] Trackmania.Scores
+
+[x] Trackmania.Champion.Scores
+
+[x] Trackmania.Knockout.Elimination
 
 [/] Maniaplanet.Mode.UseTeams
 
@@ -517,13 +522,13 @@ As of script API version `3.1.0`:
 [?] UI.Event.OnModuleInventoryDrop
 [?] UI.Event.OnModuleInventoryEquip
 
+[!] Trackmania.Event.OnCommand  // presumably for #Command directives;
+                                // but not triggered by SendModeScriptCommands
+
 [!] Maniaplanet.WarmUp.Status  // use Trackmania.WarmUp.Status
 
 [!] Maniaplanet.ChannelProgression_Start  // channels are Nadeo servers only
 [!] Maniaplanet.ChannelProgression_End
-
-[!] Maniaplanet.Podium_Start  // there's no podiums in TMNext yet
-[!] Maniaplanet.Podium_End
 
 [!] Trackmania.Event.OnShoot  // leftovers from Shootmania
 [!] Trackmania.Event.OnHit

@@ -7,11 +7,11 @@ edition = "2018"
 [dependencies]
 anyhow = "1.0"
 async-trait = "0.1"
-base64 = "0.12"
+base64 = "0.13"
 byteorder = "1"
 lazy_static = "1.4"
 log = "0.4"
-quick-xml = { version = "0.18" }
+quick-xml = "0.19"
 regex = "1"
 serde = { version = "1.0", features = ["derive"] }
 serde_bytes = "0.11"

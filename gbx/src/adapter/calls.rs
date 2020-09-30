@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::convert::TryFrom;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -39,12 +40,12 @@ impl Calls for RpcClient {
             .await;
     }
 
-    async fn enable_manual_chat_routing(&self) {
-        self.call_method_unwrap_unit(
+    async fn enable_manual_chat_routing(&self) -> Result<()> {
+        self.call_method_unit(
             "ChatEnableManualRouting",
             args!(true, true), // enable, but keep auto-forwarding server messages
         )
-        .await;
+        .await
     }
 
     async fn clear_manialinks(&self) {
@@ -95,15 +96,26 @@ impl Calls for RpcClient {
         }
 
         match mode_info.script {
+            ModeScript::Champion => ModeOptions::Champion(get!(ChampionOptions)),
+            ModeScript::Cup => ModeOptions::Cup(get!(CupOptions)),
+            ModeScript::Knockout => ModeOptions::Knockout(get!(KnockoutOptions)),
+            ModeScript::Laps => ModeOptions::Laps(get!(LapsOptions)),
+            ModeScript::Rounds => ModeOptions::Rounds(get!(RoundsOptions)),
+            ModeScript::Teams => ModeOptions::Teams(get!(TeamsOptions)),
             ModeScript::TimeAttack => ModeOptions::TimeAttack(get!(TimeAttackOptions)),
-            _ => panic!("modes other than TimeAttack are not supported"),
+            _ => panic!("custom modes are not supported"),
         }
     }
 
     async fn set_mode_options(&self, options: &ModeOptions) -> Result<()> {
         let options = match options {
+            ModeOptions::Champion(options) => to_value(options),
+            ModeOptions::Cup(options) => to_value(options),
+            ModeOptions::Knockout(options) => to_value(options),
+            ModeOptions::Laps(options) => to_value(options),
+            ModeOptions::Rounds(options) => to_value(options),
+            ModeOptions::Teams(options) => to_value(options),
             ModeOptions::TimeAttack(options) => to_value(options),
-            _ => panic!("modes other than TimeAttack are not supported"),
         };
 
         self.call_method_unit("SetModeScriptSettings", args!(options))
@@ -148,12 +160,8 @@ impl Calls for RpcClient {
     }
 
     async fn playlist_add_all(&self, map_file_names: Vec<&str>) {
-        let owned: Vec<Value> = map_file_names
-            .iter()
-            .map(|f| Value::String((*f).to_string()))
-            .collect();
         let _: i32 = self
-            .call_method_unwrap("AddMapList", vec![Value::Array(owned)])
+            .call_method_unwrap("AddMapList", vec![Value::from(map_file_names)])
             .await;
     }
 
@@ -174,21 +182,13 @@ impl Calls for RpcClient {
             .iter()
             .map(|info| Value::String(info.file_name.clone()))
             .collect();
-        let new_file_names: Vec<Value> = map_file_names
-            .iter()
-            .map(|f| Value::String((*f).to_string()))
-            .collect();
+
         let _: i32 = self
             .call_method_unwrap("RemoveMapList", vec![Value::Array(prev_file_names)])
             .await;
-        let _: i32 = self
-            .call_method_unwrap("AddMapList", vec![Value::Array(new_file_names)])
-            .await;
-    }
 
-    async fn playlist_save(&self, file_name: &str) {
         let _: i32 = self
-            .call_method_unwrap("SaveMatchSettings", args!(file_name))
+            .call_method_unwrap("AddMapList", vec![Value::from(map_file_names)])
             .await;
     }
 
@@ -197,12 +197,28 @@ impl Calls for RpcClient {
             .await
     }
 
+    async fn load_match_settings(&self, file_name: &str) -> Result<()> {
+        let file_name = format!("MatchSettings/{}", file_name);
+        let _: i32 = self
+            .call_method("LoadMatchSettings", args!(file_name))
+            .await?;
+        Ok(())
+    }
+
+    async fn save_match_settings(&self, file_name: &str) -> Result<()> {
+        let file_name = format!("MatchSettings/{}", file_name);
+        let _: i32 = self
+            .call_method("SaveMatchSettings", args!(file_name))
+            .await?;
+        Ok(())
+    }
+
     async fn restart_map(&self) {
         self.call_method_unwrap_unit("RestartMap", args!()).await;
     }
 
-    async fn end_map(&self) {
-        self.call_method_unwrap_unit("NextMap", args!()).await;
+    async fn end_map(&self) -> Result<()> {
+        self.call_method_unit("NextMap", args!()).await
     }
 
     async fn chat_send(&self, msg: &str) {
@@ -314,6 +330,20 @@ impl Calls for RpcClient {
 
     async fn force_end_round(&self) {
         self.call_script("Trackmania.ForceEndRound", args!()).await;
+    }
+
+    async fn start_new_match(&self) -> Result<()> {
+        let mut map = BTreeMap::new();
+        map.insert("Command_StartNewMatch".to_string(), Value::Bool(true));
+        self.call_method_unit("SendModeScriptCommands", args!(map))
+            .await
+    }
+
+    async fn start_round_nb(&self, round_nb: i32) -> Result<()> {
+        let mut map = BTreeMap::new();
+        map.insert("Command_SetRoundNb".to_string(), Value::Int(round_nb));
+        self.call_method_unit("SendModeScriptCommands", args!(map))
+            .await
     }
 
     async fn blacklist_add(&self, player_login: &str) -> Result<()> {

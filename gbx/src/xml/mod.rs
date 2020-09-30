@@ -107,19 +107,12 @@ impl From<BTreeMap<String, Value>> for Value {
     }
 }
 
-impl From<Vec<Value>> for Value {
-    fn from(vs: Vec<Value>) -> Self {
-        Value::Array(vs)
-    }
-}
-
 impl<T> From<Vec<T>> for Value
 where
     Value: From<T>,
-    T: Copy,
 {
     fn from(vs: Vec<T>) -> Self {
-        Value::Array(vs.iter().map(|&v| v.into()).collect())
+        Value::Array(vs.into_iter().map(|v| v.into()).collect())
     }
 }
 

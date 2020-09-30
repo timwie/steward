@@ -230,36 +230,38 @@ pub enum MapType {
     Race,
 }
 
+impl From<&str> for MapType {
+    fn from(name: &str) -> Self {
+        use MapType::*;
+
+        // "TrackMania\\TM_Race" or just "TM_Race" is the only default map type,
+        // and is supported by all default modes.
+
+        match name {
+            "TrackMania\\TM_Race" => Race,
+            "TM_Race" => Race,
+            _ => panic!("custom map types are not supported"),
+        }
+    }
+}
+
 fn deserialize_map_types<'de, D>(deserializer: D) -> Result<HashSet<MapType>, D::Error>
 where
     D: serde::de::Deserializer<'de>,
 {
-    use MapType::*;
-
-    // "TrackMania\\TM_Race" or just "TM_Race" is the only default map type,
-    // and is supported by all default modes.
-
     let comma_delimited: String = serde::de::Deserialize::deserialize(deserializer)?;
-
-    Ok(comma_delimited
-        .split(',')
-        .map(|name| match name {
-            "TrackMania\\TM_Race" => Race,
-            "TM_Race" => Race,
-            _ => panic!("custom map types are not supported"),
-        })
-        .collect())
+    Ok(comma_delimited.split(',').map(MapType::from).collect())
 }
 
 /// Game modes that the server can play.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum ModeScript {
-    Champion,
-    Cup,
-    Knockout,
+    Champion, // round-based
+    Cup,      // round-based
+    Knockout, // round-based
     Laps,
-    Rounds,
-    Teams,
+    Rounds, // round-based
+    Teams,  // round-based
     TimeAttack,
     Other {
         /// The relative script file name in `/UserData/Scripts/Modes`.
@@ -324,33 +326,27 @@ impl<'de> Deserialize<'de> for ModeScript {
 /// Game mode settings.
 ///
 /// Every mode script has a different set of possible settings.
-#[derive(Debug, PartialEq)]
+#[derive(Debug)]
 pub enum ModeOptions {
+    Champion(ChampionOptions),
+    Cup(CupOptions),
+    Knockout(KnockoutOptions),
+    Laps(LapsOptions),
+    Rounds(RoundsOptions),
+    Teams(TeamsOptions),
     TimeAttack(TimeAttackOptions),
-
-    // TODO add support for other default game mode options
-    Champion,
-    Cup,
-    Knockout,
-    Laps,
-    Rounds,
-    Teams,
-
-    // TODO add support for custom game mode options
-    Other,
 }
 
 impl ModeOptions {
     pub fn script(&self) -> ModeScript {
         match self {
-            ModeOptions::Champion => ModeScript::Champion,
-            ModeOptions::Cup => ModeScript::Cup,
-            ModeOptions::Knockout => ModeScript::Knockout,
-            ModeOptions::Laps => ModeScript::Laps,
-            ModeOptions::Rounds => ModeScript::Rounds,
-            ModeOptions::Teams => ModeScript::Teams,
+            ModeOptions::Champion(_) => ModeScript::Champion,
+            ModeOptions::Cup(_) => ModeScript::Cup,
+            ModeOptions::Knockout(_) => ModeScript::Knockout,
+            ModeOptions::Laps(_) => ModeScript::Laps,
+            ModeOptions::Rounds(_) => ModeScript::Rounds,
+            ModeOptions::Teams(_) => ModeScript::Teams,
             ModeOptions::TimeAttack(_) => ModeScript::TimeAttack,
-            ModeOptions::Other => unimplemented!(),
         }
     }
 }
@@ -363,7 +359,7 @@ impl ModeOptions {
 /// - Libs/Nadeo/TMxSM/Race/ModeBase.Script.txt (2020-08-25)
 /// - Modes/TrackMania/TM_TimeAttack_Online.Script.txt (2020-09-10)
 /// - https://doc.maniaplanet.com/dedicated-server/references/settings-list-for-nadeo-gamemodes
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct TimeAttackOptions {
     /// Chat time at the end of a map or match in seconds.
     #[serde(rename = "S_ChatTime")]
@@ -387,6 +383,79 @@ pub struct TimeAttackOptions {
     /// Time limit before going to the next map in seconds.
     #[serde(rename = "S_TimeLimit")]
     pub time_limit_secs: i32,
+}
+
+/// Setting for the Champion game mode.
+///
+/// References:
+/// - Libs/Nadeo/ModeLibs/Common/ModeBase.Script.txt (2020-06-23)
+/// - Libs/Nadeo/ModeLibs/Common/ModeMatchmaking.Script.txt (2020-06-09)
+/// - Libs/Nadeo/TMxSM/Race/ModeBase.Script.txt (2020-08-25)
+/// - Modes/TrackMania/TM_Champion_Online.Script.txt (2020-09-10)
+/// - https://doc.maniaplanet.com/dedicated-server/references/settings-list-for-nadeo-gamemodes
+#[derive(Serialize, Deserialize, Debug)]
+pub struct ChampionOptions {
+    /// Chat time at the end of a map or match in seconds.
+    #[serde(rename = "S_ChatTime")]
+    pub chat_time_secs: i32,
+
+    /// Forced number of laps.
+    ///
+    /// Set to -1 to use laps from map validation.
+    /// Set to 0 to use "independent" laps (default in TimeAttack).
+    #[serde(rename = "S_ForceLapsNb")]
+    pub forced_nb_laps: i32,
+
+    /// The number of rounds per warmup.
+    #[serde(rename = "S_WarmUpNb")]
+    pub nb_warmup_rounds: i32,
+
+    /// The duration of one warmup round in seconds.
+    #[serde(rename = "S_WarmUpDuration")]
+    pub warmup_duration_secs: i32,
+    // TODO support ChampionOptions
+    //  - S_PointsRepartition: "20,14,12,10,8,7,6,5,5,4,4,3,3,2,2,1"
+    //  - S_PointsLimit: -1
+    //  - S_RoundsLimit: 6
+    //  - S_PauseBeforeRoundNb: 0
+    //  - S_PauseDuration: 360
+    //  - S_WinnersRatio: 0.5
+    //  - S_ForceWinnersNb: 0
+    //  - S_TimeOutPlayersNumber: 0
+    //  - S_FinishTimeout: 5
+    //  - S_TimeLimit: -1
+    //  - S_DisableGiveUp: false
+    //  - S_UseTieBreak: false
+    //  - S_BestLapBonusPoints: 2
+    //  - S_RoundsWithAPhaseChange: "3,5"
+    //  - S_EarlyEndMatchCallback: true
+    //  - S_EndRoundPreScoreUpdateDuration: 5
+    //  - S_EndRoundPostScoreUpdateDuration: 5
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct CupOptions {
+    // TODO
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct KnockoutOptions {
+    // TODO
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct LapsOptions {
+    // TODO
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct RoundsOptions {
+    // TODO
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct TeamsOptions {
+    // TODO
 }
 
 /// Player information.
@@ -416,7 +485,43 @@ pub struct PlayerInfo {
     #[serde(rename = "SpectatorStatus")]
     pub spectator_digit_mask: i32,
 
-    pub team_id: i32,
+    #[serde(deserialize_with = "deserialize_opt_team_id")]
+    pub team_id: Option<TeamId>,
+}
+
+/// Reference: https://github.com/maniaplanet/script-xmlrpc/blob/master/XmlRpcListing.md#trackmaniasetteampoints
+#[derive(Debug, Eq, PartialEq, Clone, Copy)]
+pub enum TeamId {
+    Blue,
+    Red,
+}
+
+impl<'de> Deserialize<'de> for TeamId {
+    fn deserialize<D>(deserializer: D) -> Result<Self, <D as Deserializer<'de>>::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let id: i32 = serde::de::Deserialize::deserialize(deserializer)?;
+
+        Ok(match id {
+            0 => TeamId::Blue,
+            1 => TeamId::Red,
+            _ => panic!("unexpected team id {}", id),
+        })
+    }
+}
+
+fn deserialize_opt_team_id<'de, D>(deserializer: D) -> Result<Option<TeamId>, D::Error>
+where
+    D: serde::de::Deserializer<'de>,
+{
+    let id = i32::deserialize(deserializer)?;
+    Ok(match id {
+        -1 => None,
+        0 => Some(TeamId::Blue),
+        1 => Some(TeamId::Red),
+        _ => panic!("unexpected team id {}", id),
+    })
 }
 
 impl PlayerInfo {
@@ -587,6 +692,28 @@ pub struct CheckpointEvent {
     pub speed: f32,
 }
 
+/// Reference: https://github.com/maniaplanet/script-xmlrpc/blob/master/XmlRpcListing.md#trackmaniaeventrespawn
+#[derive(Deserialize, Debug, PartialEq, Clone)]
+pub struct CheckpointRespawnEvent {
+    /// The driving player's login.
+    #[serde(rename = "login")]
+    pub player_login: String,
+
+    /// The total number of respawns in this run so far.
+    #[serde(rename = "nbrespawns")]
+    pub nb_respawns: i32,
+
+    /// Checkpoint index; or the number of unique checkpoints crossed
+    /// since the beginning of this run minus one.
+    #[serde(rename = "checkpointinrace")]
+    pub race_cp_index: i32,
+
+    /// Lap checkpoint index; or the number of unique checkpoints crossed
+    /// since the beginning of this lap minus one.
+    #[serde(rename = "checkpointinlap")]
+    pub lap_cp_index: i32,
+}
+
 /// The ranking of the current race.
 ///
 /// Reference: https://github.com/maniaplanet/script-xmlrpc/blob/master/XmlRpcListing.md#trackmaniascores
@@ -680,7 +807,7 @@ pub struct PlayerScore {
 /// Reference: https://github.com/maniaplanet/script-xmlrpc/blob/master/XmlRpcListing.md#trackmaniascores
 #[derive(Deserialize, Debug, PartialEq, Clone)]
 pub struct TeamScore {
-    pub id: i32,
+    pub id: TeamId,
 
     pub name: DisplayString,
 
@@ -830,4 +957,31 @@ where
 {
     let s = String::deserialize(deserializer)?;
     Ok(if s.is_empty() { None } else { Some(s) })
+}
+
+#[derive(Clone, Deserialize, Debug)]
+pub struct ChampionScores {
+    pub players: Vec<ChampionScore>,
+}
+
+#[derive(Clone, Deserialize, Debug)]
+pub struct ChampionScore {
+    #[serde(rename = "login")]
+    pub player_login: String,
+
+    pub round: ChampionScoreRank,
+
+    pub step: ChampionScoreRank,
+}
+
+#[derive(Clone, Deserialize, Debug)]
+pub struct ChampionScoreRank {
+    pub rank: i32,
+    pub points: i32,
+}
+
+#[derive(Clone, Deserialize, Debug)]
+pub struct KnockoutEliminations {
+    #[serde(rename = "accountids")]
+    pub eliminated_account_ids: Vec<String>,
 }

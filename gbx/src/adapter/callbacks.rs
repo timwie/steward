@@ -12,7 +12,7 @@ use crate::xml::{from_value, Call, Value};
 ///
 /// # Panics
 /// Panics if we recognized the name of a callback, but expected different parameters.
-pub fn to_callback(call: Call) -> ReceivedCallback {
+pub fn to_callback(call: &Call) -> ReceivedCallback {
     log::debug!("callback: {:#?}", &call);
 
     let maybe_cb = if &call.name == "ManiaPlanet.ModeScriptCallbackArray" {
@@ -56,7 +56,7 @@ pub enum ReceivedCallback {
     },
 }
 
-fn to_regular_callback(call: Call) -> Option<Callback> {
+fn to_regular_callback(call: &Call) -> Option<Callback> {
     use Callback::*;
     use Value::*;
 
@@ -80,6 +80,7 @@ fn to_regular_callback(call: Call) -> Option<Callback> {
                 });
             }
         }
+
         "ManiaPlanet.PlayerDisconnect" => {
             if let [String(login), String(_reason)] = &call.args[..] {
                 return Some(PlayerDisconnect {
@@ -87,6 +88,7 @@ fn to_regular_callback(call: Call) -> Option<Callback> {
                 });
             }
         }
+
         "ManiaPlanet.PlayerInfoChanged" => {
             if let [Struct(info)] = &call.args[..] {
                 return Some(PlayerInfoChanged {
@@ -94,6 +96,7 @@ fn to_regular_callback(call: Call) -> Option<Callback> {
                 });
             }
         }
+
         "ManiaPlanet.PlayerManialinkPageAnswer" => {
             if let [Int(uid), String(login), String(answer), Array(entries)] = &call.args[..] {
                 let entries: HashMap<std::string::String, std::string::String> = entries
@@ -117,6 +120,17 @@ fn to_regular_callback(call: Call) -> Option<Callback> {
                 });
             }
         }
+
+        "ManiaPlanet.MapListModified" => {
+            if let [Int(curr_idx), Int(next_idx), Bool(playlist_modified)] = &call.args[..] {
+                return Some(PlaylistChanged {
+                    curr_idx: Some(*curr_idx).filter(|i| *i >= 0),
+                    next_idx: *next_idx,
+                    playlist_modified: *playlist_modified,
+                });
+            }
+        }
+
         "TrackMania.PlayerIncoherence" => {
             if let [Int(_uid), String(login)] = &call.args[..] {
                 return Some(RunIncoherence {
@@ -124,11 +138,11 @@ fn to_regular_callback(call: Call) -> Option<Callback> {
                 });
             }
         }
+
         "ManiaPlanet.BeginMap"
         | "ManiaPlanet.BeginMatch"
         | "ManiaPlanet.EndMatch"
         | "ManiaPlanet.EndMap"
-        | "ManiaPlanet.MapListModified"
         | "ManiaPlanet.PlayerConnect"
         | "ManiaPlanet.StatusChanged"
         | "TrackMania.PlayerCheckpoint"
@@ -145,7 +159,7 @@ fn to_regular_callback(call: Call) -> Option<Callback> {
     panic!("unexpected signature for {:?}", call)
 }
 
-fn forward_script_callback(call: Call) -> Option<Callback> {
+fn forward_script_callback(call: &Call) -> Option<Callback> {
     use crate::api::ModeScriptSection::*;
     use Callback::*;
     use Value::*;
@@ -209,6 +223,11 @@ fn forward_script_callback(call: Call) -> Option<Callback> {
                 Some(PauseStatus(status))
             }
 
+            "Trackmania.Champion.Scores" => {
+                let scores: ChampionScores = de!(&str_args[0]);
+                Some(ChampionRoundEnd(scores))
+            }
+
             "Trackmania.Event.GiveUp" | "Trackmania.Event.SkipOutro" => {
                 // Since TMNext, "Trackmania.Event.StartCountdown" is never triggered,
                 // but we know that the countdown will appear for players directly following
@@ -218,6 +237,11 @@ fn forward_script_callback(call: Call) -> Option<Callback> {
                 Some(RunCountdown {
                     player_login: ev.login,
                 })
+            }
+
+            "Trackmania.Event.Respawn" => {
+                let ev: CheckpointRespawnEvent = de!(&str_args[0]);
+                return Some(RunCheckpointRespawn(ev));
             }
 
             "Trackmania.Event.StartLine" => {
@@ -240,6 +264,11 @@ fn forward_script_callback(call: Call) -> Option<Callback> {
                     }
                 };
                 Some(cb)
+            }
+
+            "Trackmania.Knockout.Elimination" => {
+                let elims: KnockoutEliminations = de!(&str_args[0]);
+                Some(KnockoutRoundEnd(elims))
             }
 
             "Trackmania.Scores" => {
@@ -266,9 +295,10 @@ fn forward_script_callback(call: Call) -> Option<Callback> {
             | "Maniaplanet.StartTurn_End"
             | "Maniaplanet.EndTurn_Start"
             | "Maniaplanet.EndTurn_End"
+            | "Maniaplanet.Podium_Start"
+            | "Maniaplanet.Podium_End"
             | "Trackmania.Event.OnPlayerAdded"
             | "Trackmania.Event.OnPlayerRemoved"
-            | "Trackmania.Event.Respawn"
             | "Trackmania.Event.Stunt" => {
                 // ignore without logging
                 None

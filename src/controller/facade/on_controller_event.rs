@@ -211,6 +211,7 @@ impl Controller {
             EndWarmup => {}
             BeginPause => {}
             EndPause => {}
+            ChangeMode => {} // TODO so far, we only handle the TimeAttack mode
         }
     }
 

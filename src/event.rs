@@ -88,6 +88,9 @@ pub enum ControllerEvent<'a> {
 
     /// Signals that the match was unpaused.
     EndPause,
+
+    /// Signals that the game mode has changed.
+    ChangeMode,
 }
 
 /// Contains information of a player that is either joining, leaving, or

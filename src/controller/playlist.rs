@@ -117,7 +117,7 @@ impl PlaylistController {
 
         // Change map if the current one is not part of the playlist.
         if curr_index.is_none() {
-            server.end_map().await;
+            server.end_map().await.expect("failed to end map");
         }
 
         let state = PlaylistState {

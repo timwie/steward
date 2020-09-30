@@ -135,10 +135,11 @@ impl Controller {
             }
 
             SkipCurrentMap => {
-                self.server.end_map().await;
-                self.chat
-                    .announce(ServerMessage::CurrentMapSkipped { admin_name })
-                    .await;
+                if self.server.end_map().await.is_ok() {
+                    self.chat
+                        .announce(ServerMessage::CurrentMapSkipped { admin_name })
+                        .await;
+                }
             }
 
             RestartCurrentMap => {

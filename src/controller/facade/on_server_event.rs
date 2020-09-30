@@ -120,7 +120,16 @@ impl Controller {
                 }
             }
 
-            ServerEvent::ModeScriptSection(PreStartServer { .. }) => {}
+            ServerEvent::ModeScriptSection(PreStartServer {
+                restarted_script,
+                changed_script,
+            }) => {
+                if restarted_script || changed_script {
+                    let ev = ControllerEvent::ChangeMode;
+                    self.on_controller_event(ev).await;
+                }
+            }
+
             ServerEvent::ModeScriptSection(PostStartServer) => {}
 
             ServerEvent::ModeScriptSection(PreStartMatch) => {}
@@ -172,6 +181,17 @@ impl Controller {
 
             ServerEvent::ModeScriptSection(PreEndServer) => {}
             ServerEvent::ModeScriptSection(PostEndServer) => {}
+
+            ServerEvent::PlaylistChanged { curr_idx, .. } => {
+                // TODO sync playlist
+                if let Some(curr_idx) = curr_idx {
+                    self.playlist.set_index(curr_idx as usize).await;
+                }
+            }
+
+            ServerEvent::RunCheckpointRespawn(_) => {}
+            ServerEvent::ChampionRoundEnd(_) => {}
+            ServerEvent::KnockoutRoundEnd(_) => {}
         }
     }
 }
