@@ -683,7 +683,7 @@ pub struct CheckpointEvent {
     #[serde(rename = "isendrace")]
     pub is_finish: bool,
 
-    /// `True` if the player has crossed the multilap line.
+    /// `True` if the player has crossed the multi-lap line.
     #[serde(rename = "isendlap")]
     pub is_lap_finish: bool,
 

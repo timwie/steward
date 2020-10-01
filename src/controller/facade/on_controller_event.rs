@@ -33,13 +33,10 @@ impl Controller {
                     self.on_controller_event(ev).await;
                 }
 
-                self.records.reset_run(&player_login).await;
                 self.widget.end_run_outro_for(&player_login).await;
             }
 
             ContinueRun(event) => {
-                self.records.update_run(&event).await;
-
                 if !event.is_finish {
                     return;
                 }
@@ -56,8 +53,10 @@ impl Controller {
                 });
             }
 
-            DesyncRun { player_login } => {
-                self.records.reset_run(&player_login).await;
+            DesyncRun { .. } => {
+                // TODO unsure if we have to do something here
+                //  => as a precaution, we could not consider player runs until they give
+                //     up their current run
             }
 
             BeginIntro => {

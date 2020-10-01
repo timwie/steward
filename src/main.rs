@@ -1,5 +1,4 @@
 mod chat;
-mod compat;
 mod config;
 mod constants;
 mod controller;
@@ -7,6 +6,7 @@ mod database;
 mod event;
 mod network;
 mod server;
+mod startup;
 mod widget;
 
 /// The controller's entry-point.
@@ -65,7 +65,7 @@ async fn main() {
     };
     log::info!("got database connection");
 
-    compat::prepare(&server, &db, &config).await;
+    startup::on_startup(&server, &db, &config).await;
 
     let controller = Controller::init(config, server, db).await;
 

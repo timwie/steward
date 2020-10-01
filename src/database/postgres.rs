@@ -257,6 +257,8 @@ impl Queries for PostgresClient {
             ON CONFLICT (uid)
             DO UPDATE SET
                 file_name = excluded.file_name,
+                file = excluded.file,
+                in_playlist = excluded.in_playlist,
                 exchange_id = COALESCE(excluded.exchange_id, steward.map.exchange_id)
         "#;
         let _ = conn
@@ -287,14 +289,14 @@ impl Queries for PostgresClient {
         self.playlist_edit(map_uid, false).await
     }
 
-    async fn nb_records(&self, map_uid: &str) -> Result<i64> {
+    async fn nb_records(&self, map_uid: &str, nb_laps: i32) -> Result<i64> {
         let conn = self.0.get().await?;
         let stmt = r#"
             SELECT COUNT(*) AS INTEGER
             FROM steward.record
-            WHERE map_uid = $1;
+            WHERE map_uid = $1 AND nb_laps = $2;
         "#;
-        let row = conn.query_one(stmt, &[&map_uid]).await?;
+        let row = conn.query_one(stmt, &[&map_uid, &nb_laps]).await?;
         Ok(row.get(0))
     }
 
@@ -302,14 +304,14 @@ impl Queries for PostgresClient {
         &self,
         map_uids: Vec<&str>,
         player_logins: Vec<&str>,
+        nb_laps: i32,
         limit_per_map: Option<i64>,
     ) -> Result<Vec<Record>> {
         let conn = self.0.get().await?;
         let stmt = r#"
             SELECT
                 r.map_uid, r.pos, r.millis, r.timestamp,
-                p.login, p.display_name,
-                s.cp_millis, s.cp_speed
+                p.login, p.display_name
             FROM (
                 SELECT
                    map_uid,
@@ -320,48 +322,26 @@ impl Queries for PostgresClient {
                       ORDER BY millis ASC
                    ) pos
                 FROM steward.record
-                WHERE CARDINALITY($1::text[]) = 0 OR map_uid = ANY($1::text[])
-                LIMIT $3
+                WHERE
+                    nb_laps = $3
+                    AND (CARDINALITY($1::text[]) = 0 OR map_uid = ANY($1::text[]))
+                LIMIT $4
             ) r
-            NATURAL JOIN (
-                SELECT
-                    map_uid,
-                    player_login,
-                    ARRAY_AGG(cp_millis ORDER BY index ASC) cp_millis,
-                    ARRAY_AGG(cp_speed ORDER BY index ASC) cp_speed
-                FROM steward.sector
-                WHERE CARDINALITY($2::text[]) = 0 OR player_login = ANY($2::text[])
-                GROUP BY map_uid, player_login
-            ) s
             INNER JOIN steward.player p ON r.player_login = p.login
         "#;
         let rows = conn
-            .query(stmt, &[&map_uids, &player_logins, &limit_per_map])
+            .query(stmt, &[&map_uids, &player_logins, &nb_laps, &limit_per_map])
             .await?;
         let records = rows
             .into_iter()
-            .map(|row| {
-                let cp_millis: Vec<i32> = row.get("cp_millis");
-                let cp_speed: Vec<f32> = row.get("cp_speed");
-                let sectors = cp_millis
-                    .into_iter()
-                    .zip(cp_speed.into_iter())
-                    .enumerate()
-                    .map(|(idx, (millis, speed))| RecordSector {
-                        index: idx as i32,
-                        cp_millis: millis,
-                        cp_speed: speed,
-                    })
-                    .collect();
-                Record {
-                    map_uid: row.get("map_uid"),
-                    map_rank: row.get("pos"),
-                    player_login: row.get("login"),
-                    player_display_name: DisplayString::from(row.get("display_name")),
-                    timestamp: row.get("timestamp"),
-                    millis: row.get("millis"),
-                    sectors,
-                }
+            .map(|row| Record {
+                map_uid: row.get("map_uid"),
+                player_login: row.get("login"),
+                nb_laps,
+                map_rank: row.get("pos"),
+                player_display_name: DisplayString::from(row.get("display_name")),
+                timestamp: row.get("timestamp"),
+                millis: row.get("millis"),
             })
             .collect();
         Ok(records)
@@ -380,7 +360,7 @@ impl Queries for PostgresClient {
     async fn maps_without_player_record(&self, player_login: &str) -> Result<Vec<String>> {
         let conn = self.0.get().await?;
         let stmt = r#"
-            SELECT m.uid
+            SELECT DISTINCT m.uid
             FROM steward.map m
             LEFT JOIN (
                 SELECT map_uid FROM steward.record WHERE player_login = $1
@@ -398,73 +378,53 @@ impl Queries for PostgresClient {
         let stmt = r#"
             SELECT COUNT(*)
             FROM steward.record r
-            WHERE map_uid = $1 AND r.player_login != $2 AND r.millis < $3
+            WHERE
+                map_uid = $1
+                AND r.nb_laps = $2
+                AND r.player_login != $3
+                AND r.millis < $4
         "#;
         let row = conn
             .query_one(
                 stmt,
-                &[&record.map_uid, &record.player_login, &record.millis],
+                &[
+                    &record.map_uid,
+                    &record.nb_laps,
+                    &record.player_login,
+                    &record.millis,
+                ],
             )
             .await?;
         Ok(1 + row.get::<usize, i64>(0))
     }
 
     async fn upsert_record(&self, rec: &RecordEvidence) -> Result<()> {
-        assert_eq!(
-            rec.millis,
-            rec.sectors.last().expect("empty sectors").cp_millis,
-            "inconsistency: run's total millis != last cp millis"
-        );
+        let conn = self.0.get().await?;
 
-        let mut conn = self.0.get().await?;
-
-        let transaction = conn.transaction().await?;
-
-        let insert_record_stmt = r#"
+        let stmt = r#"
             INSERT INTO steward.record
-                (player_login, map_uid, millis, timestamp)
+                (player_login, map_uid, nb_laps, millis, timestamp)
             VALUES
-                ($1, $2, $3, $4)
-            ON CONFLICT (player_login, map_uid)
+                ($1, $2, $3, $4, $5)
+            ON CONFLICT (player_login, map_uid, nb_laps)
             DO UPDATE SET
                 millis = excluded.millis,
                 timestamp = excluded.timestamp
         "#;
 
-        let _ = transaction
+        let _ = conn
             .execute(
-                insert_record_stmt,
-                &[&rec.player_login, &rec.map_uid, &rec.millis, &rec.timestamp],
+                stmt,
+                &[
+                    &rec.player_login,
+                    &rec.map_uid,
+                    &rec.nb_laps,
+                    &rec.millis,
+                    &rec.timestamp,
+                ],
             )
             .await?;
 
-        let insert_sector_stmt = r#"
-            INSERT INTO steward.sector
-                (player_login, map_uid, index, cp_millis, cp_speed)
-            VALUES
-                ($1, $2, $3, $4, $5)
-            ON CONFLICT (player_login, map_uid, index)
-            DO UPDATE SET
-                cp_millis = excluded.cp_millis,
-                cp_speed = excluded.cp_speed
-        "#;
-
-        for sector in &rec.sectors {
-            let _ = transaction
-                .execute(
-                    insert_sector_stmt,
-                    &[
-                        &rec.player_login,
-                        &rec.map_uid,
-                        &sector.index,
-                        &sector.cp_millis,
-                        &sector.cp_speed,
-                    ],
-                )
-                .await?;
-        }
-
-        transaction.commit().await?;
         Ok(())
     }
 
@@ -528,6 +488,7 @@ impl Queries for PostgresClient {
             FROM steward.record r
             INNER JOIN steward.player p ON r.player_login = p.login
             INNER JOIN steward.map m ON r.map_uid = m.uid
+            WHERE r.nb_laps = 0
         "#;
         let rows = conn.query(stmt, &[]).await?;
         Ok(rows
@@ -550,9 +511,6 @@ impl Queries for PostgresClient {
         let stmt = "DELETE FROM steward.preference WHERE player_login = $1";
         let _ = transaction.execute(stmt, &[&player_login]).await?;
 
-        let stmt = "DELETE FROM steward.sector WHERE player_login = $1";
-        let _ = transaction.execute(stmt, &[&player_login]).await?;
-
         let stmt = "DELETE FROM steward.record WHERE player_login = $1";
         let _ = transaction.execute(stmt, &[&player_login]).await?;
 
@@ -569,9 +527,6 @@ impl Queries for PostgresClient {
         let transaction = conn.transaction().await?;
 
         let stmt = "DELETE FROM steward.preference WHERE map_uid = $1";
-        let _ = transaction.execute(stmt, &[&map_uid]).await?;
-
-        let stmt = "DELETE FROM steward.sector WHERE map_uid = $1";
         let _ = transaction.execute(stmt, &[&map_uid]).await?;
 
         let stmt = "DELETE FROM steward.record WHERE map_uid = $1";

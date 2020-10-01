@@ -1,11 +1,5 @@
 -- added by 0.1.0
 
--- There is a possible inconsistency between the 'record' and 'sector' tables,
--- where the last sector's 'millis' is not equal to 'record.millis', which must be true,
--- since the time at the finish line must be equal to the overall record time.
--- We put up with that, because it simplifies record queries, and because it is an
--- unlikely mistake, since that data is produced by the game itself.
-
 CREATE TABLE steward.player (
     login        TEXT,
     display_name TEXT    NOT NULL,
@@ -60,25 +54,13 @@ CREATE TABLE steward.record (
     map_uid       TEXT,
     millis        INTEGER   NOT NULL,
     timestamp     TIMESTAMP NOT NULL,
+    nb_laps       INTEGER   NOT NULL, -- use '0' if not multi-lap or for flying laps
 
-    PRIMARY KEY (player_login, map_uid),
+    PRIMARY KEY (player_login, map_uid, nb_laps),
     FOREIGN KEY (player_login) REFERENCES steward.player (login),
-    FOREIGN KEY (map_uid)      REFERENCES steward.map (uid)
-);
+    FOREIGN KEY (map_uid)      REFERENCES steward.map (uid),
 
-CREATE TABLE steward.sector (
-    player_login  TEXT,
-    map_uid       TEXT,
-    index         INTEGER NOT NULL, -- first checkpoint has index 0; finish is at the last index
-    cp_millis     INTEGER NOT NULL, -- total millis at time of crossing checkpoint
-    cp_speed      REAL    NOT NULL, -- speed in km/h at time of crossing checkpoint
-
-    PRIMARY KEY (player_login, map_uid, index),
-    FOREIGN KEY (player_login, map_uid) REFERENCES steward.record (player_login, map_uid),
-
-    CONSTRAINT index_positive    check (index >= 0),
-    CONSTRAINT millis_positive   check (cp_millis > 0),
-    CONSTRAINT speed_positive    check (cp_speed > 0)
+    CONSTRAINT nb_laps_positive CHECK (nb_laps >= 0)
 );
 
 UPDATE steward.meta SET at_migration = 1;

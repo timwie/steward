@@ -25,16 +25,21 @@ use steward::server::{DisplayString, PlayerInfo, TeamId};
 //     => assert with .map, .maps, .map_files, .playlist
 // [ ] playlist_add
 // [ ] playlist_remove
-// [x] nb_records
+// [ ] nb_records
+//     - test with different numbers of laps
 // [ ] top_record
 // [ ] top_records
 // [ ] player_record
+//     - test with different numbers of laps
 // [ ] records
 //     - test with limit
+//     - test with different numbers of laps
 // [ ] nb_players_with_record
 // [x] maps_without_player_record
-// [x] record_preview
-// [x] upsert_record
+// [ ] record_preview
+//     - test with different numbers of laps
+// [ ] upsert_record
+//     - test with different numbers of laps
 // [ ] player_preferences
 // [ ] count_map_preferences
 // [ ] upsert_preference
@@ -118,11 +123,11 @@ async fn test_player_update() -> Result<()> {
 #[tokio::test]
 async fn test_nb_records_zero() -> Result<()> {
     let db = clean_db().await?;
-    assert_eq!(0, db.nb_records("uid1").await?);
+    assert_eq!(0, db.nb_records("uid1", 0).await?);
 
     let map = map_evidence("uid1", "file1");
     db.upsert_map(&map).await?;
-    assert_eq!(0, db.nb_records("uid1").await?);
+    assert_eq!(0, db.nb_records("uid1", 0).await?);
 
     Ok(())
 }
@@ -138,7 +143,7 @@ async fn test_nb_records_one() -> Result<()> {
     db.upsert_map(&map).await?;
     db.upsert_record(&rec).await?;
 
-    assert_eq!(1, db.nb_records("uid1").await?);
+    assert_eq!(1, db.nb_records("uid1", 0).await?);
 
     Ok(())
 }
@@ -162,8 +167,8 @@ async fn test_nb_records_multiple_maps() -> Result<()> {
     db.upsert_record(&rec12).await?;
     db.upsert_record(&rec21).await?;
 
-    assert_eq!(2, db.nb_records("uid1").await?);
-    assert_eq!(1, db.nb_records("uid2").await?);
+    assert_eq!(2, db.nb_records("uid1", 0).await?);
+    assert_eq!(1, db.nb_records("uid2", 0).await?);
 
     Ok(())
 }
@@ -181,7 +186,7 @@ async fn test_nb_records_one_per_player() -> Result<()> {
     db.upsert_record(&rec1).await?;
     db.upsert_record(&rec2).await?;
 
-    assert_eq!(1, db.nb_records("uid1").await?);
+    assert_eq!(1, db.nb_records("uid1", 0).await?);
 
     Ok(())
 }
@@ -200,7 +205,7 @@ async fn test_player_record_some() -> Result<()> {
     let expected = record(1, "nickname", rec);
     let expected = Some(expected);
 
-    let actual = db.player_record("uid1", "login").await?;
+    let actual = db.player_record("uid1", "login", 0).await?;
     assert_eq!(expected, actual);
 
     Ok(())
@@ -220,7 +225,7 @@ async fn test_records_single() -> Result<()> {
     let expected = record(1, "nickname", rec);
     let expected = vec![expected];
 
-    let actual = db.records(vec!["uid1"], vec!["login"], None).await?;
+    let actual = db.records(vec!["uid1"], vec!["login"], 0, None).await?;
     assert_eq!(expected, actual);
 
     Ok(())
@@ -246,7 +251,7 @@ async fn test_records_multiple_players() -> Result<()> {
     let expected = vec![expected1, expected2];
 
     let actual = db
-        .records(vec!["uid1"], vec!["login1", "login2"], None)
+        .records(vec!["uid1"], vec!["login1", "login2"], 0, None)
         .await?;
     assert_eq!(expected, actual);
 
@@ -274,7 +279,7 @@ async fn test_records_multiple_maps() -> Result<()> {
     let expected = vec![expected];
 
     let actual = db
-        .records(vec!["uid1"], vec!["login1", "login2"], None)
+        .records(vec!["uid1"], vec!["login1", "login2"], 0, None)
         .await?;
     assert_eq!(expected, actual);
 
@@ -580,13 +585,7 @@ fn record_evidence(login: &str, map_uid: &str, millis: i32) -> RecordEvidence {
         map_uid: map_uid.to_string(),
         millis,
         timestamp: now(),
-        sectors: (0..5)
-            .map(|i| RecordSector {
-                cp_index: i,
-                cp_millis: (i + 1) * (millis / 5),
-                cp_speed: 420.1337,
-            })
-            .collect(),
+        nb_laps: 0,
     }
 }
 
@@ -598,7 +597,7 @@ fn record(pos: i64, display_name: &str, ev: RecordEvidence) -> Record {
         player_display_name: DisplayString::from(display_name.to_string()),
         millis: ev.millis,
         timestamp: ev.timestamp,
-        sectors: ev.sectors,
+        nb_laps: 0,
     }
 }
 

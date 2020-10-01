@@ -44,8 +44,13 @@ pub trait Queries: Send + Sync {
     /// Return the specified map, or `None` if no such map exists in the database.
     async fn map(&self, map_uid: &str) -> Result<Option<Map>>;
 
-    /// Insert the map and add it to the playlist if it does not already
-    /// exist in the database. Update its file path & exchange ID otherwise.
+    /// Insert a map into the database.
+    ///
+    /// If the given map already exists in the database, update
+    ///  - its file
+    ///  - its file path
+    ///  - whether it is in the playlist
+    ///  - its exchange ID.
     async fn upsert_map(&self, map: &MapEvidence) -> Result<()>;
 
     /// Add the specified map to the playlist, and return it,
@@ -56,47 +61,69 @@ pub trait Queries: Send + Sync {
     /// or `None` if there is no map with that UID.
     async fn playlist_remove(&self, map_uid: &str) -> Result<Option<Map>>;
 
-    /// Return the number of players that have set a record on the specified map.
-    async fn nb_records(&self, map_uid: &str) -> Result<i64>;
+    /// Return the number of players that have set a record on the specified map,
+    /// with the specified lap count.
+    ///
+    /// Use `nb_laps = 0` if the map is not multi-lap, or to count flying lap records.
+    async fn nb_records(&self, map_uid: &str, nb_laps: i32) -> Result<i64>;
 
     /// Return the top record set by any player on the specified map,
-    /// or `None` if no player has completed a run on that map.
-    async fn top_record(&self, map_uid: &str) -> Result<Option<Record>> {
+    /// with the specified lap count, or `None` if no player has completed such a
+    /// run on that map.
+    ///
+    /// Use `nb_laps = 0` if the map is not multi-lap, or to get the top flying lap records.
+    async fn top_record(&self, map_uid: &str, nb_laps: i32) -> Result<Option<Record>> {
         Ok(self
-            .records(vec![map_uid], vec![], Some(1))
+            .records(vec![map_uid], vec![], nb_laps, Some(1))
             .await?
             .into_iter()
             .next())
     }
 
     /// Return limited number of top records on the specified map,
-    /// sorted from best to worse.
-    async fn top_records(&self, map_uid: &str, limit: i64) -> Result<Vec<Record>> {
-        Ok(self.records(vec![map_uid], vec![], Some(limit)).await?)
+    /// with the specified lap count, sorted from best to worse.
+    ///
+    /// Use `nb_laps = 0` if the map is not multi-lap, or to get flying lap records.
+    async fn top_records(&self, map_uid: &str, limit: i64, nb_laps: i32) -> Result<Vec<Record>> {
+        Ok(self
+            .records(vec![map_uid], vec![], nb_laps, Some(limit))
+            .await?)
     }
 
     /// Return the personal best of the specified player on the specified map,
-    /// or `None` if the player has not completed a run on that map.
-    async fn player_record(&self, map_uid: &str, player_login: &str) -> Result<Option<Record>> {
+    /// with the specified lap count, or `None` if the player has not completed such a
+    /// run on that map.
+    ///
+    /// Use `nb_laps = 0` if the map is not multi-lap, or to get the player's flying lap PB.
+    async fn player_record(
+        &self,
+        map_uid: &str,
+        player_login: &str,
+        nb_laps: i32,
+    ) -> Result<Option<Record>> {
         Ok(self
-            .records(vec![map_uid], vec![player_login], None)
+            .records(vec![map_uid], vec![player_login], nb_laps, None)
             .await?
             .into_iter()
             .next())
     }
 
-    /// Return records on the specified maps, set by the specified players.
+    /// Return records on the specified maps, set by the specified players, with the specified
+    /// amount of laps.
     ///
     /// # Arguments
     /// `map_uids` - A list of map UIDs to return records for. Use an empty list to select
     ///              records for all maps.
     /// `player_logins` - A list of player logins to return records for. Use an empty list to
     ///                   select records set by any player.
+    /// `nb_laps` - The number of required laps. Use `0` if the map is not multi-lap,
+    ///             or to get flying lap records.
     /// `limit_per_map` - The maximum number of records returned for each specified map.
     async fn records(
         &self,
         map_uids: Vec<&str>,
         player_logins: Vec<&str>,
+        nb_laps: i32,
         limit_per_map: Option<i64>,
     ) -> Result<Vec<Record>>;
 
@@ -128,8 +155,10 @@ pub trait Queries: Send + Sync {
 
     /// Calculate the map rank of *every* player.
     ///
+    /// For multi-lap maps, the best map rank will have the best flying lap.
+    ///
     /// # Note
-    /// The length of this collection is equal to the total number of records
+    /// The length of this collection is equal to the total number of `nb_laps == 0` records
     /// stored in the database. This function should only be used when calculating
     /// the server ranking.
     async fn map_rankings(&self) -> Result<Vec<MapRank>>;
@@ -205,7 +234,7 @@ pub mod test {
                 map_uid: uid.to_string(),
                 millis,
                 timestamp: Utc::now().naive_utc(),
-                sectors: vec![],
+                nb_laps: 0,
             });
         }
 
@@ -290,7 +319,7 @@ pub mod test {
             unimplemented!()
         }
 
-        async fn nb_records(&self, _map_uid: &str) -> Result<i64> {
+        async fn nb_records(&self, _map_uid: &str, _nb_laps: i32) -> Result<i64> {
             unimplemented!()
         }
 
@@ -298,6 +327,7 @@ pub mod test {
             &self,
             _map_uids: Vec<&str>,
             _player_logins: Vec<&str>,
+            _nb_laps: i32,
             _limit_per_map: Option<i64>,
         ) -> Result<Vec<Record>> {
             unimplemented!()

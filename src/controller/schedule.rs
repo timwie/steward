@@ -57,7 +57,7 @@ impl ScheduleController {
         let playlist_state = live_playlist.lock().await;
         let reference_millis = join_all(playlist_state.maps.iter().map(|map| async move {
             let top1 = db
-                .top_record(&map.uid)
+                .top_record(&map.uid, 0)
                 .await
                 .expect("failed to load top record");
             top1.map(|rec| rec.millis).unwrap_or(map.author_millis) as u64
@@ -129,7 +129,7 @@ impl ScheduleController {
             PlaylistDiff::Append(map) => {
                 let top1 = self
                     .db
-                    .top_record(&map.uid)
+                    .top_record(&map.uid, 0)
                     .await
                     .expect("failed to load top record");
                 let millis = top1.map(|rec| rec.millis).unwrap_or(map.author_millis) as u64;

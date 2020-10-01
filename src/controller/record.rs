@@ -8,7 +8,7 @@ use tokio::sync::{RwLock, RwLockReadGuard};
 
 use crate::constants::MAX_DISPLAYED_MAP_RANKS;
 use crate::controller::{LivePlayers, LivePlaylist};
-use crate::database::{Database, Map, Record, RecordEvidence, RecordSector};
+use crate::database::{Database, Map, Record, RecordEvidence};
 use crate::event::{PbDiff, PlayerDiff, PlayerTransition};
 use crate::server::{CheckpointEvent, PlayerInfo, Server};
 
@@ -35,9 +35,6 @@ pub struct RecordsState {
 
     /// Maps player UID to their personal best on the current map.
     pbs: HashMap<i32, Record>,
-
-    /// Maps player UID to the recorded sector data in their current run.
-    run_sectors: HashMap<i32, Vec<RecordSector>>,
 }
 
 impl RecordsState {
@@ -47,7 +44,6 @@ impl RecordsState {
             top_record: None,
             top_records: vec![],
             pbs: HashMap::new(),
-            run_sectors: HashMap::new(),
         }
     }
 
@@ -178,16 +174,20 @@ impl RecordController {
             RemovePlayer | RemoveSpectator | RemovePureSpectator => {
                 let mut records_state = self.state.write().await;
                 records_state.pbs.remove(&diff.info.uid);
-                records_state.run_sectors.remove(&diff.info.uid);
             }
             _ => {}
         }
     }
 
     async fn load_for_player(&self, map_uid: &str, info: &PlayerInfo) {
+        // TODO support multi-lap records
+        //  => load all 0 lap records
+        //  => check if there are multiple laps in the current mode,
+        //     and if so, fetch all records matching that lap count as well
+
         let pb = self
             .db
-            .player_record(&map_uid, &info.login)
+            .player_record(&map_uid, &info.login, 0)
             .await
             .expect("failed to load player PB");
         if let Some(pb) = pb {
@@ -198,26 +198,30 @@ impl RecordController {
 
     /// Load a map's top records, and records of connected players.
     pub async fn load_for_map(&self, loaded_map: &Map) {
+        // TODO support multi-lap records
+        //  => load all 0 lap records
+        //  => check if there are multiple laps in the current mode,
+        //     and if so, fetch all records matching that lap count as well
+
         let nb_records = self
             .db
-            .nb_records(&loaded_map.uid)
+            .nb_records(&loaded_map.uid, 0)
             .await
             .expect("failed to load number of map records") as usize;
 
         let top1 = self
             .db
-            .top_record(&loaded_map.uid)
+            .top_record(&loaded_map.uid, 0)
             .await
             .expect("failed to load map's top1 record");
 
         let top_records = self
             .db
-            .top_records(&loaded_map.uid, MAX_DISPLAYED_MAP_RANKS as i64)
+            .top_records(&loaded_map.uid, MAX_DISPLAYED_MAP_RANKS as i64, 0)
             .await
             .expect("failed to load map records");
 
         let mut records_state = self.state.write().await;
-        records_state.run_sectors.clear();
         records_state.top_record = top1;
         records_state.top_records = top_records;
         records_state.nb_records = nb_records;
@@ -229,9 +233,10 @@ impl RecordController {
             .iter()
             .map(|info| info.login.as_str())
             .collect();
+
         let pbs = self
             .db
-            .records(vec![&loaded_map.uid], all_logins, None)
+            .records(vec![&loaded_map.uid], all_logins, 0, None)
             .await
             .expect("failed to load player PBs");
 
@@ -242,29 +247,18 @@ impl RecordController {
         }
     }
 
-    /// Add new sector data for a player's current run.
-    pub async fn update_run(&self, ev: &CheckpointEvent) {
-        if let Some(player_info) = self.live_players.info(&ev.player_login).await {
-            let mut records_state = self.state.write().await;
-            records_state
-                .run_sectors
-                .entry(player_info.uid)
-                .or_insert_with(Vec::new)
-                .push(RecordSector {
-                    index: ev.race_cp_index,
-                    cp_millis: ev.race_time_millis,
-                    cp_speed: ev.speed.abs(), // driving backwards gives negative speed
-                });
-        }
-    }
-
-    /// Produce a record from the collected sector data at the end of a run.
+    /// Produce a record at the end of a run.
     /// If that run is the player's new personal best, update the map records.
     ///
     /// The cached personal best for this player will be updated,
     /// and if it is a top n record, that cached list will also be
     /// updated.
     pub async fn end_run(&self, finish_ev: &CheckpointEvent) -> Option<PbDiff> {
+        // TODO support multi-lap records
+        //  => for every finished lap, create a 0 lap record
+        //  => check if there are multiple laps in the current mode,
+        //     and if so, create records for the full amount of laps as well
+
         assert!(finish_ev.is_finish);
 
         let player = match self.live_players.info(&finish_ev.player_login).await {
@@ -295,17 +289,12 @@ impl RecordController {
             });
         }
 
-        let sectors = records_state
-            .run_sectors
-            .remove(&player.uid)
-            .expect("no sector data");
-
         let evidence = RecordEvidence {
             player_login: player.login.clone(),
             map_uid,
             millis: finish_ev.race_time_millis,
             timestamp: Utc::now().naive_utc(),
-            sectors,
+            nb_laps: 0,
         };
 
         // We already know the rank of the new record if it is better
@@ -333,7 +322,7 @@ impl RecordController {
             player_display_name: player.display_name.clone(),
             timestamp: evidence.timestamp,
             millis: evidence.millis,
-            sectors: evidence.sectors,
+            nb_laps: evidence.nb_laps,
         };
 
         // Remember record in the cache.
@@ -353,15 +342,6 @@ impl RecordController {
             pos_gained,
             new_record: Some(record),
         })
-    }
-
-    /// Discard all data stored for a player's current run when they
-    /// respawn.
-    pub async fn reset_run(&self, player_login: &str) {
-        if let Some(player_uid) = self.live_players.uid(player_login).await {
-            let mut records_state = self.state.write().await;
-            records_state.run_sectors.remove(&player_uid);
-        }
     }
 }
 

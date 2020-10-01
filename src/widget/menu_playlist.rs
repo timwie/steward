@@ -39,11 +39,11 @@ pub struct PlaylistWidgetEntry<'a> {
     /// The player's preference for the map at this entry.
     pub preference: ActivePreferenceValue,
 
-    /// The number of players that have completed a run
+    /// The number of players that have completed a run or lap
     /// on this map.
     pub nb_records: usize,
 
-    /// The ranking of this player's personal best run
+    /// The ranking of this player's personal best run or lap
     /// within the ranking of records. Within `1..nb_records`.
     pub map_rank: Option<usize>,
 

@@ -622,12 +622,12 @@ impl WidgetController {
             let history = prefs.history(for_player.uid, &map.uid);
             let nb_records = self
                 .db
-                .nb_records(&map.uid)
+                .nb_records(&map.uid, 0)
                 .await
                 .expect("failed to load number of records") as usize;
             let map_rank = self
                 .db
-                .player_record(&map.uid, &for_player.login)
+                .player_record(&map.uid, &for_player.login, 0)
                 .await
                 .expect("failed to load player PB")
                 .map(|rec| rec.map_rank as usize);
