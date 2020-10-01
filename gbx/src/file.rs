@@ -17,7 +17,7 @@ pub struct MapFileHeader {
     pub millis_silver: i32,
     pub millis_gold: i32,
     pub millis_author: i32,
-    pub is_multilap: bool,
+    pub nb_laps: Option<i32>,
     pub author_login: String,
     pub author_display_name: DisplayString,
 }
@@ -189,7 +189,7 @@ pub fn parse_map_file<P: AsRef<Path>>(path: P) -> anyhow::Result<MapFileHeader> 
     // === "Info" chunk ===
 
     move_to_chunk!(ChunkName::Info);
-    let chunk_version = read_i32!();
+    let chunk_version = read_i8!();
     ensure!(chunk_version >= 13, "Info chunk version < 13");
 
     let _ = read_bytes!(4); // skip bool 0
@@ -199,7 +199,7 @@ pub fn parse_map_file<P: AsRef<Path>>(path: P) -> anyhow::Result<MapFileHeader> 
     let millis_gold = read_i32!();
     let millis_author = read_i32!();
     let _cost = read_i32!();
-    let is_multilap = match read_i32!() {
+    let is_multi_lap = match read_i32!() {
         0 => false,
         _ => true,
     };
@@ -207,12 +207,13 @@ pub fn parse_map_file<P: AsRef<Path>>(path: P) -> anyhow::Result<MapFileHeader> 
 
     let _ = read_bytes!(4); // skip int32 0
 
+    let _author_score = read_i32!();
     let _editor_mode = read_i32!();
 
     let _ = read_bytes!(4); // skip bool 0
 
     let _nb_cps = read_i32!();
-    let _nb_laps = read_i32!();
+    let nb_laps = Some(read_i32!()).filter(|_| is_multi_lap);
 
     // === "String" chunk ===
 
@@ -267,7 +268,7 @@ pub fn parse_map_file<P: AsRef<Path>>(path: P) -> anyhow::Result<MapFileHeader> 
         millis_silver,
         millis_gold,
         millis_author,
-        is_multilap,
+        nb_laps,
         author_login,
         author_display_name,
     })
