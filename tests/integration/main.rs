@@ -1,5 +1,4 @@
 use std::ops::Sub;
-use std::sync::Arc;
 
 use anyhow::Result;
 use chrono::{Duration, NaiveDateTime, SubsecRound, Utc};
@@ -48,7 +47,7 @@ use steward::server::{DisplayString, PlayerInfo, TeamId};
 // [ ] delete_map
 
 /// Spins up a Postgres database in a Docker container.
-async fn clean_db() -> Result<Arc<dyn Database>> {
+async fn clean_db() -> Result<DatabaseClient> {
     let docker = clients::Cli::default();
 
     let db = "postgres-db-test";
@@ -76,14 +75,11 @@ async fn clean_db() -> Result<Arc<dyn Database>> {
     let client = pg_connect(&pg_conn_str, std::time::Duration::from_secs(5))
         .await
         .expect("postgres not running");
-    let arc = Arc::new(client.clone()) as Arc<dyn Database>;
 
-    let conn = client.0.get().await?;
-    conn.execute("DROP SCHEMA IF EXISTS steward CASCADE", &[])
-        .await?;
+    client.clear().await?;
     client.migrate().await?;
 
-    Ok(arc)
+    Ok(client)
 }
 
 #[tokio::test]

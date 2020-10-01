@@ -51,6 +51,14 @@ impl DatabaseClient {
         }
     }
 
+    #[cfg(feature = "integration_test")]
+    pub async fn clear(&self) -> Result<()> {
+        let conn = self.conn().await?;
+        let _ = conn.execute("DROP SCHEMA IF EXISTS steward CASCADE", &[])
+            .await?;
+        Ok(())
+    }
+
     /// Check for pending database migrations and execute them.
     pub async fn migrate(&self) -> Result<()> {
         // Include all migration statements at compile-time:
