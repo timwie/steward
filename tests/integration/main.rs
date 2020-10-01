@@ -6,7 +6,7 @@ use chrono::{Duration, NaiveDateTime, SubsecRound, Utc};
 use testcontainers::*;
 
 use steward::database::*;
-use steward::server::{DisplayString, PlayerInfo};
+use steward::server::{DisplayString, PlayerInfo, TeamId};
 
 // TODO add database tests
 // [x] migrate
@@ -553,7 +553,7 @@ fn player_info(login: &str, display_name: &str) -> PlayerInfo {
         display_name: DisplayString::from(display_name.to_string()),
         flag_digit_mask: 101_000_000,
         spectator_digit_mask: 2_551_010,
-        team_id: 0,
+        team_id: Some(TeamId::Blue),
     }
 }
 
@@ -582,7 +582,7 @@ fn record_evidence(login: &str, map_uid: &str, millis: i32) -> RecordEvidence {
         timestamp: now(),
         sectors: (0..5)
             .map(|i| RecordSector {
-                index: i,
+                cp_index: i,
                 cp_millis: (i + 1) * (millis / 5),
                 cp_speed: 420.1337,
             })
