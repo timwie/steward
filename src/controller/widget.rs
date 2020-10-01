@@ -11,7 +11,7 @@ use crate::constants::{
 use crate::controller::*;
 use crate::database::{DatabaseClient, PreferenceValue};
 use crate::event::*;
-use crate::server::{Fault, PlayerInfo, Server};
+use crate::server::{Calls, Fault, PlayerInfo, Server};
 use crate::widget::*;
 
 /// This controller collects cached & event data,
@@ -19,7 +19,7 @@ use crate::widget::*;
 #[derive(Clone)]
 pub struct WidgetController {
     state: Arc<RwLock<WidgetState>>,
-    server: Arc<dyn Server>,
+    server: Server,
     db: DatabaseClient,
     live_config: Arc<dyn LiveConfig>,
     live_playlist: Arc<dyn LivePlaylist>,
@@ -43,7 +43,7 @@ enum WidgetState {
 impl WidgetController {
     #[allow(clippy::too_many_arguments)]
     pub async fn init(
-        server: &Arc<dyn Server>,
+        server: &Server,
         db: &DatabaseClient,
         live_config: &Arc<dyn LiveConfig>,
         live_playlist: &Arc<dyn LivePlaylist>,

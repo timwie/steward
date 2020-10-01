@@ -37,7 +37,7 @@ use crate::xml::Value;
 ///
 /// # Panics
 /// Panics if the composition fails.
-pub fn to_value<T>(t: T) -> Value
+pub(in crate) fn to_value<T>(t: T) -> Value
 where
     T: serde::ser::Serialize,
     T: std::fmt::Debug,
@@ -47,7 +47,7 @@ where
 }
 
 #[derive(Debug)]
-pub struct Error(String);
+pub(in crate) struct Error(String);
 
 impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -249,7 +249,7 @@ impl serde::Serializer for ValueSerializer {
 }
 
 #[doc(hidden)]
-pub struct SerializeVec {
+pub(in crate) struct SerializeVec {
     vec: Vec<Value>,
 }
 
@@ -319,7 +319,7 @@ impl serde::ser::SerializeTupleVariant for SerializeVec {
 }
 
 #[doc(hidden)]
-pub struct SerializeMap {
+pub(in crate) struct SerializeMap {
     map: BTreeMap<String, Value>,
     next_key: Option<String>,
 }

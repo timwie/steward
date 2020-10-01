@@ -1,11 +1,11 @@
 use std::collections::BTreeMap;
 use std::convert::TryFrom;
 
-pub use from_string::{read_method_call, read_method_response};
-pub use from_value::{from_value, FromValueError};
+pub(in crate) use from_string::*;
+pub(in crate) use from_value::*;
 pub use to_string::base64_encode;
-pub use to_string::write_method_call;
-pub use to_value::to_value;
+pub(in crate) use to_string::*;
+pub(in crate) use to_value::*;
 
 mod from_string;
 mod from_value;
@@ -14,13 +14,13 @@ mod to_value;
 
 /// An XML-RPC method call (`<methodCall>`).
 #[derive(Clone, Debug, PartialEq)]
-pub struct Call {
+pub(in crate) struct Call {
     pub name: String,
     pub args: Vec<Value>,
 }
 
 /// An XML-RPC method response (`<methodResponse>`).
-pub type Response = Result<Value, Fault>;
+pub(in crate) type Response = Result<Value, Fault>;
 
 /// An XML-RPC fault (`<fault>`).
 ///
@@ -36,7 +36,7 @@ pub struct Fault {
 
 /// An XML-RPC value.
 #[derive(Clone, Debug, PartialEq)]
-pub enum Value {
+pub(in crate) enum Value {
     /// A 32-bit signed integer (`<i4>`).
     Int(i32),
 

@@ -10,7 +10,7 @@ use crate::constants::MAX_DISPLAYED_MAP_RANKS;
 use crate::controller::{LivePlayers, LivePlaylist};
 use crate::database::{DatabaseClient, Map, Record, RecordEvidence};
 use crate::event::{PbDiff, PlayerDiff, PlayerTransition};
-use crate::server::{CheckpointEvent, PlayerInfo, Server};
+use crate::server::{CheckpointEvent, PlayerInfo};
 
 /// Shared component that allows to look up records
 /// of the current map.
@@ -119,7 +119,6 @@ impl RecordsState {
 
 #[derive(Clone)]
 pub struct RecordController {
-    server: Arc<dyn Server>,
     db: DatabaseClient,
     live_playlist: Arc<dyn LivePlaylist>,
     live_players: Arc<dyn LivePlayers>,
@@ -128,13 +127,11 @@ pub struct RecordController {
 
 impl RecordController {
     pub async fn init(
-        server: &Arc<dyn Server>,
         db: &DatabaseClient,
         live_playlist: &Arc<dyn LivePlaylist>,
         live_players: &Arc<dyn LivePlayers>,
     ) -> Self {
         let controller = RecordController {
-            server: server.clone(),
             db: db.clone(),
             live_playlist: live_playlist.clone(),
             live_players: live_players.clone(),

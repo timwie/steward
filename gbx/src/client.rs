@@ -406,36 +406,34 @@ pub struct RpcConnection {
     pub msg_handle: TaskHandle<()>,
 }
 
-impl RpcConnection {
-    /// Try to connect to the game server.
-    ///
-    /// # Panics
-    /// - when the given socket address is invalid
-    /// - when failing to clone the TCP stream handle
-    pub async fn new(addr: &str) -> Option<RpcConnection> {
-        let tcp_stream = match tcp_connect(&addr) {
-            Ok(stream) => stream,
-            Err(err) => {
-                log::debug!("cannot connect: {}", err);
-                return None;
-            }
-        };
-        let (msg_out, msg_in) = unbounded_channel();
-        let (cb_out, cb_in) = unbounded_channel();
+/// Try to connect to the game server.
+///
+/// # Panics
+/// - when the given socket address is invalid
+/// - when failing to clone the TCP stream handle
+pub async fn dedi_connect(addr: &str) -> Option<RpcConnection> {
+    let tcp_stream = match tcp_connect(&addr) {
+        Ok(stream) => stream,
+        Err(err) => {
+            log::debug!("cannot connect: {}", err);
+            return None;
+        }
+    };
+    let (msg_out, msg_in) = unbounded_channel();
+    let (cb_out, cb_in) = unbounded_channel();
 
-        let tcp_write_stream = tcp_stream;
-        let tcp_read_stream = tcp_write_stream
-            .try_clone()
-            .expect("failed to clone handle on TCP stream");
+    let tcp_write_stream = tcp_stream;
+    let tcp_read_stream = tcp_write_stream
+        .try_clone()
+        .expect("failed to clone handle on TCP stream");
 
-        let msg_from_server = msg_out;
-        let msg_from_controller = msg_from_server.clone();
+    let msg_from_server = msg_out;
+    let msg_from_controller = msg_from_server.clone();
 
-        Some(RpcConnection {
-            client: RpcClient::new(tcp_write_stream, msg_from_controller),
-            callbacks: cb_in,
-            tcp_handle: tcp_loop(tcp_read_stream, msg_from_server),
-            msg_handle: msg_loop(msg_in, cb_out),
-        })
-    }
+    Some(RpcConnection {
+        client: RpcClient::new(tcp_write_stream, msg_from_controller),
+        callbacks: cb_in,
+        tcp_handle: tcp_loop(tcp_read_stream, msg_from_server),
+        msg_handle: msg_loop(msg_in, cb_out),
+    })
 }

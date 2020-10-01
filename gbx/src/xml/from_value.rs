@@ -34,7 +34,7 @@ use crate::xml::Value;
 /// - struct instances can be built from `Value::Struct`
 /// - vectors are built from `Value::Array`
 /// - primitive types are lifted out of the remaining `Value` variants.
-pub fn from_value<T>(value: Value) -> Result<T, FromValueError>
+pub(in crate) fn from_value<T>(value: Value) -> Result<T, FromValueError>
 where
     T: serde::de::DeserializeOwned,
 {
@@ -48,7 +48,7 @@ where
 }
 
 #[derive(Debug)]
-pub struct FromValueError {
+pub(in crate) struct FromValueError {
     pub input: Value,
     pub error_msg: String,
 }

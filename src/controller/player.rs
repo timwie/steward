@@ -6,7 +6,7 @@ use tokio::sync::{RwLock, RwLockReadGuard};
 
 use crate::database::DatabaseClient;
 use crate::event::{PlayerDiff, PlayerTransition};
-use crate::server::{DisplayString, PlayerInfo, PlayerSlot, Server};
+use crate::server::{Calls, DisplayString, PlayerInfo, PlayerSlot, Server};
 
 /// Use to lookup information of connected players.
 #[async_trait]
@@ -165,7 +165,7 @@ pub struct PlayerController {
 }
 
 impl PlayerController {
-    pub async fn init(server: &Arc<dyn Server>, db: &DatabaseClient) -> Self {
+    pub async fn init(server: &Server, db: &DatabaseClient) -> Self {
         let controller = PlayerController {
             state: Arc::new(RwLock::new(PlayersState::init())),
             db: db.clone(),

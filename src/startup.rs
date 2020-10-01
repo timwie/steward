@@ -3,7 +3,6 @@ use std::fs;
 use std::fs::File;
 use std::io::Read;
 use std::path::PathBuf;
-use std::sync::Arc;
 
 use chrono::Utc;
 
@@ -13,10 +12,12 @@ use crate::config::Config;
 use crate::constants::{BLACKLIST_FILE, VERSION};
 use crate::database::{DatabaseClient, Map, MapEvidence};
 use crate::network::exchange_id;
-use crate::server::{Server, ServerInfo, ServerOptions, SCRIPT_API_VERSION, SERVER_API_VERSION};
+use crate::server::{
+    Calls, Server, ServerInfo, ServerOptions, SCRIPT_API_VERSION, SERVER_API_VERSION,
+};
 
 /// Runs everything that needs to run at startup.
-pub async fn on_startup(server: &Arc<dyn Server>, db: &DatabaseClient, config: &Config) {
+pub async fn on_startup(server: &Server, db: &DatabaseClient, config: &Config) {
     log::debug!("using Steward version '{}'", VERSION.to_string());
     log::debug!("using server API version '{}'", SERVER_API_VERSION);
     log::debug!("using script API version '{}'", SCRIPT_API_VERSION);
@@ -54,7 +55,7 @@ pub async fn on_startup(server: &Arc<dyn Server>, db: &DatabaseClient, config: &
 }
 
 /// Make sure that we can make server calls, and receive server callbacks.
-async fn prepare_rpc(server: &Arc<dyn Server>, config: &Config) {
+async fn prepare_rpc(server: &Server, config: &Config) {
     server
         .authenticate(&config.rpc_login, &config.rpc_password)
         .await;
@@ -101,7 +102,7 @@ fn check_server_compat(info: ServerInfo) {
 }
 
 /// Load the blacklist file, or create it if it doesn't exist yet.
-async fn load_blacklist(server: &Arc<dyn Server>) {
+async fn load_blacklist(server: &Server) {
     let blacklist_file = server
         .user_data_dir()
         .await
@@ -143,7 +144,7 @@ async fn load_blacklist(server: &Arc<dyn Server>) {
 /// This function requires that the controller has access to the server's filesystem,
 /// which must be ensured when running them in containers. If map files cannot be read,
 /// this function panics.
-async fn prepare_maps(server: &Arc<dyn Server>, db: &DatabaseClient) {
+async fn prepare_maps(server: &Server, db: &DatabaseClient) {
     check_maps(server, db).await;
     check_deleted_maps(server, db).await;
 }
@@ -154,7 +155,7 @@ async fn prepare_maps(server: &Arc<dyn Server>, db: &DatabaseClient) {
 /// updated in case it changed.
 ///
 /// For new maps, we will also try to find their IDs on Trackmania Exchange.
-async fn check_maps(server: &Arc<dyn Server>, db: &DatabaseClient) {
+async fn check_maps(server: &Server, db: &DatabaseClient) {
     let maps_dir = server.user_data_dir().await.join("Maps");
 
     let map_files = map_files_in(&maps_dir);
@@ -255,7 +256,7 @@ async fn add_db_map(db: &DatabaseClient, map_file: &PathBuf, map_file_name: &str
 /// restore their file, but remove them from the playlist.
 ///
 /// Panics if the file could not be written.
-async fn check_deleted_maps(server: &Arc<dyn Server>, db: &DatabaseClient) {
+async fn check_deleted_maps(server: &Server, db: &DatabaseClient) {
     let maps_dir = server.user_data_dir().await.join("Maps");
 
     let restorable_maps = db.map_files().await.expect("failed to fetch db maps");

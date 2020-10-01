@@ -1,8 +1,7 @@
 use chrono::{NaiveDateTime, Utc};
 use serde::Serializer;
 
-use gbx::DisplayString;
-
+use crate::server::DisplayString;
 use crate::widget::QueueEntryAnnotation;
 
 /// Remove formatting to make a text more narrow.

@@ -7,7 +7,7 @@ use tokio::sync::{RwLock, RwLockReadGuard};
 
 use crate::config::{Config, PublicConfig};
 use crate::event::ConfigDiff;
-use crate::server::{ModeOptions, Server};
+use crate::server::{Calls, ModeOptions, Server};
 
 /// Use to look up controller and server configs.
 #[async_trait]
@@ -45,11 +45,11 @@ pub trait LiveConfig: Send + Sync {
 #[derive(Clone)]
 pub struct ConfigController {
     state: Arc<RwLock<Config>>,
-    server: Arc<dyn Server>,
+    server: Server,
 }
 
 impl ConfigController {
-    pub async fn init(server: &Arc<dyn Server>, config: Config) -> Self {
+    pub async fn init(server: &Server, config: Config) -> Self {
         set_mode_options(server, &config).await;
         ConfigController {
             state: Arc::new(RwLock::new(config)),
@@ -102,7 +102,7 @@ impl ConfigController {
     }
 }
 
-async fn set_mode_options(server: &Arc<dyn Server>, config: &Config) {
+async fn set_mode_options(server: &Server, config: &Config) {
     let mode_options = server.mode_options().await;
     if let ModeOptions::TimeAttack(mut options) = mode_options {
         options.chat_time_secs = config.outro_duration_secs as i32;

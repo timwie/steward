@@ -9,7 +9,7 @@ use crate::chat::{
 };
 use crate::controller::LiveConfig;
 use crate::event::Command;
-use crate::server::Server;
+use crate::server::{Calls, Server};
 
 /// Use to send messages to players.
 #[async_trait]
@@ -20,7 +20,7 @@ pub trait LiveChat: Send + Sync {
 
 #[derive(Clone)]
 pub struct ChatController {
-    server: Arc<dyn Server>,
+    server: Server,
     live_config: Arc<dyn LiveConfig>,
     state: Arc<RwLock<ChatState>>,
 }
@@ -40,7 +40,7 @@ impl ChatState {
 }
 
 impl ChatController {
-    pub fn init(server: &Arc<dyn Server>, live_config: &Arc<dyn LiveConfig>) -> Self {
+    pub fn init(server: &Server, live_config: &Arc<dyn LiveConfig>) -> Self {
         ChatController {
             server: server.clone(),
             live_config: live_config.clone(),

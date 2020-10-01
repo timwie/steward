@@ -15,7 +15,7 @@ mod on_server_event;
 /// that can react to server events.
 #[derive(Clone)]
 pub struct Controller {
-    server: Arc<dyn Server>,
+    server: Server,
     db: DatabaseClient,
     config: ConfigController,
     chat: ChatController,
@@ -31,7 +31,7 @@ pub struct Controller {
 }
 
 impl Controller {
-    pub async fn init(config: Config, server: Arc<dyn Server>, db: DatabaseClient) -> Controller {
+    pub async fn init(config: Config, server: Server, db: DatabaseClient) -> Controller {
         // Lots and lots of dependency injection...
 
         // Controllers are up-casted to Live* traits, so that other controllers
@@ -67,7 +67,7 @@ impl Controller {
         let ranking = ServerRankController::init(&db, &live_players).await;
         let live_server_ranking = Arc::new(ranking.clone()) as Arc<dyn LiveServerRanking>;
 
-        let records = RecordController::init(&server, &db, &live_playlist, &live_players).await;
+        let records = RecordController::init(&db, &live_playlist, &live_players).await;
         let live_records = Arc::new(records.clone()) as Arc<dyn LiveRecords>;
 
         let schedule = ScheduleController::init(

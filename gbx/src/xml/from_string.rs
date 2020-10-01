@@ -6,7 +6,7 @@ use quick_xml::{events::Event, Reader};
 use crate::xml::{Call, Fault, Response, Value};
 
 /// Try to parse a `<methodCall>` in the input string.
-pub fn read_method_call(input: &str) -> Result<Call> {
+pub(in crate) fn read_method_call(input: &str) -> Result<Call> {
     let mut reader = Reader::from_str(input);
     reader.expand_empty_elements(true);
     reader.trim_text(true);
@@ -33,7 +33,7 @@ pub fn read_method_call(input: &str) -> Result<Call> {
 }
 
 /// Try to parse a `<methodResponse>` in the input string.
-pub fn read_method_response(input: &str) -> Result<Response> {
+pub(in crate) fn read_method_response(input: &str) -> Result<Response> {
     let mut reader = Reader::from_str(input);
     reader.expand_empty_elements(true);
     reader.trim_text(true);
@@ -168,7 +168,7 @@ where
 ///
 /// # Panics
 /// Panics if decoding fails.
-pub fn base64_decode(b64: &str) -> Vec<u8> {
+pub(in crate) fn base64_decode(b64: &str) -> Vec<u8> {
     // base64 crate cannot decode with whitespace, but the server
     // gives us text that is wrapped at 76 characters (specified by MIME) with '\r\n'
     let mut str_no_wrap = String::with_capacity(b64.len());

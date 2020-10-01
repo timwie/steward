@@ -1,9 +1,8 @@
 use chrono::NaiveDateTime;
 use serde::Serialize;
 
-use gbx::DisplayString;
-
 use crate::database::PreferenceValue;
+use crate::server::DisplayString;
 use crate::widget::formatters::format_queue_annotation;
 use crate::widget::formatters::{format_last_played, format_narrow};
 use crate::widget::ActivePreferenceValue;

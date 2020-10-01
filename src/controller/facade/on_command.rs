@@ -11,6 +11,7 @@ use crate::constants::VERSION;
 use crate::controller::{Controller, LiveConfig, LivePlayers, LivePlaylist};
 use crate::event::{ControllerEvent, PlaylistDiff};
 use crate::network::most_recent_controller_version;
+use crate::server::Calls;
 
 impl Controller {
     pub(super) async fn on_cmd(&self, from_login: &str, cmd: PlayerCommand) {

@@ -11,7 +11,7 @@ use crate::constants::{
 use crate::controller::{LivePlayers, LivePlaylist, LivePreferences};
 use crate::database::Map;
 use crate::event::{PlaylistDiff, QueueDiff};
-use crate::server::Server;
+use crate::server::{Calls, Server};
 use crate::widget::ActivePreferenceValue;
 
 /// Use to lookup the current queue, which is an ordering of the playlist.
@@ -173,7 +173,7 @@ impl QueueState {
 #[derive(Clone)]
 pub struct QueueController {
     state: Arc<RwLock<QueueState>>,
-    server: Arc<dyn Server>,
+    server: Server,
     live_players: Arc<dyn LivePlayers>,
     live_playlist: Arc<dyn LivePlaylist>,
     live_prefs: Arc<dyn LivePreferences>,
@@ -181,7 +181,7 @@ pub struct QueueController {
 
 impl QueueController {
     pub async fn init(
-        server: &Arc<dyn Server>,
+        server: &Server,
         live_players: &Arc<dyn LivePlayers>,
         live_playlist: &Arc<dyn LivePlaylist>,
         live_prefs: &Arc<dyn LivePreferences>,

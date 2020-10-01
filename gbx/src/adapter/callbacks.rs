@@ -12,7 +12,7 @@ use crate::xml::{from_value, Call, Value};
 ///
 /// # Panics
 /// Panics if we recognized the name of a callback, but expected different parameters.
-pub fn to_callback(call: &Call) -> ReceivedCallback {
+pub(in crate) fn to_callback(call: &Call) -> ReceivedCallback {
     log::debug!("callback: {:#?}", &call);
 
     let maybe_cb = if &call.name == "ManiaPlanet.ModeScriptCallbackArray" {

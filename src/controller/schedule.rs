@@ -11,7 +11,7 @@ use crate::config::PublicConfig;
 use crate::controller::{LiveConfig, LivePlaylist, LiveQueue, LiveRecords};
 use crate::database::DatabaseClient;
 use crate::event::PlaylistDiff;
-use crate::server::{ModeOptions, Server};
+use crate::server::{Calls, ModeOptions, Server};
 
 /// Use to lookup when a playlist map will be played.
 #[async_trait]
@@ -35,7 +35,7 @@ struct ScheduleState {
 #[derive(Clone)]
 pub struct ScheduleController {
     state: Arc<RwLock<ScheduleState>>,
-    server: Arc<dyn Server>,
+    server: Server,
     db: DatabaseClient,
     live_playlist: Arc<dyn LivePlaylist>,
     live_queue: Arc<dyn LiveQueue>,
@@ -47,7 +47,7 @@ impl ScheduleController {
     /// This will set the time limit for the current map.
     #[allow(clippy::too_many_arguments)]
     pub async fn init(
-        server: &Arc<dyn Server>,
+        server: &Server,
         db: &DatabaseClient,
         live_playlist: &Arc<dyn LivePlaylist>,
         live_queue: &Arc<dyn LiveQueue>,

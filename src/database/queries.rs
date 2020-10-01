@@ -52,9 +52,11 @@ impl DatabaseClient {
     }
 
     #[cfg(feature = "integration_test")]
+    #[allow(dead_code)]
     pub async fn clear(&self) -> Result<()> {
         let conn = self.conn().await?;
-        let _ = conn.execute("DROP SCHEMA IF EXISTS steward CASCADE", &[])
+        let _ = conn
+            .execute("DROP SCHEMA IF EXISTS steward CASCADE", &[])
             .await?;
         Ok(())
     }

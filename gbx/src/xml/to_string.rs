@@ -7,7 +7,7 @@ use crate::xml::{Call, Value};
 ///
 /// # Panics
 /// Panics if the composition fails.
-pub fn write_method_call(call: &Call) -> Vec<u8> {
+pub(in crate) fn write_method_call(call: &Call) -> Vec<u8> {
     try_write_method_call(call)
         .unwrap_or_else(|err| panic!("failed to compose method call from {:?}: {}", call, err))
 }

@@ -15,7 +15,7 @@ use crate::controller::LiveConfig;
 use crate::database::{DatabaseClient, Map, MapEvidence};
 use crate::event::PlaylistDiff;
 use crate::network::{exchange_map, ExchangeError};
-use crate::server::Server;
+use crate::server::{Calls, Server};
 
 /// Use to lookup the current playlist, and the map that is currently being played.
 #[async_trait]
@@ -89,14 +89,14 @@ impl PlaylistState {
 #[derive(Clone)]
 pub struct PlaylistController {
     state: Arc<RwLock<PlaylistState>>,
-    server: Arc<dyn Server>,
+    server: Server,
     db: DatabaseClient,
     live_config: Arc<dyn LiveConfig>,
 }
 
 impl PlaylistController {
     pub async fn init(
-        server: &Arc<dyn Server>,
+        server: &Server,
         db: &DatabaseClient,
         live_config: &Arc<dyn LiveConfig>,
     ) -> Self {

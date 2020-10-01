@@ -9,6 +9,7 @@ use crate::controller::{Controller, LiveConfig, LivePlayers, LivePlaylist, LiveQ
 use crate::event::{
     Command, ControllerEvent, PbDiff, PlayerTransition, PlaylistDiff, ServerRankingDiff,
 };
+use crate::server::Calls;
 
 impl Controller {
     #[async_recursion]

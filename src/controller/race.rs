@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use tokio::sync::{RwLock, RwLockReadGuard};
 
 use crate::controller::LivePlayers;
-use crate::server::{CheckpointEvent, DisplayString, Scores, Server};
+use crate::server::{Calls, CheckpointEvent, DisplayString, Scores, Server};
 
 /// Use to lookup the ranking of the current race.
 #[async_trait]
@@ -45,7 +45,7 @@ pub struct RaceRank {
 }
 
 impl RaceController {
-    pub async fn init(server: &Arc<dyn Server>, live_players: &Arc<dyn LivePlayers>) -> Self {
+    pub async fn init(server: &Server, live_players: &Arc<dyn LivePlayers>) -> Self {
         let mut state: RaceState = Default::default();
         state.warmup = server.warmup_status().await.active;
         state.paused = server.pause_status().await.active;

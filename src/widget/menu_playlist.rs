@@ -4,8 +4,7 @@ use core::option::Option::Some;
 use chrono::NaiveDateTime;
 use serde::Serialize;
 
-use gbx::DisplayString;
-
+use crate::server::DisplayString;
 use crate::widget::formatters::{format_last_played, format_map_age, format_narrow};
 use crate::widget::ActivePreferenceValue;
 

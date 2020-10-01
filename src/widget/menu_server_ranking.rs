@@ -1,7 +1,6 @@
 use serde::Serialize;
 
-use gbx::DisplayString;
-
+use crate::server::DisplayString;
 use crate::widget::formatters::format_narrow;
 
 /// A widget that displays the top server ranks.

@@ -15,7 +15,6 @@ mod widget;
 /// to connect. Whenever the game server stops, this function will panic.
 #[tokio::main]
 async fn main() {
-    use std::sync::Arc;
     use std::time::Duration;
 
     use dotenv::dotenv;
@@ -24,7 +23,7 @@ async fn main() {
     use config::Config;
     use controller::Controller;
     use database::pg_connect;
-    use server::{RpcConnection, Server};
+    use server::dedi_connect;
 
     // Read environment variables from an '.env' file in the working directory.
     // We use these env vars:
@@ -44,7 +43,7 @@ async fn main() {
 
     log::info!("waiting for dedicated server connection...");
     let mut conn = loop {
-        match RpcConnection::new(&config.rpc_address).await {
+        match dedi_connect(&config.rpc_address).await {
             None => {
                 delay_for(retry_after).await;
                 log::debug!("waiting for dedicated server connection...");
@@ -54,7 +53,7 @@ async fn main() {
     };
     log::info!("got dedicated server connection");
 
-    let server = Arc::new(conn.client.clone()) as Arc<dyn Server>;
+    let server = conn.client;
 
     log::info!("waiting for database connection...");
     let db = loop {
