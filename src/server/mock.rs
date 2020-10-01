@@ -32,7 +32,7 @@ impl Calls for Server {
         unimplemented!()
     }
 
-    async fn server_info(&self) -> ServerInfo {
+    async fn server_build_info(&self) -> ServerInfo {
         unimplemented!()
     }
 

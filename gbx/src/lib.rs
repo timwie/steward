@@ -1,4 +1,3 @@
-pub use api::structs::*;
 pub use api::*;
 #[cfg(not(feature = "unit_test"))]
 pub use client::*;

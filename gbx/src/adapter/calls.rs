@@ -55,7 +55,7 @@ impl Calls for RpcClient {
             .await;
     }
 
-    async fn server_info(&self) -> ServerInfo {
+    async fn server_build_info(&self) -> ServerBuildInfo {
         self.call_method_unwrap("GetVersion", args!()).await
     }
 
@@ -273,7 +273,7 @@ impl Calls for RpcClient {
         panic!("unexpected callback {:?}", cb);
     }
 
-    async fn pause_status(&self) -> WarmupOrPauseStatus {
+    async fn pause_status(&self) -> PauseStatus {
         let cb = self
             .call_script_result("Maniaplanet.Pause.GetStatus", args!())
             .await;
@@ -284,7 +284,7 @@ impl Calls for RpcClient {
         panic!("unexpected callback {:?}", cb);
     }
 
-    async fn warmup_status(&self) -> WarmupOrPauseStatus {
+    async fn warmup_status(&self) -> WarmupStatus {
         let cb = self
             .call_script_result("Trackmania.WarmUp.GetStatus", args!())
             .await;
@@ -295,7 +295,7 @@ impl Calls for RpcClient {
         panic!("unexpected callback {:?}", cb);
     }
 
-    async fn pause(&self) -> WarmupOrPauseStatus {
+    async fn pause(&self) -> PauseStatus {
         let cb = self
             .call_script_result("Maniaplanet.Pause.SetActive", args!("true"))
             .await;
@@ -306,7 +306,7 @@ impl Calls for RpcClient {
         panic!("unexpected callback {:?}", cb);
     }
 
-    async fn unpause(&self) -> WarmupOrPauseStatus {
+    async fn unpause(&self) -> PauseStatus {
         let cb = self
             .call_script_result("Maniaplanet.Pause.SetActive", args!("false"))
             .await;
@@ -391,7 +391,7 @@ impl Calls for RpcClient {
         self.call_method_unit("Kick", args).await
     }
 
-    async fn net_stats(&self) -> NetStats {
+    async fn net_stats(&self) -> ServerNetStats {
         self.call_method_unwrap("GetNetworkStats", args!()).await
     }
 

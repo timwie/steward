@@ -13,7 +13,7 @@ use crate::constants::{BLACKLIST_FILE, VERSION};
 use crate::database::{DatabaseClient, Map, MapEvidence};
 use crate::network::exchange_id;
 use crate::server::{
-    Calls, Server, ServerInfo, ServerOptions, SCRIPT_API_VERSION, SERVER_API_VERSION,
+    Calls, Server, ServerBuildInfo, ServerOptions, SCRIPT_API_VERSION, SERVER_API_VERSION,
 };
 
 /// Runs everything that needs to run at startup.
@@ -26,7 +26,7 @@ pub async fn on_startup(server: &Server, db: &DatabaseClient, config: &Config) {
     prepare_rpc(server, config).await;
 
     // Log if server version does not match version used in development.
-    check_server_compat(server.server_info().await);
+    check_server_compat(server.server_build_info().await);
 
     // Override some options in `.../UserData/Config/*.txt` to ensure the
     // functionality of this controller.
@@ -87,13 +87,13 @@ fn add_server_option_constraints(options: &mut ServerOptions) {
 /// Log the server info if the build is not exactly the one that was developed on.
 /// For newer builds, this should not cause incompatibilities, but it might still
 /// be good to be aware of them.
-fn check_server_compat(info: ServerInfo) {
+fn check_server_compat(info: ServerBuildInfo) {
     const SERVER_KNOWN_VERSION: &str = "3.3.0";
     const SERVER_KNOWN_BUILD: &str = "2020-09-11_10_30";
 
     if &info.name != "Trackmania"
         || info.version != SERVER_KNOWN_VERSION
-        || info.build != SERVER_KNOWN_BUILD
+        || info.version_date != SERVER_KNOWN_BUILD
         || info.api_version != SERVER_API_VERSION
     {
         log::warn!("server has an unexpected version:");

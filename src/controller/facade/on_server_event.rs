@@ -11,7 +11,7 @@ impl Controller {
 
         log::debug!("{:#?}", &event);
         match event {
-            ServerEvent::PlayerInfoChanged { info } => {
+            ServerEvent::PlayerInfoChanged(info) => {
                 if let Some(diff) = self.players.update_player(info).await {
                     let ev = ControllerEvent::NewPlayerList(diff);
                     self.on_controller_event(ev).await;
@@ -25,34 +25,34 @@ impl Controller {
                 }
             }
 
-            ServerEvent::RunCountdown { player_login } => {
+            ServerEvent::PlayerCountdown { login } => {
                 const COUNTDOWN_SECS: u64 = 2;
 
                 let controller = self.clone(); // 'self' with 'static lifetime
                 let _ = tokio::spawn(async move {
                     tokio::time::delay_for(tokio::time::Duration::from_secs(COUNTDOWN_SECS)).await;
                     let ev = ControllerEvent::BeginRun {
-                        player_login: &player_login,
+                        player_login: &login,
                     };
                     controller.on_controller_event(ev).await;
                 });
             }
 
-            ServerEvent::RunStartline { player_login } => {
+            ServerEvent::PlayerStartline { login } => {
                 let ev = ControllerEvent::BeginRun {
-                    player_login: &player_login,
+                    player_login: &login,
                 };
                 self.on_controller_event(ev).await;
             }
 
-            ServerEvent::RunCheckpoint { event } => {
+            ServerEvent::PlayerCheckpoint(event) => {
                 let ev = ControllerEvent::ContinueRun(event);
                 self.on_controller_event(ev).await;
             }
 
-            ServerEvent::RunIncoherence { player_login } => {
+            ServerEvent::PlayerIncoherence { login } => {
                 let ev = ControllerEvent::DesyncRun {
-                    player_login: &player_login,
+                    player_login: &login,
                 };
                 self.on_controller_event(ev).await;
             }
@@ -189,7 +189,7 @@ impl Controller {
                 }
             }
 
-            ServerEvent::RunCheckpointRespawn(_) => {}
+            ServerEvent::PlayerCheckpointRespawn(_) => {}
             ServerEvent::ChampionRoundEnd(_) => {}
             ServerEvent::KnockoutRoundEnd(_) => {}
         }

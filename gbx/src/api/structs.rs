@@ -2,36 +2,31 @@ use std::collections::{HashMap, HashSet};
 
 use lazy_static::lazy_static;
 use regex::Regex;
-use serde::export::Formatter;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-/// Server version information.
-///
-/// Reference: GetVersion https://doc.maniaplanet.com/dedicated-server/references/xml-rpc-methods
+/// Dedicated server version information.
 #[derive(Deserialize, Debug, PartialEq)]
 #[serde(rename_all = "PascalCase")]
-pub struct ServerInfo {
-    /// "Trackmania" - this is not the display name of the server!
+pub struct ServerBuildInfo {
+    /// This should be "Trackmania".
     pub name: String,
 
-    /// f.e. "3.3.0"
+    /// The build's version number, f.e. "3.3.0".
     pub version: String,
 
-    /// f.e. "2020-07-01_14_30"
-    pub build: String,
+    /// The build's version date, f.e. "2020-07-01_14_30".
+    #[serde(rename = "Build")]
+    pub version_date: String,
 
-    /// Setting the API version works, but does not affect
-    /// this value it seems, so it might not have any use.
+    /// The highest supported server XML-RPC API version.
     pub api_version: String,
 }
 
-/// Server options that default to the values of the `<dedicated>`
-/// config in `.../UserData/Config/*.txt`
+/// Dedicated server options.
 ///
-/// Any `next_*` option will become active as the `current_*`
-/// option on map change.
+/// These options default to the values of the `<dedicated>` config in `.../UserData/Config/*.txt`
 ///
-/// Reference: GetServerOptions https://doc.maniaplanet.com/dedicated-server/references/xml-rpc-methods
+/// Any `next_*` option will become active as the `current_*` option on map change.
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 #[serde(rename_all = "PascalCase")]
 pub struct ServerOptions {
@@ -128,8 +123,7 @@ pub struct ServerOptions {
     ///
     /// Not activated by default, since it breaks "press forward" tracks,
     /// which is not an issue for online races.
-    ///
-    /// Reference: http://www.tm-forum.com/viewtopic.php?p=130016&sid=6b52ce2287e2c4bd9b726973a66c7a0e#p130016
+    /// (see http://www.tm-forum.com/viewtopic.php?p=130016#p130016)
     ///
     /// Config: `<use_changing_validation_seed>` in `<server_options>`
     pub current_use_changing_validation_seed: bool,
@@ -149,12 +143,9 @@ pub struct ServerOptions {
     pub disable_service_announces: bool,
 
     /// Either "fast" (0) or "high" (1).
-    /// If "high", players could see others cars with additional details, like
-    /// front wheels turning, heads moving, suspensions, etc.
-    /// It increases the network traffic somewhat.
-    /// Apparently it doesn't work very well though.
     ///
-    /// Reference: http://www.tm-forum.com/viewtopic.php?p=14486#p14486
+    /// This should always be set to 0.
+    /// (see http://www.tm-forum.com/viewtopic.php?p=14486#p14486)
     ///
     /// Not in config file.
     pub current_vehicle_net_quality: i32,
@@ -187,14 +178,22 @@ pub struct ServerOptions {
     /// Config: `<referee_validation_mode>` in `<server_options>`
     pub referee_mode: i32,
 
-    /// Leave at 0, which gives "automatic adjustment".
+    /// Players with a higher latency than this value will experience difficulties playing,
+    /// but a lower value will reduce the CPU usage for players.
+    ///
+    /// Default: 200ms; Maximum: 540ms
+    ///
+    /// This value should be at least half of the highest ping that you would like to have.
+    /// (see https://forums.ubisoft.com/showthread.php/2242192?p=15049698#post15049698)
+    ///
+    /// Config: `<clientinputs_maxlatency>` in `<server_options>`
     pub client_inputs_max_latency: i32,
 }
 
-/// Reference: GetNetworkStats https://doc.maniaplanet.com/dedicated-server/references/xml-rpc-methods
+/// Dedicated server network stats.
 #[derive(Deserialize, Debug, PartialEq)]
 #[serde(rename_all = "PascalCase")]
-pub struct NetStats {
+pub struct ServerNetStats {
     /// This value might be useful to check that a server has not been online
     /// for more than 30 days. Apparently this can prevent players from joining the server.
     /// (see https://doc.maniaplanet.com/dedicated-server/frequent-errors)
@@ -203,8 +202,6 @@ pub struct NetStats {
 }
 
 /// Game mode information.
-///
-/// Reference: GetModeScriptInfo https://doc.maniaplanet.com/dedicated-server/references/xml-rpc-methods
 #[derive(Deserialize, Debug, PartialEq)]
 #[serde(rename_all = "PascalCase")]
 pub struct ModeInfo {
@@ -216,14 +213,16 @@ pub struct ModeInfo {
     #[serde(deserialize_with = "deserialize_map_types")]
     pub compatible_map_types: HashSet<MapType>,
 
-    /// Development: The version date of the mode script.
+    /// Development: The version date of the mode script, f.e. "2020-09-10".
     /// A change in version might be of note.
-    pub version: String,
+    #[serde(rename = "Version")]
+    pub version_date: String,
 }
 
+/// The type a map was validated for.
+///
 /// Map types are scripts that set certain requirements for a map.
-/// The default `Race` type f.e. requires exactly one start block and at
-/// least one finish block.
+/// The default `Race` type f.e. requires exactly one start block and at least one finish block.
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub enum MapType {
     /// The default Trackmania map type that is compatible with all default game modes.
@@ -263,7 +262,7 @@ pub enum ModeScript {
     Rounds, // round-based
     Teams,  // round-based
     TimeAttack,
-    Other {
+    Custom {
         /// The relative script file name in `/UserData/Scripts/Modes`.
         file_name: String,
     },
@@ -281,13 +280,13 @@ impl ModeScript {
             Rounds => "Trackmania/TM_Rounds_Online.Script.txt",
             Teams => "Trackmania/TM_Teams_Online.Script.txt",
             TimeAttack => "Trackmania/TM_TimeAttack_Online.Script.txt",
-            Other { file_name } => file_name,
+            Custom { file_name } => file_name,
         }
     }
 
     pub fn name(&self) -> &str {
         match self {
-            ModeScript::Other { file_name } => file_name
+            ModeScript::Custom { file_name } => file_name
                 .trim_start_matches("Trackmania/")
                 .trim_end_matches(".Script.txt"),
             _ => self
@@ -318,9 +317,70 @@ impl<'de> Deserialize<'de> for ModeScript {
 
         Ok(match default_mode {
             Some(mode) => mode,
-            None => ModeScript::Other { file_name },
+            None => ModeScript::Custom { file_name },
         })
     }
+}
+
+/// Common sections for matches of all game modes.
+///
+/// All game modes build on a template (`Libs/Nadeo/TMxSM/Race/ModeTrackmania.Script.txt`)
+/// using a structure with several nested loops representing the progression of the game mode.
+///
+/// Server -> Match -> Map -> Round -> Turn -> PlayLoop
+///
+/// The server can launch a match.
+/// This match can be played on several maps.
+/// Each map can be divided into several rounds.
+/// Each round can be further divided into several turns.
+///
+/// The playloop is executed repeatedly until an upper level section
+/// (turn, round, map, match or server) is requested to stop.
+///
+/// The template has several plugs for each loop at the beginning and the end, which
+/// allow game modes to implement their logic.
+///
+/// The template also triggers callbacks when entering or leaving one of the loops;
+/// these callbacks are represented by this enum.
+#[derive(Debug, Clone)]
+pub enum ModeScriptSection {
+    PreStartServer {
+        restarted_script: bool,
+        changed_script: bool,
+    },
+    PostStartServer,
+
+    PreStartMatch,
+    PostStartMatch,
+
+    PreLoadMap {
+        is_restart: bool,
+    },
+    PostLoadMap,
+
+    PreStartMap,
+    PostStartMap,
+
+    PreStartRound,
+    PostStartRound,
+
+    PrePlayloop,
+    PostPlayloop,
+
+    PreEndRound,
+    PostEndRound,
+
+    PreEndMap,
+    PostEndMap,
+
+    PreUnloadMap,
+    PostUnloadMap,
+
+    PreEndMatch,
+    PostEndMatch,
+
+    PreEndServer,
+    PostEndServer,
 }
 
 /// Game mode settings.
@@ -351,17 +411,10 @@ impl ModeOptions {
     }
 }
 
-/// Setting for the TimeAttack game mode.
-///
-/// References:
-/// - Libs/Nadeo/ModeLibs/Common/ModeBase.Script.txt (2020-06-23)
-/// - Libs/Nadeo/ModeLibs/Common/ModeMatchmaking.Script.txt (2020-06-09)
-/// - Libs/Nadeo/TMxSM/Race/ModeBase.Script.txt (2020-08-25)
-/// - Modes/TrackMania/TM_TimeAttack_Online.Script.txt (2020-09-10)
-/// - https://doc.maniaplanet.com/dedicated-server/references/settings-list-for-nadeo-gamemodes
+/// Settings for the TimeAttack game mode.
 #[derive(Serialize, Deserialize, Debug)]
 pub struct TimeAttackOptions {
-    /// Chat time at the end of a map or match in seconds.
+    /// Chat time at the end of a map in seconds.
     #[serde(rename = "S_ChatTime")]
     pub chat_time_secs: i32,
 
@@ -385,14 +438,7 @@ pub struct TimeAttackOptions {
     pub time_limit_secs: i32,
 }
 
-/// Setting for the Champion game mode.
-///
-/// References:
-/// - Libs/Nadeo/ModeLibs/Common/ModeBase.Script.txt (2020-06-23)
-/// - Libs/Nadeo/ModeLibs/Common/ModeMatchmaking.Script.txt (2020-06-09)
-/// - Libs/Nadeo/TMxSM/Race/ModeBase.Script.txt (2020-08-25)
-/// - Modes/TrackMania/TM_Champion_Online.Script.txt (2020-09-10)
-/// - https://doc.maniaplanet.com/dedicated-server/references/settings-list-for-nadeo-gamemodes
+/// Settings for the Champion game mode.
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ChampionOptions {
     /// Chat time at the end of a map or match in seconds.
@@ -413,7 +459,7 @@ pub struct ChampionOptions {
     /// The duration of one warmup round in seconds.
     #[serde(rename = "S_WarmUpDuration")]
     pub warmup_duration_secs: i32,
-    // TODO support ChampionOptions
+    // TODO ChampionOptions
     //  - S_PointsRepartition: "20,14,12,10,8,7,6,5,5,4,4,3,3,2,2,1"
     //  - S_PointsLimit: -1
     //  - S_RoundsLimit: 6
@@ -433,35 +479,37 @@ pub struct ChampionOptions {
     //  - S_EndRoundPostScoreUpdateDuration: 5
 }
 
+/// Settings for the Cup game mode.
 #[derive(Serialize, Deserialize, Debug)]
 pub struct CupOptions {
-    // TODO
+    // TODO CupOptions
 }
 
+/// Settings for the Knockout game mode.
 #[derive(Serialize, Deserialize, Debug)]
 pub struct KnockoutOptions {
-    // TODO
+    // TODO KnockoutOptions
 }
 
+/// Settings for the Laps game mode.
 #[derive(Serialize, Deserialize, Debug)]
 pub struct LapsOptions {
-    // TODO
+    // TODO LapsOptions
 }
 
+/// Settings for the Rounds game mode.
 #[derive(Serialize, Deserialize, Debug)]
 pub struct RoundsOptions {
-    // TODO
+    // TODO RoundsOptions
 }
 
+/// Settings for the Teams game mode.
 #[derive(Serialize, Deserialize, Debug)]
 pub struct TeamsOptions {
-    // TODO
+    // TODO TeamsOptions
 }
 
-/// Player information.
-///
-/// Reference: SPlayerInfo https://doc.maniaplanet.com/dedicated-server/references/xml-rpc-callbacks
-/// Reference: GetPlayerInfo https://doc.maniaplanet.com/dedicated-server/references/xml-rpc-methods
+/// Information for a connected player.
 #[derive(Deserialize, PartialEq, Clone)]
 #[serde(rename_all = "PascalCase")]
 pub struct PlayerInfo {
@@ -477,6 +525,10 @@ pub struct PlayerInfo {
     #[serde(rename = "NickName")]
     pub display_name: DisplayString,
 
+    /// The current team of this player, if any.
+    #[serde(deserialize_with = "deserialize_opt_team_id")]
+    pub team_id: Option<TeamId>,
+
     /// (see functions)
     #[serde(rename = "Flags")]
     pub flag_digit_mask: i32,
@@ -484,12 +536,9 @@ pub struct PlayerInfo {
     /// (see functions)
     #[serde(rename = "SpectatorStatus")]
     pub spectator_digit_mask: i32,
-
-    #[serde(deserialize_with = "deserialize_opt_team_id")]
-    pub team_id: Option<TeamId>,
 }
 
-/// Reference: https://github.com/maniaplanet/script-xmlrpc/blob/master/XmlRpcListing.md#trackmaniasetteampoints
+/// An identifier for teams in team-based game modes.
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
 pub enum TeamId {
     Blue,
@@ -606,7 +655,7 @@ impl std::fmt::Debug for PlayerInfo {
     }
 }
 
-/// Reference: GetMapList https://doc.maniaplanet.com/dedicated-server/references/xml-rpc-methods
+/// A map that is currently in the server's playlist.
 #[derive(Deserialize, Debug, PartialEq)]
 #[serde(rename_all = "PascalCase")]
 pub struct PlaylistMap {
@@ -619,16 +668,16 @@ pub struct PlaylistMap {
 }
 
 impl PlaylistMap {
+    /// `True` if this map is a Nadeo campaign map.
+    ///
     /// The server's playlist can include bundled maps, that are not stored in `.../UserData/Maps`,
-    /// with a file name like this: `Campaigns\0\A01.Map.Gbx`
+    /// with a file name like this: `Campaigns/CurrentQuarterly/Summer 2020 - 01.Map.Gbx`
     pub fn is_campaign_map(&self) -> bool {
-        self.file_name.starts_with("Campaigns\\")
+        self.file_name.starts_with("Campaigns/")
     }
 }
 
-/// Map information.
-///
-/// Reference: GetMapInfo https://doc.maniaplanet.com/dedicated-server/references/xml-rpc-methods
+/// Information of a map in `.../UserData/Maps`.
 #[derive(Deserialize, Debug, PartialEq)]
 #[serde(rename_all = "PascalCase")]
 pub struct MapInfo {
@@ -639,7 +688,7 @@ pub struct MapInfo {
     /// The formatted map name.
     pub name: DisplayString,
 
-    /// The map's file name in `.../UserData/Maps`.
+    /// The map's file path relative to `.../UserData/Maps`.
     pub file_name: String,
 
     /// The map author's login.
@@ -652,9 +701,7 @@ pub struct MapInfo {
     pub author_millis: i32,
 }
 
-/// Run data at the time of crossing any checkpoint or the finish line.
-///
-/// Reference: https://github.com/maniaplanet/script-xmlrpc/blob/master/XmlRpcListing.md#trackmaniaeventwaypoint
+/// Event data produced when players cross a checkpoint or finish line.
 #[derive(Deserialize, Debug, PartialEq, Clone)]
 pub struct CheckpointEvent {
     /// The driving player's login.
@@ -692,7 +739,7 @@ pub struct CheckpointEvent {
     pub speed: f32,
 }
 
-/// Reference: https://github.com/maniaplanet/script-xmlrpc/blob/master/XmlRpcListing.md#trackmaniaeventrespawn
+/// Event data produced when a player respawns at the previous checkpoint.
 #[derive(Deserialize, Debug, PartialEq, Clone)]
 pub struct CheckpointRespawnEvent {
     /// The driving player's login.
@@ -714,12 +761,9 @@ pub struct CheckpointRespawnEvent {
     pub lap_cp_index: i32,
 }
 
-/// The ranking of the current race.
-///
-/// Reference: https://github.com/maniaplanet/script-xmlrpc/blob/master/XmlRpcListing.md#trackmaniascores
+/// Scores of the current match.
 #[derive(Deserialize, Debug, PartialEq, Clone)]
 pub struct Scores {
-    /// Empty, or an ID that was used when explicitly triggering the callback.
     #[serde(rename = "responseid", deserialize_with = "deserialize_response_id")]
     pub(in crate) response_id: Option<String>,
 
@@ -729,14 +773,15 @@ pub struct Scores {
     /// Race ranking sorted from best to worst.
     pub teams: Vec<TeamScore>,
 
-    /// Current progress of the match.
+    /// The mode script section at which this event was triggered.
     #[serde(deserialize_with = "deserialize_section")]
     pub section: ScoresSection,
 }
 
+/// Mode script sections that can trigger the `Trackmania.Scores` callback.
 #[derive(Debug, PartialEq, Clone)]
 pub enum ScoresSection {
-    Other,
+    None,
     PreEndRound,
     EndRound,
     EndMap,
@@ -751,7 +796,7 @@ where
 
     let s = String::deserialize(deserializer)?;
     Ok(match s.as_ref() {
-        "" => Other,
+        "" => None,
         "PreEndRound" => PreEndRound,
         "EndRound" => EndRound,
         "EndMap" => EndMap,
@@ -760,9 +805,7 @@ where
     })
 }
 
-/// A player's ranking in the current race.
-///
-/// Reference: https://github.com/maniaplanet/script-xmlrpc/blob/master/XmlRpcListing.md#trackmaniascores
+/// A player's score in the current match.
 #[derive(Deserialize, Debug, PartialEq, Clone)]
 pub struct PlayerScore {
     /// The player's login.
@@ -792,31 +835,36 @@ pub struct PlayerScore {
     #[serde(rename = "bestlapcheckpoints")]
     pub best_lap_time_cp_millis: Vec<i32>,
 
+    /// Points collected in the current round.
     #[serde(rename = "roundpoints")]
     pub points_round: i32,
 
+    /// Points collected on the current map.
     #[serde(rename = "mappoints")]
     pub points_map: i32,
 
+    /// Points collected in the current match.
     #[serde(rename = "matchpoints")]
     pub points_match: i32,
 }
 
-/// A team's ranking in the current race.
-///
-/// Reference: https://github.com/maniaplanet/script-xmlrpc/blob/master/XmlRpcListing.md#trackmaniascores
+/// A team's score in the current match.
 #[derive(Deserialize, Debug, PartialEq, Clone)]
 pub struct TeamScore {
     pub id: TeamId,
 
+    /// The team's formatted display name.
     pub name: DisplayString,
 
+    /// Points collected in the current round.
     #[serde(rename = "roundpoints")]
     pub points_round: i32,
 
+    /// Points collected on the current map.
     #[serde(rename = "mappoints")]
     pub points_map: i32,
 
+    /// Points collected in the current match.
     #[serde(rename = "matchpoints")]
     pub points_match: i32,
 }
@@ -834,10 +882,7 @@ impl DisplayString {
     }
 
     /// Removes all text formatting.
-    ///
-    /// References:
-    /// - https://doc.maniaplanet.com/client/text-formatting
-    /// - https://wiki.xaseco.org/wiki/Text_formatting
+    /// (see https://wiki.xaseco.org/wiki/Text_formatting)
     pub fn plain(&self) -> String {
         lazy_static! {
             static ref RE_DOLLAR: Regex = Regex::new(r"\${2}").unwrap();
@@ -852,7 +897,7 @@ impl DisplayString {
 }
 
 impl std::fmt::Debug for DisplayString {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.serialize_str(&self.plain())
     }
 }
@@ -876,9 +921,9 @@ impl Serialize for DisplayString {
     }
 }
 
-/// See `Callback::PlayerAnswered`.
+/// Event data produced when a player interacts with a Manialink.
 #[derive(Debug, Clone)]
-pub struct PlayerAnswer {
+pub struct PlayerManialinkEvent {
     /// The answer string, either from a Manialink (`<quad action="my_action"/>`),
     /// or from ManiaScript (`TriggerPageAction("my_action");`)
     pub answer: String,
@@ -888,25 +933,33 @@ pub struct PlayerAnswer {
     pub entries: HashMap<String, String>,
 }
 
-/// Event data sent when starting or ending a warmup or pause.
-///
-/// Reference: https://github.com/maniaplanet/script-xmlrpc/blob/master/XmlRpcListing.md#maniaplanetwarmupstatus
+/// Current status of a warmup.
 #[derive(Deserialize, Debug, PartialEq, Clone)]
-pub struct WarmupOrPauseStatus {
-    /// Empty, or an ID that was used when explicitly triggering the callback.
+pub struct WarmupStatus {
     #[serde(rename = "responseid", deserialize_with = "deserialize_response_id")]
     pub(in crate) response_id: Option<String>,
 
-    /// True if a warmup/pause is available in the game mode, false otherwise.
+    /// True if a warmup is available in the game mode, false otherwise.
     pub available: bool,
 
-    /// True if a warmup/pause is ongoing, false otherwise.
+    /// True if a warmup is ongoing, false otherwise.
     pub active: bool,
 }
 
-/// Event data sent when a warmup round starts or ends.
-///
-/// Reference: https://github.com/maniaplanet/script-xmlrpc/blob/master/XmlRpcListing.md#trackmaniawarmupstartround
+/// Current status of a pause.
+#[derive(Deserialize, Debug, PartialEq, Clone)]
+pub struct PauseStatus {
+    #[serde(rename = "responseid", deserialize_with = "deserialize_response_id")]
+    pub(in crate) response_id: Option<String>,
+
+    /// True if a pause is available in the game mode, false otherwise.
+    pub available: bool,
+
+    /// True if a pause is ongoing, false otherwise.
+    pub active: bool,
+}
+
+/// Event data produced when a warmup round starts or ends.
 #[derive(Deserialize, Debug, PartialEq, Clone)]
 pub struct WarmupRoundStatus {
     /// The number of the current warmup round.
@@ -918,37 +971,39 @@ pub struct WarmupRoundStatus {
     pub nb_total_rounds: i32,
 }
 
-#[derive(Deserialize)]
-#[serde(rename_all = "PascalCase")]
-pub(in crate) struct ManialinkEntry {
-    pub name: std::string::String,
-    pub value: std::string::String,
+/// Event data produced at the end of a Champion round.
+#[derive(Clone, Deserialize, Debug)]
+pub struct ChampionEndRoundEvent {
+    #[serde(rename = "players")]
+    pub scores: Vec<ChampionScoreOverall>,
 }
 
-/// Reference: https://github.com/maniaplanet/script-xmlrpc/blob/master/XmlRpcListing.md#trackmaniaeventgiveup
-#[derive(Deserialize, Debug, PartialEq, Clone)]
-pub(in crate) struct GenericScriptEvent {
-    pub login: std::string::String,
+/// Player score in the Champion mode.
+#[derive(Clone, Deserialize, Debug)]
+pub struct ChampionScoreOverall {
+    #[serde(rename = "login")]
+    pub player_login: String,
+
+    /// Collected points and ranking in the current round.
+    pub round: ChampionScore,
+
+    /// Collected points and ranking in the current match.
+    pub step: ChampionScore,
 }
 
-/// Reference: https://github.com/maniaplanet/script-xmlrpc/blob/master/XmlRpcListing.md#maniaplanetstartserver_start
-#[derive(Deserialize, Debug, PartialEq, Clone)]
-pub(in crate) struct StartServerEvent {
-    pub restarted: bool,
-    pub mode: StartServerEventMode,
+/// Player score in a step or round of the Champion mode.
+#[derive(Clone, Deserialize, Debug)]
+pub struct ChampionScore {
+    pub rank: i32,
+    pub points: i32,
 }
 
-/// Reference: https://github.com/maniaplanet/script-xmlrpc/blob/master/XmlRpcListing.md#maniaplanetstartserver_start
-#[derive(Deserialize, Debug, PartialEq, Clone)]
-pub(in crate) struct StartServerEventMode {
-    pub updated: bool,
-    pub name: String,
-}
-
-/// Reference: https://github.com/maniaplanet/script-xmlrpc/blob/master/XmlRpcListing.md#maniaplanetloadingmap_start
-#[derive(Deserialize, Debug, PartialEq, Clone)]
-pub(in crate) struct LoadingMapEvent {
-    pub restarted: bool,
+/// Event data produced at the end of a Knockout round.
+#[derive(Clone, Deserialize, Debug)]
+pub struct KnockoutEndRoundEvent {
+    /// The account IDs of players that were eliminated in this round.
+    #[serde(rename = "accountids")]
+    pub eliminated_account_ids: Vec<String>,
 }
 
 fn deserialize_response_id<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>
@@ -957,31 +1012,4 @@ where
 {
     let s = String::deserialize(deserializer)?;
     Ok(if s.is_empty() { None } else { Some(s) })
-}
-
-#[derive(Clone, Deserialize, Debug)]
-pub struct ChampionScores {
-    pub players: Vec<ChampionScore>,
-}
-
-#[derive(Clone, Deserialize, Debug)]
-pub struct ChampionScore {
-    #[serde(rename = "login")]
-    pub player_login: String,
-
-    pub round: ChampionScoreRank,
-
-    pub step: ChampionScoreRank,
-}
-
-#[derive(Clone, Deserialize, Debug)]
-pub struct ChampionScoreRank {
-    pub rank: i32,
-    pub points: i32,
-}
-
-#[derive(Clone, Deserialize, Debug)]
-pub struct KnockoutEliminations {
-    #[serde(rename = "accountids")]
-    pub eliminated_account_ids: Vec<String>,
 }

@@ -7,7 +7,7 @@ use crate::chat::{
 };
 use crate::config::PublicConfig;
 use crate::database::{Map, Player};
-use crate::server::{NetStats, PlayerInfo, ServerInfo};
+use crate::server::{PlayerInfo, ServerBuildInfo, ServerNetStats};
 
 /// Possible responses for chat commands.
 pub enum CommandResponse<'a> {
@@ -71,8 +71,8 @@ pub struct InfoResponse {
     pub controller_version: Version,
     pub most_recent_controller_version: Version,
     pub public_config: PublicConfig,
-    pub server_info: ServerInfo,
-    pub net_stats: NetStats,
+    pub server_info: ServerBuildInfo,
+    pub net_stats: ServerNetStats,
     pub admins: Vec<Player>,
 }
 

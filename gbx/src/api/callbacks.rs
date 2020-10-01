@@ -1,17 +1,15 @@
 use crate::api::structs::*;
 
-/// Remote procedure calls to be executed on controller-side.
+/// Server and mode script callbacks.
 ///
-/// References:
-///  - https://doc.maniaplanet.com/dedicated-server/references/xml-rpc-callbacks
-///  - https://github.com/maniaplanet/script-xmlrpc/blob/master/XmlRpcListing.md
+/// These are remote procedure calls to be executed controller-side.
 #[derive(Debug, Clone)]
 pub enum Callback {
     /// Sent when player info changes, f.e. when entering or leaving spectator
     /// mode. Sent on connect, but not sent on disconnect.
     ///
     /// Triggered by `ManiaPlanet.PlayerInfoChanged`
-    PlayerInfoChanged { info: PlayerInfo },
+    PlayerInfoChanged(PlayerInfo),
 
     /// Sent when a player disconnects from the server.
     ///
@@ -26,7 +24,7 @@ pub enum Callback {
     /// Triggered by
     /// - `Trackmania.Event.GiveUp`
     /// - `Trackmania.Event.SkipOutro`
-    RunCountdown { player_login: String },
+    PlayerCountdown { login: String },
 
     /// Sent when the countdown is over, and the player can accelerate.
     ///
@@ -34,17 +32,17 @@ pub enum Callback {
     /// Both have to be handled to know when a player is starting a run.
     ///
     /// Triggered by `Trackmania.Event.StartLine`
-    RunStartline { player_login: String },
+    PlayerStartline { login: String },
 
     /// Sent when a player crosses a checkpoint, or the finish line.
     ///
     /// Triggered by `Trackmania.Event.WayPoint`
-    RunCheckpoint { event: CheckpointEvent },
+    PlayerCheckpoint(CheckpointEvent),
 
     /// Sent when a player respawns at the previous checkpoint.
     ///
     /// Triggered by `Trackmania.Event.Respawn`
-    RunCheckpointRespawn(CheckpointRespawnEvent),
+    PlayerCheckpointRespawn(CheckpointRespawnEvent),
 
     /// Sent when client & server run times are out of sync. This is likely caused
     /// by connection issues, but could also be a cheating attempt.
@@ -53,7 +51,7 @@ pub enum Callback {
     ///
     /// Can also be triggered by `Trackmania.Event.WayPoint`, when `race_time_millis`
     /// is set to zero.
-    RunIncoherence { player_login: String },
+    PlayerIncoherence { login: String },
 
     /// Sent when a player writes something in the chat.
     ///
@@ -73,7 +71,7 @@ pub enum Callback {
     PlayerAnswered {
         from_uid: i32,
         from_login: String,
-        answer: PlayerAnswer,
+        answer: PlayerManialinkEvent,
     },
 
     /// Sent when either the playlist or playlist indexes changed.
@@ -106,76 +104,17 @@ pub enum Callback {
     /// Sent at the end of each round in the Champion game mode.
     ///
     /// Triggered by `Trackmania.Champion.Scores`
-    ChampionRoundEnd(ChampionScores),
+    ChampionRoundEnd(ChampionEndRoundEvent),
 
     /// Sent at the end of each round in the Knockout game mode.
     ///
     /// Triggered by `Trackmania.Knockout.Elimination`
-    KnockoutRoundEnd(KnockoutEliminations),
+    KnockoutRoundEnd(KnockoutEndRoundEvent),
 
     /// Triggered by `Maniaplanet.Pause.Status` with `Calls::pause_status`,
     /// and by `Maniaplanet.Pause.SetActive` with `Calls::pause` or `Calls::unpause`.
-    PauseStatus(WarmupOrPauseStatus),
+    PauseStatus(PauseStatus),
 
     /// Triggered by `Trackmania.WarmUp.Status` with `Calls::warmup_status`.
-    WarmupStatus(WarmupOrPauseStatus),
-}
-
-/// All game modes build on a template (`Libs/Nadeo/TMxSM/Race/ModeTrackmania.Script.txt`)
-/// using a structure with several nested loops representing the progression of the game mode.
-///
-/// Server -> Match -> Map -> Round -> Turn -> PlayLoop
-///
-/// The server can launch a match.
-/// This match can be played on several maps.
-/// Each map can be divided into several rounds.
-/// Each round can be further divided into several turns.
-///
-/// The playloop is executed repeatedly until an upper level section
-/// (turn, round, map, match or server) is requested to stop.
-///
-/// The template has several plugs for each loop at the beginning and the end, which
-/// allow game modes to implement their logic.
-///
-/// The template also triggers callbacks when entering or leaving one of the loops;
-/// these callbacks are represented by this enum.
-#[derive(Debug, Clone)]
-pub enum ModeScriptSection {
-    PreStartServer {
-        restarted_script: bool,
-        changed_script: bool,
-    },
-    PostStartServer,
-
-    PreStartMatch,
-    PostStartMatch,
-
-    PreLoadMap {
-        is_restart: bool,
-    },
-    PostLoadMap,
-
-    PreStartMap,
-    PostStartMap,
-
-    PreStartRound,
-    PostStartRound,
-
-    PrePlayloop,
-    PostPlayloop,
-
-    PreEndRound,
-    PostEndRound,
-
-    PreEndMap,
-    PostEndMap,
-
-    PreUnloadMap,
-    PostUnloadMap,
-
-    PreEndMatch,
-    PostEndMatch,
-
-    PreEndServer,
-    PostEndServer,
+    WarmupStatus(WarmupStatus),
 }

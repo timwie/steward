@@ -5,7 +5,7 @@ use std::path::Path;
 use anyhow::{anyhow, bail, ensure};
 use byteorder::{ByteOrder, LittleEndian};
 
-use crate::{DisplayString, MapType};
+use crate::structs::{DisplayString, MapType};
 
 /// Selected information stored in the header of a `*.Map.Gbx` file.
 #[derive(Debug)]

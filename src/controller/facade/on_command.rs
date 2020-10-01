@@ -29,7 +29,7 @@ impl Controller {
                 let _ = tokio::spawn(async move {
                     let private_config = &*controller.config.lock().await;
                     let public_config = controller.config.public_config().await;
-                    let server_info = controller.server.server_info().await;
+                    let server_info = controller.server.server_build_info().await;
                     let net_stats = controller.server.net_stats().await;
 
                     let most_recent_controller_version = most_recent_controller_version()

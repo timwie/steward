@@ -133,7 +133,7 @@ where
 ///
 /// Lines will be wrapped at a maximum line length of 76 characters
 /// (specified by MIME) with '\r\n' to mimic the dedicated server's behavior.
-pub fn base64_encode(bytes: &[u8]) -> String {
+pub(in crate) fn base64_encode(bytes: &[u8]) -> String {
     const LINE_LENGTH: usize = 76;
 
     let str_no_wrap = base64::encode(bytes);

@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use serde::Deserialize;
+
 use crate::api::structs::*;
 use crate::api::Callback;
 use crate::xml::{from_value, Call, Value};
@@ -91,9 +93,8 @@ fn to_regular_callback(call: &Call) -> Option<Callback> {
 
         "ManiaPlanet.PlayerInfoChanged" => {
             if let [Struct(info)] = &call.args[..] {
-                return Some(PlayerInfoChanged {
-                    info: de!(Struct(info.clone())),
-                });
+                let info = de!(Struct(info.clone()));
+                return Some(PlayerInfoChanged(info));
             }
         }
 
@@ -108,7 +109,7 @@ fn to_regular_callback(call: &Call) -> Option<Callback> {
                     })
                     .collect();
 
-                let answer = PlayerAnswer {
+                let answer = PlayerManialinkEvent {
                     answer: answer.clone(),
                     entries,
                 };
@@ -133,8 +134,8 @@ fn to_regular_callback(call: &Call) -> Option<Callback> {
 
         "TrackMania.PlayerIncoherence" => {
             if let [Int(_uid), String(login)] = &call.args[..] {
-                return Some(RunIncoherence {
-                    player_login: login.clone(),
+                return Some(PlayerIncoherence {
+                    login: login.clone(),
                 });
             }
         }
@@ -160,7 +161,7 @@ fn to_regular_callback(call: &Call) -> Option<Callback> {
 }
 
 fn forward_script_callback(call: &Call) -> Option<Callback> {
-    use crate::api::ModeScriptSection::*;
+    use crate::structs::ModeScriptSection::*;
     use Callback::*;
     use Value::*;
 
@@ -219,12 +220,12 @@ fn forward_script_callback(call: &Call) -> Option<Callback> {
             "Maniaplanet.EndServer_End" => Some(ModeScriptSection(PostEndServer)),
 
             "Maniaplanet.Pause.Status" => {
-                let status: WarmupOrPauseStatus = de!(&str_args[0]);
+                let status: crate::structs::PauseStatus = de!(&str_args[0]);
                 Some(PauseStatus(status))
             }
 
             "Trackmania.Champion.Scores" => {
-                let scores: ChampionScores = de!(&str_args[0]);
+                let scores: ChampionEndRoundEvent = de!(&str_args[0]);
                 Some(ChampionRoundEnd(scores))
             }
 
@@ -234,14 +235,12 @@ fn forward_script_callback(call: &Call) -> Option<Callback> {
                 // these two events. "Trackmania.Event.StartLine" will *not* be triggered after
                 // either of these events.
                 let ev: GenericScriptEvent = de!(&str_args[0]);
-                Some(RunCountdown {
-                    player_login: ev.login,
-                })
+                Some(PlayerCountdown { login: ev.login })
             }
 
             "Trackmania.Event.Respawn" => {
                 let ev: CheckpointRespawnEvent = de!(&str_args[0]);
-                return Some(RunCheckpointRespawn(ev));
+                return Some(PlayerCheckpointRespawn(ev));
             }
 
             "Trackmania.Event.StartLine" => {
@@ -249,25 +248,23 @@ fn forward_script_callback(call: &Call) -> Option<Callback> {
                 // but only when prior to spawning, the run outro was not skipped (this includes
                 // the very first spawn for instance)
                 let ev: GenericScriptEvent = de!(&str_args[0]);
-                Some(RunStartline {
-                    player_login: ev.login,
-                })
+                Some(PlayerStartline { login: ev.login })
             }
 
             "Trackmania.Event.WayPoint" => {
                 let event: CheckpointEvent = de!(&str_args[0]);
                 let cb = if event.race_time_millis > 0 {
-                    RunCheckpoint { event }
+                    PlayerCheckpoint(event)
                 } else {
-                    RunIncoherence {
-                        player_login: event.player_login,
+                    PlayerIncoherence {
+                        login: event.player_login,
                     }
                 };
                 Some(cb)
             }
 
             "Trackmania.Knockout.Elimination" => {
-                let elims: KnockoutEliminations = de!(&str_args[0]);
+                let elims: KnockoutEndRoundEvent = de!(&str_args[0]);
                 Some(KnockoutRoundEnd(elims))
             }
 
@@ -287,7 +284,7 @@ fn forward_script_callback(call: &Call) -> Option<Callback> {
             }
 
             "Trackmania.WarmUp.Status" => {
-                let status: WarmupOrPauseStatus = de!(&str_args[0]);
+                let status: crate::structs::WarmupStatus = de!(&str_args[0]);
                 Some(WarmupStatus(status))
             }
 
@@ -311,4 +308,33 @@ fn forward_script_callback(call: &Call) -> Option<Callback> {
     }
 
     panic!("unexpected signature for {:?}", call)
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "PascalCase")]
+struct ManialinkEntry {
+    pub name: std::string::String,
+    pub value: std::string::String,
+}
+
+#[derive(Deserialize, Debug, PartialEq, Clone)]
+struct GenericScriptEvent {
+    pub login: std::string::String,
+}
+
+#[derive(Deserialize, Debug, PartialEq, Clone)]
+struct StartServerEvent {
+    pub restarted: bool,
+    pub mode: StartServerEventMode,
+}
+
+#[derive(Deserialize, Debug, PartialEq, Clone)]
+struct StartServerEventMode {
+    pub updated: bool,
+    pub name: String,
+}
+
+#[derive(Deserialize, Debug, PartialEq, Clone)]
+struct LoadingMapEvent {
+    pub restarted: bool,
 }

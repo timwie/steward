@@ -1,7 +1,7 @@
 use serde::Deserialize;
 use serde_repr::{Deserialize_repr, Serialize_repr};
 
-use crate::server::PlayerAnswer;
+use crate::server::PlayerManialinkEvent;
 
 /// Actions are triggered within widgets via ManiaScript
 /// and allow players to interact with the controller.
@@ -51,7 +51,7 @@ impl Action {
     /// # Panics
     /// Panics if `answer` is not a valid JSON representation of any action,
     /// or if there are missing entries in `entries`.
-    pub fn from_answer(mut answer: PlayerAnswer) -> Action {
+    pub fn from_answer(mut answer: PlayerManialinkEvent) -> Action {
         let mut action: Action =
             serde_json::from_str(&answer.answer).expect("failed to deserialize action");
 

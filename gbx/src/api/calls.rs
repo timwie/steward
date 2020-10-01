@@ -4,17 +4,13 @@ use std::time::Duration;
 use async_trait::async_trait;
 
 use crate::api::structs::*;
-use crate::Fault;
+use crate::xml::Fault;
 
 pub(in crate) type Result<T> = std::result::Result<T, Fault>;
 
-/// Remote procedure calls on the game server.
+/// Server and script method calls.
 ///
-/// Every call might panic if the connection to the game server was interrupted.
-///
-/// References:
-///  - https://doc.maniaplanet.com/dedicated-server/references/xml-rpc-methods
-///  - https://github.com/maniaplanet/script-xmlrpc/blob/master/XmlRpcListing.md
+/// These are remote procedure calls executed on the game server.
 #[async_trait]
 pub trait Calls: Send + Sync {
     /// Allows authentication by specifying a login and a password,
@@ -78,7 +74,7 @@ pub trait Calls: Send + Sync {
     ///
     /// Calls method:
     ///     GetVersion
-    async fn server_info(&self) -> ServerInfo;
+    async fn server_build_info(&self) -> ServerBuildInfo;
 
     /// Fetch the active server options.
     ///
@@ -318,7 +314,7 @@ pub trait Calls: Send + Sync {
     ///
     /// Triggers script callback:
     ///     - Maniaplanet.Pause.Status
-    async fn pause_status(&self) -> WarmupOrPauseStatus;
+    async fn pause_status(&self) -> PauseStatus;
 
     /// Check whether warmups are supported by the game mode, and if so,
     /// whether there is currently a warmup.
@@ -328,7 +324,7 @@ pub trait Calls: Send + Sync {
     ///
     /// Triggers script callback:
     ///     - Trackmania.WarmUp.Status
-    async fn warmup_status(&self) -> WarmupOrPauseStatus;
+    async fn warmup_status(&self) -> WarmupStatus;
 
     /// Pause the game mode, if it supports pauses.
     ///
@@ -339,7 +335,7 @@ pub trait Calls: Send + Sync {
     ///
     /// Triggers script callback:
     ///     Maniaplanet.Pause.Status
-    async fn pause(&self) -> WarmupOrPauseStatus;
+    async fn pause(&self) -> PauseStatus;
 
     /// Unpause the game mode, if it supports pauses.
     ///
@@ -348,7 +344,7 @@ pub trait Calls: Send + Sync {
     ///
     /// Triggers script callback:
     ///     Maniaplanet.Pause.Status
-    async fn unpause(&self) -> WarmupOrPauseStatus;
+    async fn unpause(&self) -> PauseStatus;
 
     /// Stop the warmup sequence, and skip all remaining warmup rounds.
     ///
@@ -454,7 +450,7 @@ pub trait Calls: Send + Sync {
     ///
     /// Calls method:
     ///     GetNetworkStats
-    async fn net_stats(&self) -> NetStats;
+    async fn net_stats(&self) -> ServerNetStats;
 
     /// Quit the server application.
     ///

@@ -204,7 +204,7 @@ async fn tcp_send(tcp_stream: &Arc<Mutex<TcpStream>>, call: &Call, call_handle: 
         .expect("no TCP connection");
 }
 
-/// An XML-RPC client to the game server.
+/// XML-RPC client to the game server.
 #[derive(Clone)]
 pub struct RpcClient {
     /// A handle on the TCP stream between this controller
@@ -395,6 +395,8 @@ fn msg_loop(mut msg_in: Receiver<Msg>, cb_out: Sender<Callback>) -> TaskHandle<(
     }) // end spawn
 }
 
+/// XML-RPC client and callback receiver.
+///
 /// A connection to the game server consists of
 /// - a cloneable client to make calls with
 /// - a receiver to consume callbacks with
@@ -411,7 +413,7 @@ pub struct RpcConnection {
 /// # Panics
 /// - when the given socket address is invalid
 /// - when failing to clone the TCP stream handle
-pub async fn dedi_connect(addr: &str) -> Option<RpcConnection> {
+pub async fn rpc_connect(addr: &str) -> Option<RpcConnection> {
     let tcp_stream = match tcp_connect(&addr) {
         Ok(stream) => stream,
         Err(err) => {

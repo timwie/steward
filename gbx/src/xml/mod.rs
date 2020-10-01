@@ -3,7 +3,6 @@ use std::convert::TryFrom;
 
 pub(in crate) use from_string::*;
 pub(in crate) use from_value::*;
-pub use to_string::base64_encode;
 pub(in crate) use to_string::*;
 pub(in crate) use to_value::*;
 
@@ -22,7 +21,7 @@ pub(in crate) struct Call {
 /// An XML-RPC method response (`<methodResponse>`).
 pub(in crate) type Response = Result<Value, Fault>;
 
-/// An XML-RPC fault (`<fault>`).
+/// An XML-RPC fault (`<fault>`) of a failed method call.
 ///
 /// Specific errors should be matched by its error message,
 /// since the game often uses the code `-1000` for a lot of different errors.

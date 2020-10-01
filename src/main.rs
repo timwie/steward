@@ -23,7 +23,7 @@ async fn main() {
     use config::Config;
     use controller::Controller;
     use database::pg_connect;
-    use server::dedi_connect;
+    use server::rpc_connect;
 
     // Read environment variables from an '.env' file in the working directory.
     // We use these env vars:
@@ -43,7 +43,7 @@ async fn main() {
 
     log::info!("waiting for dedicated server connection...");
     let mut conn = loop {
-        match dedi_connect(&config.rpc_address).await {
+        match rpc_connect(&config.rpc_address).await {
             None => {
                 delay_for(retry_after).await;
                 log::debug!("waiting for dedicated server connection...");
