@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use crate::config::Config;
 use crate::controller::*;
-use crate::database::Database;
+use crate::database::DatabaseClient;
 use crate::server::Server;
 
 mod on_action;
@@ -16,7 +16,7 @@ mod on_server_event;
 #[derive(Clone)]
 pub struct Controller {
     server: Arc<dyn Server>,
-    db: Arc<dyn Database>,
+    db: DatabaseClient,
     config: ConfigController,
     chat: ChatController,
     playlist: PlaylistController,
@@ -31,11 +31,7 @@ pub struct Controller {
 }
 
 impl Controller {
-    pub async fn init(
-        config: Config,
-        server: Arc<dyn Server>,
-        db: Arc<dyn Database>,
-    ) -> Controller {
+    pub async fn init(config: Config, server: Arc<dyn Server>, db: DatabaseClient) -> Controller {
         // Lots and lots of dependency injection...
 
         // Controllers are up-casted to Live* traits, so that other controllers

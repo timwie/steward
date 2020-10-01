@@ -12,7 +12,7 @@ use gbx::file::parse_map_file;
 
 use crate::chat::PlaylistCommandError;
 use crate::controller::LiveConfig;
-use crate::database::{Database, Map, MapEvidence};
+use crate::database::{DatabaseClient, Map, MapEvidence};
 use crate::event::PlaylistDiff;
 use crate::network::{exchange_map, ExchangeError};
 use crate::server::Server;
@@ -90,14 +90,14 @@ impl PlaylistState {
 pub struct PlaylistController {
     state: Arc<RwLock<PlaylistState>>,
     server: Arc<dyn Server>,
-    db: Arc<dyn Database>,
+    db: DatabaseClient,
     live_config: Arc<dyn LiveConfig>,
 }
 
 impl PlaylistController {
     pub async fn init(
         server: &Arc<dyn Server>,
-        db: &Arc<dyn Database>,
+        db: &DatabaseClient,
         live_config: &Arc<dyn LiveConfig>,
     ) -> Self {
         let playlist = db

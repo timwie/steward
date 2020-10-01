@@ -9,7 +9,7 @@ use tokio::sync::{RwLock, RwLockReadGuard};
 
 use crate::constants::MAX_DISPLAYED_SERVER_RANKS;
 use crate::controller::LivePlayers;
-use crate::database::Database;
+use crate::database::DatabaseClient;
 use crate::event::{ServerRankDiff, ServerRankingDiff};
 use crate::server::DisplayString;
 
@@ -76,7 +76,7 @@ pub struct ServerRank {
 /// server has had 200 players (with at least one record on any map) in total,
 /// they get `199 max wins - 49 losses = 150 wins` for that map. How many of
 /// those 200 players have actually set a record on that map is irrelevant.
-async fn calc_server_ranking(db: &Arc<dyn Database>) -> IndexMap<Cow<'static, str>, ServerRank> {
+async fn calc_server_ranking(db: &DatabaseClient) -> IndexMap<Cow<'static, str>, ServerRank> {
     // This is a lazy way of calculating the server ranking,
     // which will look at the entire data set of records every time.
     // A more performant solution could compare the records of the current map
@@ -147,12 +147,12 @@ async fn calc_server_ranking(db: &Arc<dyn Database>) -> IndexMap<Cow<'static, st
 #[derive(Clone)]
 pub struct ServerRankController {
     state: Arc<RwLock<ServerRankingState>>,
-    db: Arc<dyn Database>,
+    db: DatabaseClient,
     live_players: Arc<dyn LivePlayers>,
 }
 
 impl ServerRankController {
-    pub async fn init(db: &Arc<dyn Database>, live_players: &Arc<dyn LivePlayers>) -> Self {
+    pub async fn init(db: &DatabaseClient, live_players: &Arc<dyn LivePlayers>) -> Self {
         let state = ServerRankingState {
             all_ranks: calc_server_ranking(db).await,
         };
@@ -235,25 +235,25 @@ impl LiveServerRanking for ServerRankController {
 
 #[cfg(test)]
 mod test {
-    use crate::database::test::MockDatabase;
+    use std::default::Default;
 
     use super::*;
 
     #[tokio::test]
     async fn empty_server_ranking() {
-        let mock_db = MockDatabase::new();
-        let ranking = calc_server_ranking(&mock_db.into_arc()).await;
+        let mock_db = DatabaseClient::Mock(Default::default());
+        let ranking = calc_server_ranking(&mock_db).await;
         assert!(ranking.is_empty());
     }
 
     #[tokio::test]
     async fn trivial_server_ranking() {
-        let mut mock_db = MockDatabase::new();
+        let mut mock_db = DatabaseClient::Mock(Default::default());
         mock_db.push_player("login1", "nick1");
         mock_db.push_map("uid1", true);
         mock_db.push_record("login1", "uid1", 10000);
 
-        let ranking = calc_server_ranking(&mock_db.into_arc()).await;
+        let ranking = calc_server_ranking(&mock_db).await;
         assert_eq!(1, ranking.len());
 
         let actual = ranking.values().next().unwrap();
@@ -269,7 +269,7 @@ mod test {
 
     #[tokio::test]
     async fn single_map_server_ranking() {
-        let mut mock_db = MockDatabase::new();
+        let mut mock_db = DatabaseClient::Mock(Default::default());
         mock_db.push_player("login1", "nick1");
         mock_db.push_player("login2", "nick2");
         mock_db.push_player("login3", "nick3");
@@ -278,7 +278,7 @@ mod test {
         mock_db.push_record("login2", "uid1", 20000);
         mock_db.push_record("login3", "uid1", 30000);
 
-        let ranking = calc_server_ranking(&mock_db.into_arc()).await;
+        let ranking = calc_server_ranking(&mock_db).await;
 
         let actual = ranking.values().next().unwrap();
         let expected = ServerRank {
@@ -313,7 +313,7 @@ mod test {
 
     #[tokio::test]
     async fn multi_map_server_ranking() {
-        let mut mock_db = MockDatabase::new();
+        let mut mock_db = DatabaseClient::Mock(Default::default());
         mock_db.push_player("login1", "nick1");
         mock_db.push_player("login2", "nick2");
         mock_db.push_map("uid1", true);
@@ -326,7 +326,7 @@ mod test {
         mock_db.push_record("login1", "uid3", 20000);
         mock_db.push_record("login2", "uid3", 10000);
 
-        let ranking = calc_server_ranking(&mock_db.into_arc()).await;
+        let ranking = calc_server_ranking(&mock_db).await;
 
         let actual = ranking.values().next().unwrap();
         let expected = ServerRank {
@@ -351,7 +351,7 @@ mod test {
 
     #[tokio::test]
     async fn only_rank_playlist_maps() {
-        let mut mock_db = MockDatabase::new();
+        let mut mock_db = DatabaseClient::Mock(Default::default());
         mock_db.push_player("login1", "nick1");
         mock_db.push_player("login2", "nick2");
         mock_db.push_map("uid1", true);
@@ -361,7 +361,7 @@ mod test {
         mock_db.push_record("login1", "uid2", 20000);
         mock_db.push_record("login2", "uid2", 10000);
 
-        let ranking = calc_server_ranking(&mock_db.into_arc()).await;
+        let ranking = calc_server_ranking(&mock_db).await;
 
         let actual = ranking.values().next().unwrap();
         let expected = ServerRank {

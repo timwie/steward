@@ -43,7 +43,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --lib --bin steward --workspace
+          args: --lib --workspace --features "unit_test"
 
   integration-test:
     name: Integration Tests
@@ -63,7 +63,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --test integration --features "test" -- --test-threads 1
+          args: --test integration --features "integration_test" -- --test-threads 1
 
   lints:
     name: Lints

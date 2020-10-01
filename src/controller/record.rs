@@ -8,7 +8,7 @@ use tokio::sync::{RwLock, RwLockReadGuard};
 
 use crate::constants::MAX_DISPLAYED_MAP_RANKS;
 use crate::controller::{LivePlayers, LivePlaylist};
-use crate::database::{Database, Map, Record, RecordEvidence};
+use crate::database::{DatabaseClient, Map, Record, RecordEvidence};
 use crate::event::{PbDiff, PlayerDiff, PlayerTransition};
 use crate::server::{CheckpointEvent, PlayerInfo, Server};
 
@@ -120,7 +120,7 @@ impl RecordsState {
 #[derive(Clone)]
 pub struct RecordController {
     server: Arc<dyn Server>,
-    db: Arc<dyn Database>,
+    db: DatabaseClient,
     live_playlist: Arc<dyn LivePlaylist>,
     live_players: Arc<dyn LivePlayers>,
     state: Arc<RwLock<RecordsState>>,
@@ -129,7 +129,7 @@ pub struct RecordController {
 impl RecordController {
     pub async fn init(
         server: &Arc<dyn Server>,
-        db: &Arc<dyn Database>,
+        db: &DatabaseClient,
         live_playlist: &Arc<dyn LivePlaylist>,
         live_players: &Arc<dyn LivePlayers>,
     ) -> Self {

@@ -9,7 +9,7 @@ use tokio::sync::RwLock;
 
 use crate::config::PublicConfig;
 use crate::controller::{LiveConfig, LivePlaylist, LiveQueue, LiveRecords};
-use crate::database::Database;
+use crate::database::DatabaseClient;
 use crate::event::PlaylistDiff;
 use crate::server::{ModeOptions, Server};
 
@@ -36,7 +36,7 @@ struct ScheduleState {
 pub struct ScheduleController {
     state: Arc<RwLock<ScheduleState>>,
     server: Arc<dyn Server>,
-    db: Arc<dyn Database>,
+    db: DatabaseClient,
     live_playlist: Arc<dyn LivePlaylist>,
     live_queue: Arc<dyn LiveQueue>,
     live_records: Arc<dyn LiveRecords>,
@@ -48,7 +48,7 @@ impl ScheduleController {
     #[allow(clippy::too_many_arguments)]
     pub async fn init(
         server: &Arc<dyn Server>,
-        db: &Arc<dyn Database>,
+        db: &DatabaseClient,
         live_playlist: &Arc<dyn LivePlaylist>,
         live_queue: &Arc<dyn LiveQueue>,
         live_records: &Arc<dyn LiveRecords>,

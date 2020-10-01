@@ -1,11 +1,20 @@
-pub use postgres::db_connect;
-#[cfg(feature = "test")]
-pub use postgres::{pg_connect, PostgresClient};
-#[cfg(test)]
-pub use queries::test;
-pub use queries::Queries as Database;
+#[cfg(feature = "unit_test")]
+pub use mock::*;
+#[cfg(not(feature = "unit_test"))]
+pub use queries::*;
 pub use structs::*;
 
-mod postgres;
+#[cfg(feature = "unit_test")]
+mod mock;
+#[cfg(not(feature = "unit_test"))]
 mod queries;
-pub mod structs;
+mod structs;
+
+#[derive(Clone)]
+pub enum DatabaseClient {
+    #[cfg(not(feature = "unit_test"))]
+    Postgres(Pool),
+
+    #[cfg(feature = "unit_test")]
+    Mock(MockDatabase),
+}

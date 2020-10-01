@@ -1,48 +1,240 @@
-use anyhow::Result;
-use async_trait::async_trait;
+use std::convert::TryFrom;
+use std::str::FromStr;
+use std::time::Duration;
+
+use bb8::PooledConnection;
+use bb8_postgres::PostgresConnectionManager;
 use chrono::NaiveDateTime;
+use include_dir::{include_dir, Dir};
+use tokio_postgres::{NoTls, Row};
 
 use crate::database::structs::*;
-use crate::server::PlayerInfo;
+use crate::database::DatabaseClient;
+use crate::server::{DisplayString, PlayerInfo};
 
-#[async_trait]
-pub trait Queries: Send + Sync {
+pub async fn pg_connect(conn: &str, timeout: Duration) -> Option<DatabaseClient> {
+    let config = tokio_postgres::config::Config::from_str(&conn)
+        .expect("failed to parse postgres connection string");
+
+    let pg_mgr = bb8_postgres::PostgresConnectionManager::new(config, tokio_postgres::NoTls);
+
+    let pool = bb8::Pool::builder()
+        .build(pg_mgr)
+        .await
+        .expect("failed to build database pool");
+
+    let connect_or_timeout = tokio::time::timeout(timeout, pool.get());
+
+    match connect_or_timeout.await {
+        Ok(conn) => {
+            conn.expect("failed to connect to database");
+        }
+        Err(_) => return None,
+    }
+
+    Some(DatabaseClient::Postgres(pool))
+}
+
+/// A connection pool that maintains a set of open connections to the database,
+/// handing them out for repeated use.
+pub(super) type Pool = bb8::Pool<bb8_postgres::PostgresConnectionManager<tokio_postgres::NoTls>>;
+
+pub type Error = bb8::RunError<tokio_postgres::Error>;
+
+pub type Result<T> = std::result::Result<T, Error>;
+
+#[cfg(not(feature = "unit_test"))]
+impl DatabaseClient {
+    async fn conn(&self) -> Result<PooledConnection<'_, PostgresConnectionManager<NoTls>>> {
+        match self {
+            DatabaseClient::Postgres(pool) => Ok(pool.get().await?),
+        }
+    }
+
     /// Check for pending database migrations and execute them.
-    async fn migrate(&self) -> Result<()>;
+    pub async fn migrate(&self) -> Result<()> {
+        // Include all migration statements at compile-time:
+        static MIGRATION_DIR: Dir = include_dir!("src/res/migrations/");
+
+        let stmts = |nb: usize| {
+            MIGRATION_DIR
+                .get_file(format!("{}.sql", nb))
+                .and_then(|f| f.contents_utf8())
+                .unwrap_or_else(|| panic!("failed to find statements for migration {}", nb))
+        };
+
+        let mut conn = self.conn().await?;
+        let transaction = conn.transaction().await?;
+
+        // Run the initial 'migration' that only creates the metadata
+        // table if it doesn't exist.
+        transaction.batch_execute(stmts(0)).await?;
+
+        // Get the most recently executed migration number.
+        let at_migration: usize = {
+            let stmt = "SELECT at_migration FROM steward.meta";
+            let row = transaction.query_one(stmt, &[]).await?;
+            row.get::<usize, i32>(0) as usize
+        };
+        log::debug!("database at migration {}", at_migration);
+
+        let most_recent_migration: usize = MIGRATION_DIR.files().len() - 1;
+        let pending_migrations = at_migration + 1..most_recent_migration + 1;
+        for i in pending_migrations {
+            log::info!("run database migration {}...", i);
+            transaction.batch_execute(stmts(i)).await?;
+        }
+
+        transaction.commit().await?;
+        Ok(())
+    }
 
     /// Return the specified player, or `None` if no such player exists in the database.
-    async fn player(&self, login: &str) -> Result<Option<Player>>;
+    pub async fn player(&self, login: &str) -> Result<Option<Player>> {
+        let conn = self.conn().await?;
+        let stmt = r#"
+            SELECT *
+            FROM steward.player
+            WHERE login = $1
+        "#;
+        let row = conn.query_opt(stmt, &[&login]).await?;
+        Ok(row.map(Player::from))
+    }
 
     /// Return players for every input login that exists in the database.
-    async fn players(&self, logins: Vec<&str>) -> Result<Vec<Player>>;
+    pub async fn players(&self, logins: Vec<&str>) -> Result<Vec<Player>> {
+        let conn = self.conn().await?;
+        let stmt = r#"
+            SELECT *
+            FROM steward.player
+            WHERE login = ANY($1::text[])
+        "#;
+        let rows = conn.query(stmt, &[&logins]).await?;
+        Ok(rows.into_iter().map(Player::from).collect())
+    }
 
     /// Insert a player into the database.
     /// Update their display name if the player already exists.
-    async fn upsert_player(&self, player: &PlayerInfo) -> Result<()>;
+    pub async fn upsert_player(&self, player: &PlayerInfo) -> Result<()> {
+        let conn = self.conn().await?;
+        let stmt = r#"
+            INSERT INTO steward.player
+                (login, display_name)
+            VALUES
+                ($1, $2)
+            ON CONFLICT (login)
+            DO UPDATE SET
+                display_name = excluded.display_name
+        "#;
+        let _ = conn
+            .execute(
+                stmt,
+                &[&player.login, &player.display_name.formatted.trim()],
+            )
+            .await?;
+        Ok(())
+    }
 
     /// Update a player's history, setting *now* as the time they most recently
     /// played the specified map.
-    async fn add_history(
+    pub async fn add_history(
         &self,
         player_login: &str,
         map_uid: &str,
         last_played: &NaiveDateTime,
-    ) -> Result<()>;
+    ) -> Result<()> {
+        let conn = self.conn().await?;
+        let stmt = r#"
+            INSERT INTO steward.history
+                (player_login, map_uid, last_played)
+            VALUES
+                ($1, $2, $3)
+            ON CONFLICT (player_login, map_uid)
+            DO UPDATE SET
+                last_played = excluded.last_played
+        "#;
+        let _ = conn
+            .execute(stmt, &[&player_login, &map_uid, &last_played])
+            .await?;
+        Ok(())
+    }
 
     /// Returns the player's history for each map currently in the playlist.
-    async fn history(&self, player_login: &str) -> Result<Vec<History>>;
+    pub async fn history(&self, player_login: &str) -> Result<Vec<History>> {
+        let conn = self.conn().await?;
+        let stmt = r#"
+            SELECT
+                m.uid map_uid,
+                h.last_played,
+                RANK () OVER (
+                    ORDER BY h.last_played DESC NULLS LAST
+                ) - 1 nb_maps_since
+            FROM steward.map m
+            LEFT JOIN steward.history h ON m.uid = h.map_uid
+            WHERE h.player_login is NULL OR h.player_login = $1
+        "#;
+        let rows = conn.query(stmt, &[&player_login]).await?;
+        let result = rows
+            .into_iter()
+            .map(|row| History {
+                player_login: player_login.to_string(),
+                map_uid: row.get("map_uid"),
+                last_played: row.get("last_played"),
+                nb_maps_since: usize::try_from(row.get::<_, i64>("nb_maps_since"))
+                    .expect("failed to convert nb_maps_since"),
+            })
+            .collect();
+        Ok(result)
+    }
 
     /// List all maps, including their file data.
-    async fn map_files(&self) -> Result<Vec<MapEvidence>>;
+    pub async fn map_files(&self) -> Result<Vec<MapEvidence>> {
+        let conn = self.conn().await?;
+        let stmt = r#"
+            SELECT *
+            FROM steward.map
+        "#;
+        let rows = conn.query(stmt, &[]).await?;
+        let maps = rows.into_iter().map(MapEvidence::from).collect();
+        Ok(maps)
+    }
 
     /// List all maps.
-    async fn maps(&self) -> Result<Vec<Map>>;
+    pub async fn maps(&self) -> Result<Vec<Map>> {
+        let conn = self.conn().await?;
+        let stmt = r#"
+            SELECT uid, file_name, name, author_login, author_display_name, author_millis, added_since, in_playlist, exchange_id
+            FROM steward.map
+        "#;
+        let rows = conn.query(stmt, &[]).await?;
+        let maps = rows.into_iter().map(Map::from).collect();
+        Ok(maps)
+    }
 
     /// List all maps in the playlist.
-    async fn playlist(&self) -> Result<Vec<Map>>;
+    pub async fn playlist(&self) -> Result<Vec<Map>> {
+        let conn = self.conn().await?;
+        let stmt = r#"
+            SELECT uid, file_name, name, author_login, author_display_name, author_millis, added_since, in_playlist, exchange_id
+            FROM steward.map
+            WHERE in_playlist
+        "#;
+        let rows = conn.query(stmt, &[]).await?;
+        let maps = rows.into_iter().map(Map::from).collect();
+        Ok(maps)
+    }
 
     /// Return the specified map, or `None` if no such map exists in the database.
-    async fn map(&self, map_uid: &str) -> Result<Option<Map>>;
+    pub async fn map(&self, map_uid: &str) -> Result<Option<Map>> {
+        let conn = self.conn().await?;
+        let stmt = r#"
+            SELECT uid, file_name, name, author_login, author_display_name, author_millis, added_since, in_playlist, exchange_id
+            FROM steward.map
+            WHERE uid = $1
+        "#;
+        let row = conn.query_opt(stmt, &[&map_uid]).await?;
+        Ok(row.map(Map::from))
+    }
 
     /// Insert a map into the database.
     ///
@@ -51,61 +243,82 @@ pub trait Queries: Send + Sync {
     ///  - its file path
     ///  - whether it is in the playlist
     ///  - its exchange ID.
-    async fn upsert_map(&self, map: &MapEvidence) -> Result<()>;
+    pub async fn upsert_map(&self, map: &MapEvidence) -> Result<()> {
+        let conn = self.conn().await?;
+        let stmt = r#"
+            INSERT INTO steward.map
+                (uid, file_name, file,
+                 name, author_login, author_display_name,
+                 author_millis, added_since, in_playlist,
+                 exchange_id)
+            VALUES
+                ($1, $2, $3,
+                 $4, $5, $6,
+                 $7, $8, $9,
+                 $10)
+            ON CONFLICT (uid)
+            DO UPDATE SET
+                file_name = excluded.file_name,
+                file = excluded.file,
+                in_playlist = excluded.in_playlist,
+                exchange_id = COALESCE(excluded.exchange_id, steward.map.exchange_id)
+        "#;
+        let _ = conn
+            .execute(
+                stmt,
+                &[
+                    &map.metadata.uid,
+                    &map.metadata.file_name,
+                    &map.data,
+                    &map.metadata.name.formatted.trim(),
+                    &map.metadata.author_login,
+                    &map.metadata.author_display_name.formatted.trim(),
+                    &map.metadata.author_millis,
+                    &map.metadata.added_since,
+                    &map.metadata.in_playlist,
+                    &map.metadata.exchange_id,
+                ],
+            )
+            .await?;
+        Ok(())
+    }
+
+    async fn playlist_edit(&self, map_uid: &str, in_playlist: bool) -> Result<Option<Map>> {
+        let conn = self.conn().await?;
+        let stmt = r#"
+            UPDATE steward.map
+            SET in_playlist = $2
+            WHERE uid = $1
+            RETURNING uid, file_name, name, author_login, author_display_name, added_since, in_playlist, exchange_id
+        "#;
+        let row = conn.query_opt(stmt, &[&map_uid, &in_playlist]).await?;
+        Ok(row.map(Map::from))
+    }
 
     /// Add the specified map to the playlist, and return it,
     /// or `None` if there is no map with that UID.
-    async fn playlist_add(&self, map_uid: &str) -> Result<Option<Map>>;
+    pub async fn playlist_add(&self, map_uid: &str) -> Result<Option<Map>> {
+        self.playlist_edit(map_uid, true).await
+    }
 
     /// Remove the specified map from the playlist, and return it,
     /// or `None` if there is no map with that UID.
-    async fn playlist_remove(&self, map_uid: &str) -> Result<Option<Map>>;
-
+    pub async fn playlist_remove(&self, map_uid: &str) -> Result<Option<Map>> {
+        self.playlist_edit(map_uid, false).await
+    }
     /// Return the number of players that have set a record on the specified map,
     /// with the specified lap count.
     ///
     /// Use `nb_laps = 0` if the map is not multi-lap, or to count flying lap records.
-    async fn nb_records(&self, map_uid: &str, nb_laps: i32) -> Result<i64>;
-
-    /// Return the top record set by any player on the specified map,
-    /// with the specified lap count, or `None` if no player has completed such a
-    /// run on that map.
-    ///
-    /// Use `nb_laps = 0` if the map is not multi-lap, or to get the top flying lap records.
-    async fn top_record(&self, map_uid: &str, nb_laps: i32) -> Result<Option<Record>> {
-        Ok(self
-            .records(vec![map_uid], vec![], nb_laps, Some(1))
-            .await?
-            .into_iter()
-            .next())
-    }
-
-    /// Return limited number of top records on the specified map,
-    /// with the specified lap count, sorted from best to worse.
-    ///
-    /// Use `nb_laps = 0` if the map is not multi-lap, or to get flying lap records.
-    async fn top_records(&self, map_uid: &str, limit: i64, nb_laps: i32) -> Result<Vec<Record>> {
-        Ok(self
-            .records(vec![map_uid], vec![], nb_laps, Some(limit))
-            .await?)
-    }
-
-    /// Return the personal best of the specified player on the specified map,
-    /// with the specified lap count, or `None` if the player has not completed such a
-    /// run on that map.
-    ///
-    /// Use `nb_laps = 0` if the map is not multi-lap, or to get the player's flying lap PB.
-    async fn player_record(
-        &self,
-        map_uid: &str,
-        player_login: &str,
-        nb_laps: i32,
-    ) -> Result<Option<Record>> {
-        Ok(self
-            .records(vec![map_uid], vec![player_login], nb_laps, None)
-            .await?
-            .into_iter()
-            .next())
+    pub async fn nb_records(&self, map_uid: &str, nb_laps: i32) -> Result<i64> {
+        let conn = self.conn().await?;
+        let stmt = r#"
+            SELECT COUNT(*) AS INTEGER
+            FROM steward.record
+            WHERE map_uid = $1 AND nb_laps = $2;
+        "#;
+        let row = conn.query_one(stmt, &[&map_uid, &nb_laps]).await?;
+        Ok(row.get(0))
     }
 
     /// Return records on the specified maps, set by the specified players, with the specified
@@ -119,39 +332,239 @@ pub trait Queries: Send + Sync {
     /// `nb_laps` - The number of required laps. Use `0` if the map is not multi-lap,
     ///             or to get flying lap records.
     /// `limit_per_map` - The maximum number of records returned for each specified map.
-    async fn records(
+    pub async fn records(
         &self,
         map_uids: Vec<&str>,
         player_logins: Vec<&str>,
         nb_laps: i32,
         limit_per_map: Option<i64>,
-    ) -> Result<Vec<Record>>;
+    ) -> Result<Vec<Record>> {
+        let conn = self.conn().await?;
+        let stmt = r#"
+            SELECT
+                r.map_uid, r.pos, r.millis, r.timestamp,
+                p.login, p.display_name
+            FROM (
+                SELECT
+                   map_uid,
+                   player_login,
+                   millis,
+                   timestamp,
+                   RANK () OVER (
+                      ORDER BY millis ASC
+                   ) pos
+                FROM steward.record
+                WHERE
+                    nb_laps = $3
+                    AND (CARDINALITY($1::text[]) = 0 OR map_uid = ANY($1::text[]))
+                    AND (CARDINALITY($2::text[]) = 0 OR player_login = ANY($2::text[]))
+                LIMIT $4
+            ) r
+            INNER JOIN steward.player p ON r.player_login = p.login
+        "#;
+        let rows = conn
+            .query(stmt, &[&map_uids, &player_logins, &nb_laps, &limit_per_map])
+            .await?;
+        let records = rows
+            .into_iter()
+            .map(|row| Record {
+                map_uid: row.get("map_uid"),
+                player_login: row.get("login"),
+                nb_laps,
+                map_rank: row.get("pos"),
+                player_display_name: DisplayString::from(row.get("display_name")),
+                timestamp: row.get("timestamp"),
+                millis: row.get("millis"),
+            })
+            .collect();
+        Ok(records)
+    }
+
+    /// Return the top record set by any player on the specified map,
+    /// with the specified lap count, or `None` if no player has completed such a
+    /// run on that map.
+    ///
+    /// Use `nb_laps = 0` if the map is not multi-lap, or to get the top flying lap records.
+    pub async fn top_record(&self, map_uid: &str, nb_laps: i32) -> Result<Option<Record>> {
+        Ok(self
+            .records(vec![map_uid], vec![], nb_laps, Some(1))
+            .await?
+            .into_iter()
+            .next())
+    }
+
+    /// Return limited number of top records on the specified map,
+    /// with the specified lap count, sorted from best to worse.
+    ///
+    /// Use `nb_laps = 0` if the map is not multi-lap, or to get flying lap records.
+    pub async fn top_records(
+        &self,
+        map_uid: &str,
+        limit: i64,
+        nb_laps: i32,
+    ) -> Result<Vec<Record>> {
+        Ok(self
+            .records(vec![map_uid], vec![], nb_laps, Some(limit))
+            .await?)
+    }
+
+    /// Return the personal best of the specified player on the specified map,
+    /// with the specified lap count, or `None` if the player has not completed such a
+    /// run on that map.
+    ///
+    /// Use `nb_laps = 0` if the map is not multi-lap, or to get the player's flying lap PB.
+    pub async fn player_record(
+        &self,
+        map_uid: &str,
+        player_login: &str,
+        nb_laps: i32,
+    ) -> Result<Option<Record>> {
+        Ok(self
+            .records(vec![map_uid], vec![player_login], nb_laps, None)
+            .await?
+            .into_iter()
+            .next())
+    }
 
     /// Return the number of players that have set a record on at least one map.
-    async fn nb_players_with_record(&self) -> Result<i64>;
+    pub async fn nb_players_with_record(&self) -> Result<i64> {
+        let conn = self.conn().await?;
+        let stmt = r#"
+            SELECT COUNT(DISTINCT player_login)
+            FROM steward.record
+        "#;
+        let row = conn.query_one(stmt, &[]).await?;
+        Ok(row.get(0))
+    }
 
     /// List all map UIDs that the specified player has not completed a run on.
-    async fn maps_without_player_record(&self, player_login: &str) -> Result<Vec<String>>;
+    pub async fn maps_without_player_record(&self, player_login: &str) -> Result<Vec<String>> {
+        let conn = self.conn().await?;
+        let stmt = r#"
+            SELECT DISTINCT m.uid
+            FROM steward.map m
+            LEFT JOIN (
+                SELECT map_uid FROM steward.record WHERE player_login = $1
+            ) r
+            ON m.uid = r.map_uid
+            WHERE r.map_uid IS NULL
+        "#;
+        let rows = conn.query(stmt, &[&player_login]).await?;
+        let maps = rows.iter().map(|row| row.get(0)).collect();
+        Ok(maps)
+    }
 
     /// Without inserting the given record, return the map rank it would achieve,
     /// if it were inserted.
-    async fn record_preview(&self, record: &RecordEvidence) -> Result<i64>;
+    pub async fn record_preview(&self, record: &RecordEvidence) -> Result<i64> {
+        let conn = self.conn().await?;
+        let stmt = r#"
+            SELECT COUNT(*)
+            FROM steward.record r
+            WHERE
+                map_uid = $1
+                AND r.nb_laps = $2
+                AND r.player_login != $3
+                AND r.millis < $4
+        "#;
+        let row = conn
+            .query_one(
+                stmt,
+                &[
+                    &record.map_uid,
+                    &record.nb_laps,
+                    &record.player_login,
+                    &record.millis,
+                ],
+            )
+            .await?;
+        Ok(1 + row.get::<usize, i64>(0))
+    }
 
     /// Updates the player's personal best on a map.
     ///
     /// # Note
     /// If a previous record exists for that player, this function does not
     /// check if the given record is actually better than the one in the database.
-    async fn upsert_record(&self, rec: &RecordEvidence) -> Result<()>;
+    pub async fn upsert_record(&self, rec: &RecordEvidence) -> Result<()> {
+        let conn = self.conn().await?;
+
+        let stmt = r#"
+            INSERT INTO steward.record
+                (player_login, map_uid, nb_laps, millis, timestamp)
+            VALUES
+                ($1, $2, $3, $4, $5)
+            ON CONFLICT (player_login, map_uid, nb_laps)
+            DO UPDATE SET
+                millis = excluded.millis,
+                timestamp = excluded.timestamp
+        "#;
+
+        let _ = conn
+            .execute(
+                stmt,
+                &[
+                    &rec.player_login,
+                    &rec.map_uid,
+                    &rec.nb_laps,
+                    &rec.millis,
+                    &rec.timestamp,
+                ],
+            )
+            .await?;
+
+        Ok(())
+    }
 
     /// List all preferences that the specified player has set.
-    async fn player_preferences(&self, player_login: &str) -> Result<Vec<Preference>>;
+    pub async fn player_preferences(&self, player_login: &str) -> Result<Vec<Preference>> {
+        let conn = self.conn().await?;
+        let stmt = r#"
+            SELECT * FROM steward.preference
+            WHERE player_login = $1 AND value IS NOT NULL
+        "#;
+        let rows = conn.query(stmt, &[&player_login]).await?;
+        let prefs = rows.into_iter().map(Preference::from).collect();
+        Ok(prefs)
+    }
 
     /// Count the number of times each preference was set by any player, for the specified map.
-    async fn count_map_preferences(&self, map_uid: &str) -> Result<Vec<(PreferenceValue, i64)>>;
+    pub async fn count_map_preferences(
+        &self,
+        map_uid: &str,
+    ) -> Result<Vec<(PreferenceValue, i64)>> {
+        let conn = self.conn().await?;
+        let stmt = r#"
+            SELECT
+                e.value, COUNT(p.value)
+            FROM (SELECT unnest(enum_range(NULL::steward.Pref)) AS value) e
+            LEFT JOIN steward.preference p
+            ON p.value = e.value AND map_uid = $1
+            GROUP BY e.value
+        "#;
+        let rows = conn.query(stmt, &[&map_uid]).await?;
+
+        let mut counts = Vec::<(PreferenceValue, i64)>::with_capacity(3);
+        for row in rows {
+            counts.push((row.get("value"), row.get("count")));
+        }
+        Ok(counts)
+    }
 
     /// Insert a player's map preference, overwriting any previous preference.
-    async fn upsert_preference(&self, pref: &Preference) -> Result<()>;
+    pub async fn upsert_preference(&self, pref: &Preference) -> Result<()> {
+        let conn = self.conn().await?;
+        let stmt = r#"
+            INSERT INTO steward.preference (player_login, map_uid, value)
+            VALUES ($1, $2, $3)
+            ON CONFLICT (player_login, map_uid)
+            DO UPDATE SET value = excluded.value
+        "#;
+        let _ = conn
+            .execute(stmt, &[&pref.player_login, &pref.map_uid, &pref.value])
+            .await?;
+        Ok(())
+    }
 
     /// Calculate the map rank of *every* player.
     ///
@@ -161,249 +574,119 @@ pub trait Queries: Send + Sync {
     /// The length of this collection is equal to the total number of `nb_laps == 0` records
     /// stored in the database. This function should only be used when calculating
     /// the server ranking.
-    async fn map_rankings(&self) -> Result<Vec<MapRank>>;
+    pub async fn map_rankings(&self) -> Result<Vec<MapRank>> {
+        let conn = self.conn().await?;
+        let stmt = r#"
+            SELECT
+                r.map_uid,
+                p.login,
+                p.display_name,
+                RANK () OVER (
+                    PARTITION BY r.map_uid
+                    ORDER BY r.millis ASC
+                ) pos,
+                COUNT(*) OVER (PARTITION BY r.map_uid) max_pos,
+                m.in_playlist
+            FROM steward.record r
+            INNER JOIN steward.player p ON r.player_login = p.login
+            INNER JOIN steward.map m ON r.map_uid = m.uid
+            WHERE r.nb_laps = 0
+        "#;
+        let rows = conn.query(stmt, &[]).await?;
+        Ok(rows
+            .iter()
+            .map(|row| MapRank {
+                map_uid: row.get("map_uid"),
+                player_login: row.get("login"),
+                player_display_name: DisplayString::from(row.get("display_name")),
+                pos: row.get("pos"),
+                max_pos: row.get("max_pos"),
+                in_playlist: row.get("in_playlist"),
+            })
+            .collect())
+    }
 
     /// Delete a player, their preferences, and their records.
     /// The data is lost forever.
-    async fn delete_player(&self, player_login: &str) -> Result<Option<Player>>;
+    pub async fn delete_player(&self, player_login: &str) -> Result<Option<Player>> {
+        let mut conn = self.conn().await?;
+        let transaction = conn.transaction().await?;
+
+        let stmt = "DELETE FROM steward.preference WHERE player_login = $1";
+        let _ = transaction.execute(stmt, &[&player_login]).await?;
+
+        let stmt = "DELETE FROM steward.record WHERE player_login = $1";
+        let _ = transaction.execute(stmt, &[&player_login]).await?;
+
+        let stmt = "DELETE FROM steward.player WHERE login = $1 RETURNING *";
+        let maybe_row = transaction.query_opt(stmt, &[&player_login]).await?;
+        let maybe_player = maybe_row.map(Player::from);
+
+        transaction.commit().await?;
+        Ok(maybe_player)
+    }
 
     /// Delete a map, its preferences, and its records.
     /// The data is lost forever.
-    async fn delete_map(&self, map_uid: &str) -> Result<Option<Map>>;
+    pub async fn delete_map(&self, map_uid: &str) -> Result<Option<Map>> {
+        let mut conn = self.conn().await?;
+        let transaction = conn.transaction().await?;
+
+        let stmt = "DELETE FROM steward.preference WHERE map_uid = $1";
+        let _ = transaction.execute(stmt, &[&map_uid]).await?;
+
+        let stmt = "DELETE FROM steward.record WHERE map_uid = $1";
+        let _ = transaction.execute(stmt, &[&map_uid]).await?;
+
+        let stmt = "DELETE FROM steward.map WHERE uid = $1 RETURNING *";
+        let maybe_row = transaction.query_opt(stmt, &[&map_uid]).await?;
+        let maybe_map = maybe_row.map(Map::from);
+
+        transaction.commit().await?;
+        Ok(maybe_map)
+    }
 }
 
-#[cfg(test)]
-pub mod test {
-    use std::collections::{HashMap, HashSet};
-    use std::sync::Arc;
-
-    use async_trait::async_trait;
-    use chrono::Utc;
-
-    use crate::database::Database;
-    use crate::server::DisplayString;
-
-    use super::*;
-
-    pub struct MockDatabase {
-        pub maps: Vec<MapEvidence>,
-        pub players: Vec<Player>,
-        pub records: Vec<RecordEvidence>,
-    }
-
-    impl MockDatabase {
-        pub fn new() -> Self {
-            MockDatabase {
-                maps: vec![],
-                players: vec![],
-                records: vec![],
-            }
-        }
-
-        pub fn into_arc(self) -> Arc<dyn Database> {
-            Arc::new(self) as Arc<dyn Database>
-        }
-
-        pub fn push_player(&mut self, login: &str, display_name: &str) {
-            self.players.push(Player {
-                login: login.to_string(),
-                display_name: DisplayString::from(display_name.to_string()),
-            });
-        }
-
-        pub fn push_map(&mut self, uid: &str, in_playlist: bool) {
-            self.maps.push(MapEvidence {
-                metadata: Map {
-                    uid: uid.to_string(),
-                    file_name: "".to_string(),
-                    name: DisplayString::from("".to_string()),
-                    author_login: "".to_string(),
-                    author_display_name: DisplayString::from("".to_string()),
-                    added_since: Utc::now().naive_utc(),
-                    author_millis: 0,
-                    in_playlist,
-                    exchange_id: None,
-                },
-                data: vec![],
-            });
-        }
-
-        pub fn push_record(&mut self, login: &str, uid: &str, millis: i32) {
-            self.records.push(RecordEvidence {
-                player_login: login.to_string(),
-                map_uid: uid.to_string(),
-                millis,
-                timestamp: Utc::now().naive_utc(),
-                nb_laps: 0,
-            });
-        }
-
-        fn expect_player(&self, login: &str) -> &Player {
-            self.players
-                .iter()
-                .find(|p| p.login == login)
-                .expect("player login not in mock database")
-        }
-
-        fn expect_map(&self, uid: &str) -> &Map {
-            &self
-                .maps
-                .iter()
-                .find(|m| m.metadata.uid == uid)
-                .expect("map uid not in mock database")
-                .metadata
+impl From<Row> for Map {
+    fn from(row: Row) -> Self {
+        Map {
+            uid: row.get("uid"),
+            file_name: row.get("file_name"),
+            name: DisplayString::from(row.get("name")),
+            author_login: row.get("author_login"),
+            author_display_name: DisplayString::from(row.get("author_display_name")),
+            author_millis: row.get("author_millis"),
+            added_since: row.get("added_since"),
+            in_playlist: row.get("in_playlist"),
+            exchange_id: row.get("exchange_id"),
         }
     }
+}
 
-    #[async_trait]
-    impl Queries for MockDatabase {
-        async fn migrate(&self) -> Result<()> {
-            unimplemented!()
+impl From<Row> for MapEvidence {
+    fn from(row: Row) -> Self {
+        MapEvidence {
+            data: row.get("file"),
+            metadata: Map::from(row),
         }
+    }
+}
 
-        async fn player(&self, _login: &str) -> Result<Option<Player>> {
-            unimplemented!()
+impl From<Row> for Player {
+    fn from(row: Row) -> Self {
+        Player {
+            login: row.get("login"),
+            display_name: DisplayString::from(row.get("display_name")),
         }
+    }
+}
 
-        async fn players(&self, logins: Vec<&str>) -> Result<Vec<Player>> {
-            unimplemented!()
-        }
-
-        async fn upsert_player(&self, _player: &PlayerInfo) -> Result<()> {
-            unimplemented!()
-        }
-
-        async fn add_history(
-            &self,
-            _player_login: &str,
-            _map_uid: &str,
-            _last_played: &NaiveDateTime,
-        ) -> Result<()> {
-            unimplemented!()
-        }
-
-        async fn history(&self, _player_login: &str) -> Result<Vec<History>> {
-            unimplemented!()
-        }
-
-        async fn map_files(&self) -> Result<Vec<MapEvidence>> {
-            unimplemented!()
-        }
-
-        async fn maps(&self) -> Result<Vec<Map>> {
-            unimplemented!()
-        }
-
-        async fn playlist(&self) -> Result<Vec<Map>> {
-            Ok(self
-                .maps
-                .iter()
-                .filter(|ev| ev.metadata.in_playlist)
-                .map(|ev| ev.metadata.clone())
-                .collect())
-        }
-
-        async fn map(&self, _map_uid: &str) -> Result<Option<Map>> {
-            unimplemented!()
-        }
-
-        async fn upsert_map(&self, _map: &MapEvidence) -> Result<()> {
-            unimplemented!()
-        }
-
-        async fn playlist_add(&self, _map_uid: &str) -> Result<Option<Map>> {
-            unimplemented!()
-        }
-
-        async fn playlist_remove(&self, _map_uid: &str) -> Result<Option<Map>> {
-            unimplemented!()
-        }
-
-        async fn nb_records(&self, _map_uid: &str, _nb_laps: i32) -> Result<i64> {
-            unimplemented!()
-        }
-
-        async fn records(
-            &self,
-            _map_uids: Vec<&str>,
-            _player_logins: Vec<&str>,
-            _nb_laps: i32,
-            _limit_per_map: Option<i64>,
-        ) -> Result<Vec<Record>> {
-            unimplemented!()
-        }
-
-        async fn nb_players_with_record(&self) -> Result<i64> {
-            let logins: HashSet<&str> = self
-                .records
-                .iter()
-                .map(|rec| rec.player_login.as_str())
-                .collect();
-            Ok(logins.len() as i64)
-        }
-
-        async fn maps_without_player_record(&self, _player_login: &str) -> Result<Vec<String>> {
-            unimplemented!()
-        }
-
-        async fn record_preview(&self, _record: &RecordEvidence) -> Result<i64> {
-            unimplemented!()
-        }
-
-        async fn upsert_record(&self, _rec: &RecordEvidence) -> Result<()> {
-            unimplemented!()
-        }
-
-        async fn player_preferences(&self, _player_login: &str) -> Result<Vec<Preference>> {
-            unimplemented!()
-        }
-
-        async fn count_map_preferences(
-            &self,
-            _map_uid: &str,
-        ) -> Result<Vec<(PreferenceValue, i64)>> {
-            unimplemented!()
-        }
-
-        async fn upsert_preference(&self, _pref: &Preference) -> Result<()> {
-            unimplemented!()
-        }
-
-        async fn map_rankings(&self) -> Result<Vec<MapRank>> {
-            let mut grp_by_map = HashMap::<&str, Vec<&RecordEvidence>>::new();
-            for rec in self.records.iter() {
-                grp_by_map.entry(&rec.map_uid).or_insert(vec![]).push(&rec);
-            }
-            for map_recs in grp_by_map.values_mut() {
-                map_recs.sort_by_key(|rec| rec.millis);
-            }
-            Ok(grp_by_map
-                .into_iter()
-                .flat_map(|(map_uid, map_recs)| {
-                    let max_pos = map_recs.len() as i64;
-                    map_recs.into_iter().enumerate().map(move |(idx, rec)| {
-                        let player_display_name =
-                            self.expect_player(&rec.player_login).display_name.clone();
-                        let in_playlist = self.expect_map(&rec.map_uid).in_playlist;
-                        MapRank {
-                            map_uid: map_uid.to_string(),
-                            player_login: rec.player_login.clone(),
-                            player_display_name,
-                            pos: idx as i64 + 1,
-                            max_pos,
-                            in_playlist,
-                        }
-                    })
-                })
-                .collect())
-        }
-
-        async fn delete_player(&self, _player_login: &str) -> Result<Option<Player>> {
-            unimplemented!()
-        }
-
-        async fn delete_map(&self, _map_uid: &str) -> Result<Option<Map>> {
-            unimplemented!()
+impl From<Row> for Preference {
+    fn from(row: Row) -> Self {
+        Preference {
+            player_login: row.get("player_login"),
+            map_uid: row.get("map_uid"),
+            value: row.get("value"),
         }
     }
 }

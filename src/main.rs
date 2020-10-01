@@ -23,7 +23,7 @@ async fn main() {
 
     use config::Config;
     use controller::Controller;
-    use database::db_connect;
+    use database::pg_connect;
     use server::{RpcConnection, Server};
 
     // Read environment variables from an '.env' file in the working directory.
@@ -58,7 +58,7 @@ async fn main() {
 
     log::info!("waiting for database connection...");
     let db = loop {
-        match db_connect(&config.postgres_connection, retry_after).await {
+        match pg_connect(&config.postgres_connection, retry_after).await {
             None => log::debug!("waiting for database connection..."),
             Some(db) => break db,
         }

@@ -42,6 +42,5 @@ toml = "0.5"
 testcontainers = "0.10"
 
 [features]
-# The reason we do this is because integration tests don't get cfg(test)
-# See: https://github.com/rust-lang/rust/issues/45599
-test = []
+integration_test = []
+unit_test = []

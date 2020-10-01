@@ -4,7 +4,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use tokio::sync::{RwLock, RwLockReadGuard};
 
-use crate::database::Database;
+use crate::database::DatabaseClient;
 use crate::event::{PlayerDiff, PlayerTransition};
 use crate::server::{DisplayString, PlayerInfo, PlayerSlot, Server};
 
@@ -161,11 +161,11 @@ impl PlayersState {
 #[derive(Clone)]
 pub struct PlayerController {
     state: Arc<RwLock<PlayersState>>,
-    db: Arc<dyn Database>,
+    db: DatabaseClient,
 }
 
 impl PlayerController {
-    pub async fn init(server: &Arc<dyn Server>, db: &Arc<dyn Database>) -> Self {
+    pub async fn init(server: &Arc<dyn Server>, db: &DatabaseClient) -> Self {
         let controller = PlayerController {
             state: Arc::new(RwLock::new(PlayersState::init())),
             db: db.clone(),

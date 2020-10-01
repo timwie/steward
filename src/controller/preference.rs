@@ -9,7 +9,7 @@ use tokio::sync::{RwLock, RwLockReadGuard};
 
 use crate::chat::PlayerMessage;
 use crate::controller::{LiveChat, LivePlayers, LivePlaylist, PlayersState};
-use crate::database::{Database, History, Map, Preference, PreferenceValue};
+use crate::database::{DatabaseClient, History, Map, Preference, PreferenceValue};
 use crate::event::{PlayerDiff, PlayerTransition, PlaylistDiff};
 use crate::server::PlayerInfo;
 use crate::widget::ActivePreferenceValue;
@@ -141,7 +141,7 @@ impl<'a> PlayerMapKey<'a> {
 #[derive(Clone)]
 pub struct PreferenceController {
     state: Arc<RwLock<PreferencesState>>,
-    db: Arc<dyn Database>,
+    db: DatabaseClient,
     live_chat: Arc<dyn LiveChat>,
     live_playlist: Arc<dyn LivePlaylist>,
     live_players: Arc<dyn LivePlayers>,
@@ -149,7 +149,7 @@ pub struct PreferenceController {
 
 impl PreferenceController {
     pub async fn init(
-        db: &Arc<dyn Database>,
+        db: &DatabaseClient,
         live_chat: &Arc<dyn LiveChat>,
         live_playlist: &Arc<dyn LivePlaylist>,
         live_players: &Arc<dyn LivePlayers>,

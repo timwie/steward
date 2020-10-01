@@ -9,7 +9,7 @@ use crate::constants::{
     MAX_DISPLAYED_IN_QUEUE, MAX_DISPLAYED_RACE_RANKS, START_HIDE_WIDGET_DELAY_MILLIS,
 };
 use crate::controller::*;
-use crate::database::{Database, PreferenceValue};
+use crate::database::{DatabaseClient, PreferenceValue};
 use crate::event::*;
 use crate::server::{Fault, PlayerInfo, Server};
 use crate::widget::*;
@@ -20,7 +20,7 @@ use crate::widget::*;
 pub struct WidgetController {
     state: Arc<RwLock<WidgetState>>,
     server: Arc<dyn Server>,
-    db: Arc<dyn Database>,
+    db: DatabaseClient,
     live_config: Arc<dyn LiveConfig>,
     live_playlist: Arc<dyn LivePlaylist>,
     live_players: Arc<dyn LivePlayers>,
@@ -44,7 +44,7 @@ impl WidgetController {
     #[allow(clippy::too_many_arguments)]
     pub async fn init(
         server: &Arc<dyn Server>,
-        db: &Arc<dyn Database>,
+        db: &DatabaseClient,
         live_config: &Arc<dyn LiveConfig>,
         live_playlist: &Arc<dyn LivePlaylist>,
         live_players: &Arc<dyn LivePlayers>,
