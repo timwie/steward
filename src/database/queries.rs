@@ -287,7 +287,7 @@ impl DatabaseClient {
         let stmt = r#"
             INSERT INTO steward.map_file (map_uid, file)
             VALUES ($1, $2)
-            ON CONFLICT (uid)
+            ON CONFLICT (map_uid)
             DO UPDATE SET file = excluded.file
         "#;
         let _ = txn.execute(stmt, &[&metadata.uid, &data]).await?;
@@ -450,12 +450,12 @@ impl DatabaseClient {
         let conn = self.conn().await?;
         let stmt = r#"
             SELECT COUNT(*)
-            FROM steward.record r
+            FROM steward.record
             WHERE
                 map_uid = $1
-                AND r.nb_laps = $2
-                AND r.player_login != $3
-                AND r.millis < $4
+                AND nb_laps = $2
+                AND player_login != $3
+                AND millis < $4
         "#;
         let row = conn
             .query_one(

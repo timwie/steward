@@ -25,6 +25,7 @@ CREATE TABLE steward.map_file (
     map_uid TEXT,
     file    BYTEA NOT NULL,
 
+    PRIMARY KEY (map_uid),
     FOREIGN KEY (map_uid) REFERENCES steward.map (uid)
 );
 

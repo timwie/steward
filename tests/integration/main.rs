@@ -49,7 +49,8 @@ use steward::server::{DisplayString, PlayerInfo, TeamId};
 
 /// Spins up a Postgres database in a Docker container.
 async fn clean_db() -> Result<DatabaseClient> {
-    let docker = clients::Cli::default();
+    // Enable logging output
+    let _ = env_logger::builder().is_test(true).try_init();
 
     let db = "postgres-db-test";
     let user = "postgres-user-test";
@@ -63,22 +64,38 @@ async fn clean_db() -> Result<DatabaseClient> {
         .with_env_var("POSTGRES_USER", user)
         .with_env_var("POSTGRES_PASSWORD", password);
 
+    let docker = clients::Cli::default();
+
+    log::info!("starting container...");
     let container = docker.run(generic_postgres);
+    log::info!("container started");
 
     let pg_conn_str = format!(
         "postgres://{}:{}@localhost:{}/{}",
         user,
         password,
-        container.get_host_port(5432).unwrap(),
+        container
+            .get_host_port(5432)
+            .expect("failed to determine Postgres host port"),
         db
     );
 
+    log::info!("connecting to container database...");
     let client = pg_connect(&pg_conn_str, std::time::Duration::from_secs(5))
         .await
         .expect("postgres not running");
+    log::info!("connected to container database");
 
+    log::info!("clear database...");
     client.clear().await?;
+
+    log::info!("migrate database...");
     client.migrate().await?;
+
+    log::info!("completed test setup");
+
+    // TODO when using testcontainers 0.11, trying to get a connection from the pool
+    //  results in 'Error: Timed out in bb8'
 
     Ok(client)
 }
