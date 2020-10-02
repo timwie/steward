@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use chrono::Duration;
 use tokio::sync::{RwLock, RwLockReadGuard};
 
-use crate::config::{Config, PublicConfig};
+use crate::config::{Config, TimeAttackConfig};
 use crate::event::ConfigDiff;
 use crate::server::{Calls, ModeOptions, Server};
 
@@ -30,12 +30,12 @@ pub trait LiveConfig: Send + Sync {
 
     /// The time within the outro in which players can vote for a restart.
     async fn vote_duration(&self) -> Duration {
-        Duration::seconds(self.lock().await.vote_duration_secs() as i64)
+        Duration::seconds(self.lock().await.timeattack.vote_duration_secs() as i64)
     }
 
     /// The duration of the outro at the end of a map.
     async fn outro_duration(&self) -> Duration {
-        Duration::seconds(self.lock().await.outro_duration_secs as i64)
+        Duration::seconds(self.lock().await.timeattack.outro_duration_secs as i64)
     }
 
     /// The `.../UserData/Maps` server directory.
@@ -58,24 +58,24 @@ impl ConfigController {
     }
 
     /// Update the public parts of the controller config.
-    pub async fn set_public_config(&self, new_cfg: PublicConfig) -> Vec<ConfigDiff> {
+    pub async fn set_mode_config(&self, new_cfg: TimeAttackConfig) -> Vec<ConfigDiff> {
         use ConfigDiff::*;
 
         let mut diffs = Vec::new();
         let mut cfg = self.state.write().await;
 
-        if cfg.outro_duration_secs != new_cfg.outro_duration_secs {
+        if cfg.timeattack.outro_duration_secs != new_cfg.outro_duration_secs {
             diffs.push(NewOutroDuration {
                 secs: new_cfg.outro_duration_secs,
             });
 
-            cfg.outro_duration_secs = new_cfg.outro_duration_secs;
+            cfg.timeattack.outro_duration_secs = new_cfg.outro_duration_secs;
             set_mode_options(&self.server, &cfg).await;
         }
 
-        if cfg.time_limit_factor != new_cfg.time_limit_factor
-            || cfg.time_limit_max_secs != new_cfg.time_limit_max_secs
-            || cfg.time_limit_min_secs != new_cfg.time_limit_min_secs
+        if cfg.timeattack.time_limit_factor != new_cfg.time_limit_factor
+            || cfg.timeattack.time_limit_max_secs != new_cfg.time_limit_max_secs
+            || cfg.timeattack.time_limit_min_secs != new_cfg.time_limit_min_secs
         {
             diffs.push(NewTimeLimit {
                 time_limit_factor: new_cfg.time_limit_factor,
@@ -83,9 +83,9 @@ impl ConfigController {
                 time_limit_min_secs: new_cfg.time_limit_min_secs,
             });
 
-            cfg.time_limit_factor = new_cfg.time_limit_factor;
-            cfg.time_limit_max_secs = new_cfg.time_limit_max_secs;
-            cfg.time_limit_min_secs = new_cfg.time_limit_min_secs;
+            cfg.timeattack.time_limit_factor = new_cfg.time_limit_factor;
+            cfg.timeattack.time_limit_max_secs = new_cfg.time_limit_max_secs;
+            cfg.timeattack.time_limit_min_secs = new_cfg.time_limit_min_secs;
         }
 
         if !diffs.is_empty() {
@@ -95,17 +95,16 @@ impl ConfigController {
         diffs
     }
 
-    /// Returns a public subset of the controller config, omitting credentials etc.
-    pub async fn public_config(&self) -> PublicConfig {
+    pub async fn mode_config(&self) -> TimeAttackConfig {
         let config = self.state.read().await;
-        config.public()
+        config.timeattack
     }
 }
 
 async fn set_mode_options(server: &Server, config: &Config) {
     let mode_options = server.mode_options().await;
     if let ModeOptions::TimeAttack(mut options) = mode_options {
-        options.chat_time_secs = config.outro_duration_secs as i32;
+        options.chat_time_secs = config.timeattack.outro_duration_secs as i32;
         server
             .set_mode_options(&ModeOptions::TimeAttack(options))
             .await

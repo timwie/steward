@@ -28,7 +28,7 @@ impl Controller {
                 let from_login = from_login.to_string(); // allow data to outlive the current scope
                 let _ = tokio::spawn(async move {
                     let private_config = &*controller.config.lock().await;
-                    let public_config = controller.config.public_config().await;
+                    let mode_config = controller.config.mode_config().await;
                     let server_info = controller.server.server_build_info().await;
                     let net_stats = controller.server.net_stats().await;
 
@@ -52,7 +52,7 @@ impl Controller {
                     let info = InfoResponse {
                         controller_version: VERSION.clone(),
                         most_recent_controller_version,
-                        public_config,
+                        mode_config,
                         server_info,
                         net_stats,
                         admins,
@@ -90,8 +90,8 @@ impl Controller {
             }
 
             EditConfig => {
-                let curr_cfg = self.config.public_config().await;
-                let curr_cfg = curr_cfg.write();
+                let curr_cfg = self.config.mode_config().await;
+                let curr_cfg = curr_cfg.to_string();
                 let msg = CommandResponse::Output(CommandOutputResponse::CurrentConfig {
                     repr: &curr_cfg,
                 });

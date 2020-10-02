@@ -314,8 +314,8 @@ impl WidgetController {
                 max_displayed_race_ranks: MAX_DISPLAYED_RACE_RANKS,
                 min_restart_vote_ratio,
                 init_preference: prefs.get(&player.uid).copied(),
-                outro_duration_secs: config.outro_duration_secs,
-                vote_duration_secs: config.vote_duration_secs(),
+                outro_duration_secs: config.timeattack.outro_duration_secs,
+                vote_duration_secs: config.timeattack.vote_duration_secs(),
             };
             self.show_for(&widget, player.uid).await;
         }

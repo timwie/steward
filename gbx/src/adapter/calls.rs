@@ -267,7 +267,7 @@ impl Calls for RpcClient {
             .call_script_result("Trackmania.GetScores", args!())
             .await;
 
-        if let Callback::Scores { scores } = cb {
+        if let Callback::Scores(scores) = cb {
             return scores;
         }
         panic!("unexpected callback {:?}", cb);

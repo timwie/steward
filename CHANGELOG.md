@@ -11,6 +11,10 @@ Version numbers consist of `MAJOR.MINOR.PATCH`:
 ## 0.1.0-alpha6
 All `0.1.0-alpha` releases are unstable, and have missing widgets.
 
+### Updating
+- Get the new [default config](https://github.com/timwie/steward/blob/v0.1.0-alpha6/config/).
+- Clear your database with `DROP SCHEMA steward CASCADE`.
+
 ### Added
 - **Chat**: Admin Commands
   - `/pause` toggles a match pause, if supported by the game mode.

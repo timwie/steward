@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::chat::{AdminCommand, PlayerCommand, SuperAdminCommand};
 use crate::database::{Map, Record};
-use crate::server::CheckpointEvent;
+use crate::server::{CheckpointEvent, ModeScript};
 use crate::server::{DisplayString, PlayerInfo};
 use crate::widget::Action;
 
@@ -90,7 +90,7 @@ pub enum ControllerEvent<'a> {
     EndPause,
 
     /// Signals that the game mode has changed.
-    ChangeMode,
+    ChangeMode(ModeScript),
 }
 
 /// Contains information of a player that is either joining, leaving, or

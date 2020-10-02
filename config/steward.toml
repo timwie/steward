@@ -26,6 +26,10 @@ postgres_connection = "host=127.0.0.1 user=postgres password=123"
 super_admin_whitelist = ["admin1", "admin2"]
 admin_whitelist = ["admin3", "admin4"]
 
+# =============================================================================
+# TimeAttack mode
+# =============================================================================
+[timeattack]
 # To calculate the time limit of a map, this factor is applied to either the
 # author time or the top record.
 time_limit_factor = 10

@@ -5,7 +5,7 @@ use semver::Version;
 use crate::chat::{
     ADMIN_COMMAND_REFERENCE, PLAYER_COMMAND_REFERENCE, SUPER_ADMIN_COMMAND_REFERENCE,
 };
-use crate::config::PublicConfig;
+use crate::config::TimeAttackConfig;
 use crate::database::{Map, Player};
 use crate::server::{PlayerInfo, ServerBuildInfo, ServerNetStats};
 
@@ -70,7 +70,7 @@ pub enum CommandOutputResponse<'a> {
 pub struct InfoResponse {
     pub controller_version: Version,
     pub most_recent_controller_version: Version,
-    pub public_config: PublicConfig,
+    pub mode_config: TimeAttackConfig,
     pub server_info: ServerBuildInfo,
     pub net_stats: ServerNetStats,
     pub admins: Vec<Player>,
@@ -299,7 +299,7 @@ impl Display for CommandResponse<'_> {
                 writeln!(f)?;
 
                 writeln!(f, "Config:")?;
-                write!(f, "{}", info.public_config.write())?;
+                write!(f, "{}", info.mode_config.to_string())?;
                 writeln!(f)?;
 
                 let names: Vec<String> =

@@ -99,7 +99,7 @@ pub enum Callback {
     /// Sent when a round, map or match ends.
     ///
     /// Triggered by `Trackmania.Scores`, with `Calls::scores`
-    Scores { scores: Scores },
+    Scores(Scores),
 
     /// Sent at the end of each round in the Champion game mode.
     ///

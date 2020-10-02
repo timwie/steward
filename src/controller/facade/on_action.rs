@@ -1,7 +1,9 @@
+use std::str::FromStr;
+
 use futures::future::join_all;
 
 use crate::chat::{CommandOutputResponse, CommandResponse};
-use crate::config::PublicConfig;
+use crate::config::TimeAttackConfig;
 use crate::controller::{ActivePreference, Controller};
 use crate::event::ControllerEvent;
 use crate::server::PlayerInfo;
@@ -12,9 +14,9 @@ impl Controller {
         use Action::*;
 
         match action {
-            SetConfig { repr } => match PublicConfig::read(&repr) {
+            SetConfig { repr } => match TimeAttackConfig::from_str(&repr) {
                 Ok(new_cfg) => {
-                    let changes = self.config.set_public_config(new_cfg).await;
+                    let changes = self.config.set_mode_config(new_cfg).await;
                     join_all(changes.into_iter().map(|change| async move {
                         let ev = ControllerEvent::NewConfig {
                             change,

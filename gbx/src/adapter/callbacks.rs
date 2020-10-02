@@ -29,7 +29,7 @@ pub(in crate) fn to_callback(call: &Call) -> ReceivedCallback {
     };
 
     let maybe_response_id = match &mut callback {
-        Callback::Scores { scores } => scores.response_id.take(),
+        Callback::Scores(scores) => scores.response_id.take(),
         Callback::PauseStatus(status) => status.response_id.take(),
         Callback::WarmupStatus(status) => status.response_id.take(),
         _ => None,
@@ -270,7 +270,7 @@ fn forward_script_callback(call: &Call) -> Option<Callback> {
 
             "Trackmania.Scores" => {
                 let scores: crate::api::structs::Scores = de!(&str_args[0]);
-                Some(Scores { scores })
+                Some(Scores(scores))
             }
 
             "Trackmania.WarmUp.EndRound" => {

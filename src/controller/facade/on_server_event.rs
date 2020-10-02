@@ -1,6 +1,6 @@
 use crate::controller::Controller;
 use crate::event::ControllerEvent;
-use crate::server::{ModeScriptSection, ServerEvent};
+use crate::server::{Calls, ModeScriptSection, ServerEvent};
 use crate::widget::Action;
 
 impl Controller {
@@ -79,7 +79,7 @@ impl Controller {
                 }
             }
 
-            ServerEvent::Scores { scores } => {
+            ServerEvent::Scores(scores) => {
                 // This event is only useful when triggering it to get the score
                 // at controller start. Otherwise, we can update it whenever
                 // a player finishes a run.
@@ -125,7 +125,10 @@ impl Controller {
                 changed_script,
             }) => {
                 if restarted_script || changed_script {
-                    let ev = ControllerEvent::ChangeMode;
+                    let mode_options = self.server.mode_options().await;
+                    let mode_script = mode_options.script();
+
+                    let ev = ControllerEvent::ChangeMode(mode_script);
                     self.on_controller_event(ev).await;
                 }
             }
