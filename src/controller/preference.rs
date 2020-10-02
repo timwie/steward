@@ -1,5 +1,6 @@
 use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
+use std::ops::Deref;
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -11,7 +12,7 @@ use crate::chat::PlayerMessage;
 use crate::controller::{LiveChat, LivePlayers, LivePlaylist, PlayersState};
 use crate::database::{DatabaseClient, History, Map, Preference, PreferenceValue};
 use crate::event::{PlayerDiff, PlayerTransition, PlaylistDiff};
-use crate::server::PlayerInfo;
+use crate::server::{Calls, PlayerInfo, Server};
 use crate::widget::ActivePreferenceValue;
 
 /// Use to lookup preferences of connected players.
@@ -141,6 +142,7 @@ impl<'a> PlayerMapKey<'a> {
 #[derive(Clone)]
 pub struct PreferenceController {
     state: Arc<RwLock<PreferencesState>>,
+    server: Server,
     db: DatabaseClient,
     live_chat: Arc<dyn LiveChat>,
     live_playlist: Arc<dyn LivePlaylist>,
@@ -149,6 +151,7 @@ pub struct PreferenceController {
 
 impl PreferenceController {
     pub async fn init(
+        server: &Server,
         db: &DatabaseClient,
         live_chat: &Arc<dyn LiveChat>,
         live_playlist: &Arc<dyn LivePlaylist>,
@@ -156,6 +159,7 @@ impl PreferenceController {
     ) -> Self {
         let controller = PreferenceController {
             state: Arc::new(RwLock::new(PreferencesState::init())),
+            server: server.clone(),
             db: db.clone(),
             live_chat: live_chat.clone(),
             live_playlist: live_playlist.clone(),
@@ -176,6 +180,9 @@ impl PreferenceController {
     }
 
     async fn load_for_player(&self, player: &PlayerInfo) {
+        let playlist = self.server.playlist().await;
+        let playlist_uids = playlist.iter().map(|m| m.uid.deref()).collect();
+
         let auto_picked_maps = self
             .db
             .maps_without_player_record(&player.login)
@@ -190,7 +197,7 @@ impl PreferenceController {
 
         let history = self
             .db
-            .history(&player.login)
+            .history(&player.login, playlist_uids)
             .await
             .expect("failed to load player history");
 

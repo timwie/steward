@@ -54,7 +54,10 @@ pub enum CommandOutputResponse<'a> {
     /// of the playlist.
     ///
     /// Output for `/maps`
-    MapList(Vec<&'a Map>),
+    MapList {
+        in_playlist: Vec<&'a Map>,
+        not_in_playlist: Vec<&'a Map>,
+    },
 
     /// Lists logins and display names of connected players.
     ///
@@ -241,10 +244,13 @@ impl Display for CommandResponse<'_> {
                 "You cannot disable every map! Enable at least one other map."
             ),
 
-            Output(MapList(maps)) => {
+            Output(MapList {
+                in_playlist,
+                not_in_playlist,
+            }) => {
                 writeln!(f, "In playlist:")?;
                 writeln!(f, "============")?;
-                for map in maps.iter().filter(|map| map.in_playlist) {
+                for map in in_playlist.iter() {
                     writeln!(
                         f,
                         "{} | {} | https://trackmania.exchange/maps/{}",
@@ -256,7 +262,7 @@ impl Display for CommandResponse<'_> {
                 writeln!(f)?;
                 writeln!(f, "Not in playlist:")?;
                 writeln!(f, "================")?;
-                for map in maps.iter().filter(|map| !map.in_playlist) {
+                for map in not_in_playlist.iter() {
                     writeln!(
                         f,
                         "{} | {} | https://trackmania.exchange/maps/{}",

@@ -34,7 +34,7 @@ so that you can join the server on the same machine.
 5. Start the dedicated server (f.e. in a PowerShell prompt).
 ```
 $ cd <your path>/TrackmaniaServer_Latest/
-$ .\TrackmaniaServer /nodaemon /lan /game_settings=MatchSettings/maplist.txt /dedicated_cfg=dedicated_cfg.txt
+$ .\TrackmaniaServer /nodaemon /lan /game_settings=MatchSettings/timeattack.txt /dedicated_cfg=dedicated_cfg.txt
 ```
 6. Start the controller (f.e. in a PowerShell prompt).
 ```

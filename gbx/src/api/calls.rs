@@ -4,7 +4,7 @@ use std::time::Duration;
 use async_trait::async_trait;
 
 use crate::api::structs::*;
-use crate::xml::Fault;
+use crate::Fault;
 
 pub(in crate) type Result<T> = std::result::Result<T, Fault>;
 

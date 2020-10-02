@@ -112,7 +112,7 @@ instructions are available in the [docker/](/docker) directory.
 - You can choose to launch the controller before or after the server.
 - Start the server like this:
 ```
-$ ./TrackmaniaServer /game_settings=MatchSettings/maplist.txt /dedicated_cfg=dedicated_cfg.txt
+$ ./TrackmaniaServer /game_settings=MatchSettings/timeattack.txt /dedicated_cfg=dedicated_cfg.txt
 ```
 - Start the controller like this:
 ```

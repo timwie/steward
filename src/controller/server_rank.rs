@@ -1,6 +1,7 @@
 use std::borrow::Cow;
 use std::cmp::max;
 use std::collections::HashMap;
+use std::ops::Deref;
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -11,7 +12,7 @@ use crate::constants::MAX_DISPLAYED_SERVER_RANKS;
 use crate::controller::LivePlayers;
 use crate::database::DatabaseClient;
 use crate::event::{ServerRankDiff, ServerRankingDiff};
-use crate::server::DisplayString;
+use crate::server::{Calls, DisplayString, Server};
 
 /// Use to lookup the current server rankings.
 /// They are updated after every race.
@@ -76,7 +77,10 @@ pub struct ServerRank {
 /// server has had 200 players (with at least one record on any map) in total,
 /// they get `199 max wins - 49 losses = 150 wins` for that map. How many of
 /// those 200 players have actually set a record on that map is irrelevant.
-async fn calc_server_ranking(db: &DatabaseClient) -> IndexMap<Cow<'static, str>, ServerRank> {
+async fn calc_server_ranking(
+    db: &DatabaseClient,
+    map_uids: Vec<&str>,
+) -> IndexMap<Cow<'static, str>, ServerRank> {
     // This is a lazy way of calculating the server ranking,
     // which will look at the entire data set of records every time.
     // A more performant solution could compare the records of the current map
@@ -93,19 +97,14 @@ async fn calc_server_ranking(db: &DatabaseClient) -> IndexMap<Cow<'static, str>,
     // You can beat (nb_ranked_players - 1) players on every map.
     let max_total_wins = {
         let max_wins_per_map: usize = max(1, nb_ranked_players) - 1;
-        let nb_maps_in_playlist = db
-            .playlist()
-            .await
-            .expect("failed to load amount of maps")
-            .len();
-        nb_maps_in_playlist * max_wins_per_map
+        map_uids.len() * max_wins_per_map
     };
 
     // Using the map rankings, we can count the number of wins for each player.
     // Note that we cannot count the losses, since you also gain losses by not having
     // a map rank at all.
     let map_ranks = db
-        .map_rankings()
+        .map_rankings(map_uids)
         .await
         .expect("failed to load map rankings");
 
@@ -113,10 +112,6 @@ async fn calc_server_ranking(db: &DatabaseClient) -> IndexMap<Cow<'static, str>,
     let mut display_names = HashMap::<&str, DisplayString>::new(); // player login -> display name
 
     for map_rank in map_ranks.iter() {
-        if !map_rank.in_playlist {
-            continue;
-        }
-
         let nb_map_wins = nb_ranked_players - map_rank.pos as usize;
         *nb_wins.entry(&map_rank.player_login).or_insert(0) += nb_map_wins;
 
@@ -147,17 +142,26 @@ async fn calc_server_ranking(db: &DatabaseClient) -> IndexMap<Cow<'static, str>,
 #[derive(Clone)]
 pub struct ServerRankController {
     state: Arc<RwLock<ServerRankingState>>,
+    server: Server,
     db: DatabaseClient,
     live_players: Arc<dyn LivePlayers>,
 }
 
 impl ServerRankController {
-    pub async fn init(db: &DatabaseClient, live_players: &Arc<dyn LivePlayers>) -> Self {
+    pub async fn init(
+        server: &Server,
+        db: &DatabaseClient,
+        live_players: &Arc<dyn LivePlayers>,
+    ) -> Self {
+        let playlist = server.playlist().await;
+        let playlist_uids = playlist.iter().map(|m| m.uid.deref()).collect();
+
         let state = ServerRankingState {
-            all_ranks: calc_server_ranking(db).await,
+            all_ranks: calc_server_ranking(db, playlist_uids).await,
         };
         ServerRankController {
             state: Arc::new(RwLock::new(state)),
+            server: server.clone(),
             db: db.clone(),
             live_players: live_players.clone(),
         }
@@ -175,7 +179,9 @@ impl ServerRankController {
             .retain(|login, _| players_state.uid(&login).is_some());
 
         // Calculate new ranking from scratch
-        let new_ranking = calc_server_ranking(&self.db).await;
+        let playlist = self.server.playlist().await;
+        let playlist_uids = playlist.iter().map(|m| m.uid.deref()).collect();
+        let new_ranking = calc_server_ranking(&self.db, playlist_uids).await;
 
         // List for newly ranked players
         let first_ranks: Vec<(i32, &ServerRank)> = players_state
@@ -241,8 +247,15 @@ mod test {
 
     #[tokio::test]
     async fn empty_server_ranking() {
-        let mock_db = DatabaseClient::Mock(Default::default());
-        let ranking = calc_server_ranking(&mock_db).await;
+        let mut mock_db = DatabaseClient::Mock(Default::default());
+        let ranking = calc_server_ranking(&mock_db, vec![]).await;
+        assert!(ranking.is_empty());
+
+        mock_db.push_player("login1", "nick1");
+        mock_db.push_map("uid1");
+        mock_db.push_record("login1", "uid1", 10000);
+
+        let ranking = calc_server_ranking(&mock_db, vec![]).await;
         assert!(ranking.is_empty());
     }
 
@@ -250,10 +263,10 @@ mod test {
     async fn trivial_server_ranking() {
         let mut mock_db = DatabaseClient::Mock(Default::default());
         mock_db.push_player("login1", "nick1");
-        mock_db.push_map("uid1", true);
+        mock_db.push_map("uid1");
         mock_db.push_record("login1", "uid1", 10000);
 
-        let ranking = calc_server_ranking(&mock_db).await;
+        let ranking = calc_server_ranking(&mock_db, vec!["uid1"]).await;
         assert_eq!(1, ranking.len());
 
         let actual = ranking.values().next().unwrap();
@@ -273,12 +286,12 @@ mod test {
         mock_db.push_player("login1", "nick1");
         mock_db.push_player("login2", "nick2");
         mock_db.push_player("login3", "nick3");
-        mock_db.push_map("uid1", true);
+        mock_db.push_map("uid1");
         mock_db.push_record("login1", "uid1", 10000);
         mock_db.push_record("login2", "uid1", 20000);
         mock_db.push_record("login3", "uid1", 30000);
 
-        let ranking = calc_server_ranking(&mock_db).await;
+        let ranking = calc_server_ranking(&mock_db, vec!["uid1"]).await;
 
         let actual = ranking.values().next().unwrap();
         let expected = ServerRank {
@@ -316,9 +329,9 @@ mod test {
         let mut mock_db = DatabaseClient::Mock(Default::default());
         mock_db.push_player("login1", "nick1");
         mock_db.push_player("login2", "nick2");
-        mock_db.push_map("uid1", true);
-        mock_db.push_map("uid2", true);
-        mock_db.push_map("uid3", true);
+        mock_db.push_map("uid1");
+        mock_db.push_map("uid2");
+        mock_db.push_map("uid3");
         mock_db.push_record("login1", "uid1", 10000);
         mock_db.push_record("login2", "uid1", 20000);
         mock_db.push_record("login1", "uid2", 10000);
@@ -326,7 +339,7 @@ mod test {
         mock_db.push_record("login1", "uid3", 20000);
         mock_db.push_record("login2", "uid3", 10000);
 
-        let ranking = calc_server_ranking(&mock_db).await;
+        let ranking = calc_server_ranking(&mock_db, vec!["uid1", "uid2", "uid3"]).await;
 
         let actual = ranking.values().next().unwrap();
         let expected = ServerRank {
@@ -354,14 +367,14 @@ mod test {
         let mut mock_db = DatabaseClient::Mock(Default::default());
         mock_db.push_player("login1", "nick1");
         mock_db.push_player("login2", "nick2");
-        mock_db.push_map("uid1", true);
-        mock_db.push_map("uid2", false);
+        mock_db.push_map("uid1");
+        mock_db.push_map("uid2");
         mock_db.push_record("login1", "uid1", 10000);
         mock_db.push_record("login2", "uid1", 20000);
         mock_db.push_record("login1", "uid2", 20000);
         mock_db.push_record("login2", "uid2", 10000);
 
-        let ranking = calc_server_ranking(&mock_db).await;
+        let ranking = calc_server_ranking(&mock_db, vec!["uid1"]).await;
 
         let actual = ranking.values().next().unwrap();
         let expected = ServerRank {

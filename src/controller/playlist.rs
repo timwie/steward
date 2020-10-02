@@ -1,6 +1,5 @@
 use std::fs::File;
 use std::io::Write;
-use std::ops::Deref;
 use std::path::Path;
 use std::sync::Arc;
 
@@ -12,7 +11,7 @@ use gbx::file::parse_map_file;
 
 use crate::chat::PlaylistCommandError;
 use crate::controller::LiveConfig;
-use crate::database::{DatabaseClient, Map, MapEvidence};
+use crate::database::{DatabaseClient, Map};
 use crate::event::PlaylistDiff;
 use crate::network::{exchange_map, ExchangeError};
 use crate::server::{Calls, Server};
@@ -51,6 +50,15 @@ pub trait LivePlaylist: Send + Sync {
     /// there is no such index.
     async fn at_index(&self, index: usize) -> Option<Map> {
         self.lock().await.at_index(index).cloned()
+    }
+
+    async fn map(&self, uid: &str) -> Option<Map> {
+        self.lock()
+            .await
+            .maps
+            .iter()
+            .find(|map| map.uid == uid)
+            .cloned()
     }
 }
 
@@ -100,18 +108,22 @@ impl PlaylistController {
         db: &DatabaseClient,
         live_config: &Arc<dyn LiveConfig>,
     ) -> Self {
-        let playlist = db
-            .playlist()
-            .await
-            .expect("failed to load maps from database");
+        let mut playlist = Vec::new();
+        for map in server.playlist().await {
+            // TODO support playlists with campaign maps
+            assert!(!map.is_campaign_map(), "campaign maps are not supported");
+
+            let map = db
+                .map(&map.uid)
+                .await
+                .expect("failed to load playlist map")
+                .expect("failed to load playlist map");
+            playlist.push(map);
+        }
 
         if playlist.is_empty() {
             panic!("playlist is empty")
         }
-
-        // Make sure the playlist of state & game are the same.
-        let playlist_files = playlist.iter().map(|m| m.file_name.deref()).collect();
-        server.playlist_replace(playlist_files).await;
 
         let curr_index = server.playlist_current_index().await;
 
@@ -150,25 +162,25 @@ impl PlaylistController {
             return Err(MapAlreadyAdded);
         }
 
-        // 1. add to db playlist
-        let maybe_map = self
-            .db
-            .playlist_add(map_uid)
-            .await
-            .expect("failed to enable map");
+        let maybe_map = self.db.map(map_uid).await.expect("failed to load map");
 
         let map = match maybe_map {
             Some(map) => map,
             None => return Err(UnknownUid),
         };
 
-        // 2. add to server playlist
+        // 1. add to server playlist
         self.server
             .playlist_add(&map.file_name)
             .await
             .expect("tried to add duplicate map to playlist");
 
-        // 3. add to controller playlist
+        self.server
+            .save_match_settings("timeattack.txt")
+            .await
+            .expect("failed to save match settings");
+
+        // 2. add to controller playlist
         playlist_state.maps.push(map.clone());
 
         log::info!(
@@ -183,6 +195,13 @@ impl PlaylistController {
     pub async fn remove(&self, map_uid: &str) -> Result<PlaylistDiff, PlaylistCommandError> {
         use PlaylistCommandError::*;
 
+        let maybe_map = self.db.map(map_uid).await.expect("failed to load map");
+
+        let map = match maybe_map {
+            Some(map) => map,
+            None => return Err(UnknownUid),
+        };
+
         let mut playlist_state = self.state.write().await;
 
         let can_disable = playlist_state.maps.iter().any(|map| map.uid != map_uid);
@@ -196,25 +215,18 @@ impl PlaylistController {
             None => return Err(MapAlreadyRemoved),
         };
 
-        // 1. remove from db playlist
-        let maybe_map = self
-            .db
-            .playlist_remove(map_uid)
-            .await
-            .expect("failed to disable map");
-
-        let map = match maybe_map {
-            Some(map) => map,
-            None => return Err(UnknownUid),
-        };
-
-        // 2. remove from server playlist
+        // 1. remove from server playlist
         self.server
             .playlist_remove(&map.file_name)
             .await
             .expect("cannot remove that map from playlist");
 
-        // 3. remove from controller playlist
+        self.server
+            .save_match_settings("timeattack.txt")
+            .await
+            .expect("failed to save match settings");
+
+        // 2. remove from controller playlist
         if playlist_state.current_index == Some(map_index) {
             playlist_state.current_index = None;
         }
@@ -278,6 +290,12 @@ impl PlaylistController {
             .await
             .expect("tried to add duplicate map to playlist");
 
+        self.server
+            .save_match_settings("timeattack.txt")
+            .await
+            .expect("failed to save match settings");
+
+        // 2. add to db
         let header = match parse_map_file(&file_path) {
             Ok(header) => header,
             Err(err) => return Err(MapImportFailed(err.into())),
@@ -291,18 +309,11 @@ impl PlaylistController {
             author_display_name: header.author_display_name,
             added_since: Utc::now().naive_utc(),
             author_millis: header.millis_author,
-            in_playlist: true,
             exchange_id: Some(import_map.metadata.exchange_id),
         };
 
-        let map_evidence = MapEvidence {
-            metadata: db_map.clone(),
-            data: import_map.data,
-        };
-
-        // 2. add to db playlist
         self.db
-            .upsert_map(&map_evidence)
+            .upsert_map(&db_map, import_map.data)
             .await
             .expect("failed to insert map into database");
 

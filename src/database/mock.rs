@@ -4,8 +4,8 @@ use chrono::NaiveDateTime;
 use chrono::Utc;
 
 use crate::database::{
-    DatabaseClient, History, Map, MapEvidence, MapRank, Player, Preference, PreferenceValue,
-    Record, RecordEvidence,
+    DatabaseClient, History, Map, MapRank, Player, Preference, PreferenceValue, Record,
+    RecordEvidence,
 };
 use crate::server::DisplayString;
 use crate::server::PlayerInfo;
@@ -14,7 +14,7 @@ pub type Result<T> = anyhow::Result<T>;
 
 #[derive(Default)]
 pub struct MockDatabase {
-    pub maps: Vec<MapEvidence>,
+    pub maps: Vec<Map>,
     pub players: Vec<Player>,
     pub records: Vec<RecordEvidence>,
 }
@@ -63,41 +63,23 @@ impl DatabaseClient {
         unimplemented!()
     }
 
-    pub async fn history(&self, _player_login: &str) -> Result<Vec<History>> {
+    pub async fn history(&self, _player_login: &str, _map_uids: Vec<&str>) -> Result<Vec<History>> {
         unimplemented!()
     }
 
-    pub async fn map_files(&self) -> Result<Vec<MapEvidence>> {
+    pub async fn map_file(&self, _uid: &str) -> Result<Option<Vec<u8>>> {
         unimplemented!()
     }
 
-    pub async fn maps(&self) -> Result<Vec<Map>> {
+    pub async fn maps(&self, _map_uids: Vec<&str>) -> Result<Vec<Map>> {
         unimplemented!()
-    }
-
-    pub async fn playlist(&self) -> Result<Vec<Map>> {
-        Ok(self
-            .mock_db()
-            .maps
-            .iter()
-            .filter(|ev| ev.metadata.in_playlist)
-            .map(|ev| ev.metadata.clone())
-            .collect())
     }
 
     pub async fn map(&self, _map_uid: &str) -> Result<Option<Map>> {
         unimplemented!()
     }
 
-    pub async fn upsert_map(&self, _map: &MapEvidence) -> Result<()> {
-        unimplemented!()
-    }
-
-    pub async fn playlist_add(&self, _map_uid: &str) -> Result<Option<Map>> {
-        unimplemented!()
-    }
-
-    pub async fn playlist_remove(&self, _map_uid: &str) -> Result<Option<Map>> {
+    pub async fn upsert_map(&self, _metadata: &Map, _data: Vec<u8>) -> Result<()> {
         unimplemented!()
     }
 
@@ -184,10 +166,13 @@ impl DatabaseClient {
         unimplemented!()
     }
 
-    pub async fn map_rankings(&self) -> Result<Vec<MapRank>> {
+    pub async fn map_rankings(&self, map_uids: Vec<&str>) -> Result<Vec<MapRank>> {
         let db = self.mock_db();
         let mut grp_by_map = HashMap::<&str, Vec<&RecordEvidence>>::new();
         for rec in db.records.iter() {
+            if !map_uids.contains(&rec.map_uid.as_str()) {
+                continue;
+            }
             grp_by_map.entry(&rec.map_uid).or_insert(vec![]).push(&rec);
         }
         for map_recs in grp_by_map.values_mut() {
@@ -200,14 +185,12 @@ impl DatabaseClient {
                 map_recs.into_iter().enumerate().map(move |(idx, rec)| {
                     let player_display_name =
                         db.expect_player(&rec.player_login).display_name.clone();
-                    let in_playlist = db.expect_map(&rec.map_uid).in_playlist;
                     MapRank {
                         map_uid: map_uid.to_string(),
                         player_login: rec.player_login.clone(),
                         player_display_name,
                         pos: idx as i64 + 1,
                         max_pos,
-                        in_playlist,
                     }
                 })
             })
@@ -232,21 +215,17 @@ impl DatabaseClient {
         });
     }
 
-    pub fn push_map(&mut self, uid: &str, in_playlist: bool) {
+    pub fn push_map(&mut self, uid: &str) {
         let db = self.mut_mock_db();
-        db.maps.push(MapEvidence {
-            metadata: Map {
-                uid: uid.to_string(),
-                file_name: "".to_string(),
-                name: DisplayString::from("".to_string()),
-                author_login: "".to_string(),
-                author_display_name: DisplayString::from("".to_string()),
-                added_since: Utc::now().naive_utc(),
-                author_millis: 0,
-                in_playlist,
-                exchange_id: None,
-            },
-            data: vec![],
+        db.maps.push(Map {
+            uid: uid.to_string(),
+            file_name: "".to_string(),
+            name: DisplayString::from("".to_string()),
+            author_login: "".to_string(),
+            author_display_name: DisplayString::from("".to_string()),
+            added_since: Utc::now().naive_utc(),
+            author_millis: 0,
+            exchange_id: None,
         });
     }
 
@@ -274,8 +253,7 @@ impl MockDatabase {
         &self
             .maps
             .iter()
-            .find(|m| m.metadata.uid == uid)
+            .find(|m| m.uid == uid)
             .expect("map uid not in mock database")
-            .metadata
     }
 }

@@ -12,18 +12,17 @@ use steward::server::{DisplayString, PlayerInfo, TeamId};
 // [x] player
 // [x] upsert_player
 // [x] add_history
-// [x] history
-// [ ] map_files
+// [ ] history
+//     - test with empty/non-empty map_uids
+// [ ] map_file
 // [ ] maps
-// [ ] playlist
+//     - test with empty/non-empty map_uids
 // [ ] map
 // [ ] upsert_map
 //     - insert
 //     - update filename, exchangeid
 //     - update does not set NULL exchangeid
-//     => assert with .map, .maps, .map_files, .playlist
-// [ ] playlist_add
-// [ ] playlist_remove
+//     => assert with .map, .maps, .map_files
 // [ ] nb_records
 //     - test with different numbers of laps
 // [ ] top_record
@@ -33,6 +32,7 @@ use steward::server::{DisplayString, PlayerInfo, TeamId};
 // [ ] records
 //     - test with limit
 //     - test with different numbers of laps
+//     - test with empty/non-empty map_uids
 // [ ] nb_players_with_record
 // [x] maps_without_player_record
 // [ ] record_preview
@@ -43,6 +43,7 @@ use steward::server::{DisplayString, PlayerInfo, TeamId};
 // [ ] count_map_preferences
 // [ ] upsert_preference
 // [ ] map_rankings
+//     - test with empty/non-empty map_uids
 // [ ] delete_player
 // [ ] delete_map
 
@@ -121,8 +122,8 @@ async fn test_nb_records_zero() -> Result<()> {
     let db = clean_db().await?;
     assert_eq!(0, db.nb_records("uid1", 0).await?);
 
-    let map = map_evidence("uid1", "file1");
-    db.upsert_map(&map).await?;
+    let map = map("uid1", "file1");
+    db.upsert_map(&map, vec![]).await?;
     assert_eq!(0, db.nb_records("uid1", 0).await?);
 
     Ok(())
@@ -133,10 +134,10 @@ async fn test_nb_records_one() -> Result<()> {
     let db = clean_db().await?;
 
     let player = player_info("login", "nickname");
-    let map = map_evidence("uid1", "file1");
+    let map = map("uid1", "file1");
     let rec = record_evidence("login", "uid1", 10000);
     db.upsert_player(&player).await?;
-    db.upsert_map(&map).await?;
+    db.upsert_map(&map, vec![]).await?;
     db.upsert_record(&rec).await?;
 
     assert_eq!(1, db.nb_records("uid1", 0).await?);
@@ -150,15 +151,15 @@ async fn test_nb_records_multiple_maps() -> Result<()> {
 
     let player1 = player_info("login1", "nickname1");
     let player2 = player_info("login2", "nickname2");
-    let map1 = map_evidence("uid1", "file1");
-    let map2 = map_evidence("uid2", "file2");
+    let map1 = map("uid1", "file1");
+    let map2 = map("uid2", "file2");
     let rec11 = record_evidence("login1", "uid1", 10000);
     let rec12 = record_evidence("login2", "uid1", 10000);
     let rec21 = record_evidence("login1", "uid2", 10000);
     db.upsert_player(&player1).await?;
     db.upsert_player(&player2).await?;
-    db.upsert_map(&map1).await?;
-    db.upsert_map(&map2).await?;
+    db.upsert_map(&map1, vec![]).await?;
+    db.upsert_map(&map2, vec![]).await?;
     db.upsert_record(&rec11).await?;
     db.upsert_record(&rec12).await?;
     db.upsert_record(&rec21).await?;
@@ -174,11 +175,11 @@ async fn test_nb_records_one_per_player() -> Result<()> {
     let db = clean_db().await?;
 
     let player = player_info("login", "nickname");
-    let map = map_evidence("uid1", "file1");
+    let map = map("uid1", "file1");
     let rec1 = record_evidence("login", "uid1", 10000);
     let rec2 = record_evidence("login", "uid1", 9000);
     db.upsert_player(&player).await?;
-    db.upsert_map(&map).await?;
+    db.upsert_map(&map, vec![]).await?;
     db.upsert_record(&rec1).await?;
     db.upsert_record(&rec2).await?;
 
@@ -192,10 +193,10 @@ async fn test_player_record_some() -> Result<()> {
     let db = clean_db().await?;
 
     let player = player_info("login", "nickname");
-    let map = map_evidence("uid1", "file1");
+    let map = map("uid1", "file1");
     let rec = record_evidence("login", "uid1", 10000);
     db.upsert_player(&player).await?;
-    db.upsert_map(&map).await?;
+    db.upsert_map(&map, vec![]).await?;
     db.upsert_record(&rec).await?;
 
     let expected = record(1, "nickname", rec);
@@ -212,10 +213,10 @@ async fn test_records_single() -> Result<()> {
     let db = clean_db().await?;
 
     let player = player_info("login", "nickname");
-    let map = map_evidence("uid1", "file1");
+    let map = map("uid1", "file1");
     let rec = record_evidence("login", "uid1", 10000);
     db.upsert_player(&player).await?;
-    db.upsert_map(&map).await?;
+    db.upsert_map(&map, vec![]).await?;
     db.upsert_record(&rec).await?;
 
     let expected = record(1, "nickname", rec);
@@ -233,12 +234,12 @@ async fn test_records_multiple_players() -> Result<()> {
 
     let player1 = player_info("login1", "nickname1");
     let player2 = player_info("login2", "nickname2");
-    let map = map_evidence("uid1", "file1");
+    let map = map("uid1", "file1");
     let rec1 = record_evidence("login1", "uid1", 9000);
     let rec2 = record_evidence("login2", "uid1", 10000);
     db.upsert_player(&player1).await?;
     db.upsert_player(&player2).await?;
-    db.upsert_map(&map).await?;
+    db.upsert_map(&map, vec![]).await?;
     db.upsert_record(&rec1).await?;
     db.upsert_record(&rec2).await?;
 
@@ -260,14 +261,14 @@ async fn test_records_multiple_maps() -> Result<()> {
 
     let player1 = player_info("login1", "nickname1");
     let player2 = player_info("login2", "nickname2");
-    let map1 = map_evidence("uid1", "file1");
-    let map2 = map_evidence("uid2", "file2");
+    let map1 = map("uid1", "file1");
+    let map2 = map("uid2", "file2");
     let rec1 = record_evidence("login1", "uid1", 10000);
     let rec2 = record_evidence("login2", "uid2", 10000);
     db.upsert_player(&player1).await?;
     db.upsert_player(&player2).await?;
-    db.upsert_map(&map1).await?;
-    db.upsert_map(&map2).await?;
+    db.upsert_map(&map1, vec![]).await?;
+    db.upsert_map(&map2, vec![]).await?;
     db.upsert_record(&rec1).await?;
     db.upsert_record(&rec2).await?;
 
@@ -287,12 +288,12 @@ async fn test_history_played_none() -> Result<()> {
     let db = clean_db().await?;
 
     let player1 = player_info("login1", "nickname1");
-    let map1 = map_evidence("uid1", "file1");
-    let map2 = map_evidence("uid2", "file2");
+    let map1 = map("uid1", "file1");
+    let map2 = map("uid2", "file2");
 
     db.upsert_player(&player1).await?;
-    db.upsert_map(&map1).await?;
-    db.upsert_map(&map2).await?;
+    db.upsert_map(&map1, vec![]).await?;
+    db.upsert_map(&map2, vec![]).await?;
 
     let mut expected = vec![
         History {
@@ -309,7 +310,7 @@ async fn test_history_played_none() -> Result<()> {
         },
     ];
 
-    let mut actual = db.history("login1").await?;
+    let mut actual = db.history("login1", vec!["uid1", "uid2"]).await?;
 
     expected.sort_by(|a, b| a.map_uid.cmp(&b.map_uid));
     actual.sort_by(|a, b| a.map_uid.cmp(&b.map_uid));
@@ -323,22 +324,22 @@ async fn test_history_played_some() -> Result<()> {
     let db = clean_db().await?;
 
     let player1 = player_info("login1", "nickname1");
-    let map1 = map_evidence("uid1", "file1");
-    let map2 = map_evidence("uid2", "file2");
-    let map3 = map_evidence("uid3", "file3");
-    let map4 = map_evidence("uid4", "file4");
+    let map1 = map("uid1", "file1");
+    let map2 = map("uid2", "file2");
+    let map3 = map("uid3", "file3");
+    let map4 = map("uid4", "file4");
     let map1_last_played = now().sub(Duration::seconds(1));
     let map2_last_played = now();
 
     db.upsert_player(&player1).await?;
-    db.upsert_map(&map1).await?;
-    db.upsert_map(&map2).await?;
-    db.upsert_map(&map3).await?;
-    db.upsert_map(&map4).await?;
+    db.upsert_map(&map1, vec![]).await?;
+    db.upsert_map(&map2, vec![]).await?;
+    db.upsert_map(&map3, vec![]).await?;
+    db.upsert_map(&map4, vec![]).await?;
 
-    db.add_history(&player1.login, &map1.metadata.uid, &map1_last_played)
+    db.add_history(&player1.login, &map1.uid, &map1_last_played)
         .await?;
-    db.add_history(&player1.login, &map2.metadata.uid, &map2_last_played)
+    db.add_history(&player1.login, &map2.uid, &map2_last_played)
         .await?;
 
     let mut expected = vec![
@@ -368,7 +369,9 @@ async fn test_history_played_some() -> Result<()> {
         },
     ];
 
-    let mut actual = db.history("login1").await?;
+    let mut actual = db
+        .history("login1", vec!["uid1", "uid2", "uid3", "uid4"])
+        .await?;
 
     expected.sort_by(|a, b| a.map_uid.cmp(&b.map_uid));
     actual.sort_by(|a, b| a.map_uid.cmp(&b.map_uid));
@@ -382,23 +385,23 @@ async fn test_history_played_all() -> Result<()> {
     let db = clean_db().await?;
 
     let player1 = player_info("login1", "nickname1");
-    let map1 = map_evidence("uid1", "file1");
-    let map2 = map_evidence("uid2", "file2");
-    let map3 = map_evidence("uid3", "file3");
+    let map1 = map("uid1", "file1");
+    let map2 = map("uid2", "file2");
+    let map3 = map("uid3", "file3");
     let map1_last_played = now().sub(Duration::seconds(2));
     let map2_last_played = now().sub(Duration::seconds(1));
     let map3_last_played = now();
 
     db.upsert_player(&player1).await?;
-    db.upsert_map(&map1).await?;
-    db.upsert_map(&map2).await?;
-    db.upsert_map(&map3).await?;
+    db.upsert_map(&map1, vec![]).await?;
+    db.upsert_map(&map2, vec![]).await?;
+    db.upsert_map(&map3, vec![]).await?;
 
-    db.add_history(&player1.login, &map1.metadata.uid, &map1_last_played)
+    db.add_history(&player1.login, &map1.uid, &map1_last_played)
         .await?;
-    db.add_history(&player1.login, &map2.metadata.uid, &map2_last_played)
+    db.add_history(&player1.login, &map2.uid, &map2_last_played)
         .await?;
-    db.add_history(&player1.login, &map3.metadata.uid, &map3_last_played)
+    db.add_history(&player1.login, &map3.uid, &map3_last_played)
         .await?;
 
     let mut expected = vec![
@@ -422,7 +425,7 @@ async fn test_history_played_all() -> Result<()> {
         },
     ];
 
-    let mut actual = db.history("login1").await?;
+    let mut actual = db.history("login1", vec!["uid1", "uid2", "uid3"]).await?;
 
     expected.sort_by(|a, b| a.map_uid.cmp(&b.map_uid));
     actual.sort_by(|a, b| a.map_uid.cmp(&b.map_uid));
@@ -436,16 +439,16 @@ async fn test_history_update() -> Result<()> {
     let db = clean_db().await?;
 
     let player1 = player_info("login1", "nickname1");
-    let map1 = map_evidence("uid1", "file1");
+    let map1 = map("uid1", "file1");
     let map1_last_played = now().sub(Duration::seconds(1));
 
     db.upsert_player(&player1).await?;
-    db.upsert_map(&map1).await?;
+    db.upsert_map(&map1, vec![]).await?;
 
-    db.add_history(&player1.login, &map1.metadata.uid, &map1_last_played)
+    db.add_history(&player1.login, &map1.uid, &map1_last_played)
         .await?;
     let map1_last_played = now();
-    db.add_history(&player1.login, &map1.metadata.uid, &map1_last_played)
+    db.add_history(&player1.login, &map1.uid, &map1_last_played)
         .await?;
 
     let mut expected = vec![History {
@@ -455,7 +458,7 @@ async fn test_history_update() -> Result<()> {
         nb_maps_since: 0,
     }];
 
-    let mut actual = db.history("login1").await?;
+    let mut actual = db.history("login1", vec!["uid1"]).await?;
 
     expected.sort_by(|a, b| a.map_uid.cmp(&b.map_uid));
     actual.sort_by(|a, b| a.map_uid.cmp(&b.map_uid));
@@ -470,13 +473,13 @@ async fn test_maps_without_player_record() -> Result<()> {
 
     let player1 = player_info("login1", "nickname1");
     let player2 = player_info("login2", "nickname2");
-    let map1 = map_evidence("uid1", "file1");
-    let map2 = map_evidence("uid2", "file2");
+    let map1 = map("uid1", "file1");
+    let map2 = map("uid2", "file2");
     let rec1 = record_evidence("login1", "uid1", 10000);
     db.upsert_player(&player1).await?;
     db.upsert_player(&player2).await?;
-    db.upsert_map(&map1).await?;
-    db.upsert_map(&map2).await?;
+    db.upsert_map(&map1, vec![]).await?;
+    db.upsert_map(&map2, vec![]).await?;
     db.upsert_record(&rec1).await?;
 
     let expected = vec!["uid2".to_string()];
@@ -491,11 +494,11 @@ async fn test_record_preview_first() -> Result<()> {
     let db = clean_db().await?;
 
     let player1 = player_info("login1", "nickname1");
-    let map1 = map_evidence("uid1", "file1");
+    let map1 = map("uid1", "file1");
     let rec1 = record_evidence("login1", "uid1", 10000);
 
     db.upsert_player(&player1).await?;
-    db.upsert_map(&map1).await?;
+    db.upsert_map(&map1, vec![]).await?;
 
     let actual = db.record_preview(&rec1).await?;
     assert_eq!(1, actual);
@@ -509,14 +512,14 @@ async fn test_record_preview_top() -> Result<()> {
 
     let player1 = player_info("login1", "nickname1");
     let player2 = player_info("login2", "nickname2");
-    let map1 = map_evidence("uid1", "file1");
-    let map2 = map_evidence("uid2", "file2");
+    let map1 = map("uid1", "file1");
+    let map2 = map("uid2", "file2");
     let rec1 = record_evidence("login1", "uid1", 10000);
     let rec2 = record_evidence("login2", "uid1", 9000);
     db.upsert_player(&player1).await?;
     db.upsert_player(&player2).await?;
-    db.upsert_map(&map1).await?;
-    db.upsert_map(&map2).await?;
+    db.upsert_map(&map1, vec![]).await?;
+    db.upsert_map(&map2, vec![]).await?;
     db.upsert_record(&rec1).await?;
 
     let actual = db.record_preview(&rec2).await?;
@@ -531,14 +534,14 @@ async fn test_record_preview() -> Result<()> {
 
     let player1 = player_info("login1", "nickname1");
     let player2 = player_info("login2", "nickname2");
-    let map1 = map_evidence("uid1", "file1");
-    let map2 = map_evidence("uid2", "file2");
+    let map1 = map("uid1", "file1");
+    let map2 = map("uid2", "file2");
     let rec1 = record_evidence("login1", "uid1", 10000);
     let rec2 = record_evidence("login2", "uid1", 11000);
     db.upsert_player(&player1).await?;
     db.upsert_player(&player2).await?;
-    db.upsert_map(&map1).await?;
-    db.upsert_map(&map2).await?;
+    db.upsert_map(&map1, vec![]).await?;
+    db.upsert_map(&map2, vec![]).await?;
     db.upsert_record(&rec1).await?;
 
     let actual = db.record_preview(&rec2).await?;
@@ -558,20 +561,16 @@ fn player_info(login: &str, display_name: &str) -> PlayerInfo {
     }
 }
 
-fn map_evidence(uid: &str, file_name: &str) -> MapEvidence {
-    MapEvidence {
-        metadata: Map {
-            uid: uid.to_string(),
-            file_name: file_name.to_string(),
-            name: DisplayString::from("".to_string()),
-            author_login: "".to_string(),
-            author_display_name: DisplayString::from("".to_string()),
-            author_millis: 0,
-            added_since: now(),
-            in_playlist: true,
-            exchange_id: None,
-        },
-        data: "map file".as_bytes().to_owned(),
+fn map(uid: &str, file_name: &str) -> Map {
+    Map {
+        uid: uid.to_string(),
+        file_name: file_name.to_string(),
+        name: DisplayString::from("".to_string()),
+        author_login: "".to_string(),
+        author_display_name: DisplayString::from("".to_string()),
+        author_millis: 0,
+        added_since: now(),
+        exchange_id: None,
     }
 }
 

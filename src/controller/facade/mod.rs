@@ -57,14 +57,15 @@ impl Controller {
         let live_players = Arc::new(players.clone()) as Arc<dyn LivePlayers>;
 
         let prefs =
-            PreferenceController::init(&db, &msg_players, &live_playlist, &live_players).await;
+            PreferenceController::init(&server, &db, &msg_players, &live_playlist, &live_players)
+                .await;
         let live_prefs = Arc::new(prefs.clone()) as Arc<dyn LivePreferences>;
 
         let queue =
             QueueController::init(&server, &live_players, &live_playlist, &live_prefs).await;
         let live_queue = Arc::new(queue.clone()) as Arc<dyn LiveQueue>;
 
-        let ranking = ServerRankController::init(&db, &live_players).await;
+        let ranking = ServerRankController::init(&server, &db, &live_players).await;
         let live_server_ranking = Arc::new(ranking.clone()) as Arc<dyn LiveServerRanking>;
 
         let records = RecordController::init(&db, &live_playlist, &live_players).await;

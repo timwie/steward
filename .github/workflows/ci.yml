@@ -39,11 +39,17 @@ jobs:
           toolchain: stable
           override: true
 
-      - name: Run cargo test
+      - name: Run cargo test for gbx
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --lib --workspace --features "unit_test"
+          args: --manifest-path gbx/Cargo.toml
+
+      - name: Run cargo test for steward
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --lib --features "unit_test"
 
   integration-test:
     name: Integration Tests

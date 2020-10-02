@@ -34,5 +34,5 @@ EXPOSE 2350 2350/udp 3450 3450/udp 5000
 CMD [ "./TrackmaniaServer", \
       "/nodaemon",           \
       "/dedicated_cfg=dedicated_cfg.txt",        \
-      "/game_settings=MatchSettings/maplist.txt" \
+      "/game_settings=MatchSettings/timeattack.txt" \
 ]

@@ -32,7 +32,7 @@ impl Calls for Server {
         unimplemented!()
     }
 
-    async fn server_build_info(&self) -> ServerInfo {
+    async fn server_build_info(&self) -> ServerBuildInfo {
         unimplemented!()
     }
 
@@ -148,19 +148,19 @@ impl Calls for Server {
         unimplemented!()
     }
 
-    async fn pause_status(&self) -> WarmupOrPauseStatus {
+    async fn pause_status(&self) -> PauseStatus {
         unimplemented!()
     }
 
-    async fn warmup_status(&self) -> WarmupOrPauseStatus {
+    async fn warmup_status(&self) -> WarmupStatus {
         unimplemented!()
     }
 
-    async fn pause(&self) -> WarmupOrPauseStatus {
+    async fn pause(&self) -> PauseStatus {
         unimplemented!()
     }
 
-    async fn unpause(&self) -> WarmupOrPauseStatus {
+    async fn unpause(&self) -> PauseStatus {
         unimplemented!()
     }
 
@@ -208,7 +208,7 @@ impl Calls for Server {
         unimplemented!()
     }
 
-    async fn net_stats(&self) -> NetStats {
+    async fn net_stats(&self) -> ServerNetStats {
         unimplemented!()
     }
 

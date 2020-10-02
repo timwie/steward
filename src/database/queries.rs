@@ -169,8 +169,13 @@ impl DatabaseClient {
         Ok(())
     }
 
-    /// Returns the player's history for each map currently in the playlist.
-    pub async fn history(&self, player_login: &str) -> Result<Vec<History>> {
+    /// Returns the specified player's history for every specified map they have played.
+    ///
+    /// # Arguments
+    /// `player_login` - a player's login
+    /// `map_uids` - A list of map UIDs to return the history for. Use an empty list to select
+    ///              records for all maps.
+    pub async fn history(&self, player_login: &str, map_uids: Vec<&str>) -> Result<Vec<History>> {
         let conn = self.conn().await?;
         let stmt = r#"
             SELECT
@@ -180,10 +185,14 @@ impl DatabaseClient {
                     ORDER BY h.last_played DESC NULLS LAST
                 ) - 1 nb_maps_since
             FROM steward.map m
-            LEFT JOIN steward.history h ON m.uid = h.map_uid
-            WHERE h.player_login is NULL OR h.player_login = $1
+            LEFT JOIN steward.history h ON
+                m.uid = h.map_uid
+                AND (CARDINALITY($2::text[]) = 0 OR m.uid = ANY($2::text[]))
+            WHERE
+                h.player_login is NULL
+                OR h.player_login = $1
         "#;
-        let rows = conn.query(stmt, &[&player_login]).await?;
+        let rows = conn.query(stmt, &[&player_login, &map_uids]).await?;
         let result = rows
             .into_iter()
             .map(|row| History {
@@ -197,39 +206,27 @@ impl DatabaseClient {
         Ok(result)
     }
 
-    /// List all maps, including their file data.
-    pub async fn map_files(&self) -> Result<Vec<MapEvidence>> {
+    /// Return the `*.Map.Gbx` file contents of the specified map.
+    pub async fn map_file(&self, uid: &str) -> Result<Option<Vec<u8>>> {
+        let conn = self.conn().await?;
+        let stmt = r#"
+            SELECT file
+            FROM steward.map_file
+            WHERE map_uid = $1
+        "#;
+        let maybe_row = conn.query_opt(stmt, &[&uid]).await?;
+        Ok(maybe_row.map(|row| row.get(0)))
+    }
+
+    /// Return the specified maps.
+    pub async fn maps(&self, map_uids: Vec<&str>) -> Result<Vec<Map>> {
         let conn = self.conn().await?;
         let stmt = r#"
             SELECT *
             FROM steward.map
+            WHERE CARDINALITY($1::text[]) = 0 OR uid = ANY($1::text[])
         "#;
-        let rows = conn.query(stmt, &[]).await?;
-        let maps = rows.into_iter().map(MapEvidence::from).collect();
-        Ok(maps)
-    }
-
-    /// List all maps.
-    pub async fn maps(&self) -> Result<Vec<Map>> {
-        let conn = self.conn().await?;
-        let stmt = r#"
-            SELECT uid, file_name, name, author_login, author_display_name, author_millis, added_since, in_playlist, exchange_id
-            FROM steward.map
-        "#;
-        let rows = conn.query(stmt, &[]).await?;
-        let maps = rows.into_iter().map(Map::from).collect();
-        Ok(maps)
-    }
-
-    /// List all maps in the playlist.
-    pub async fn playlist(&self) -> Result<Vec<Map>> {
-        let conn = self.conn().await?;
-        let stmt = r#"
-            SELECT uid, file_name, name, author_login, author_display_name, author_millis, added_since, in_playlist, exchange_id
-            FROM steward.map
-            WHERE in_playlist
-        "#;
-        let rows = conn.query(stmt, &[]).await?;
+        let rows = conn.query(stmt, &[&map_uids]).await?;
         let maps = rows.into_iter().map(Map::from).collect();
         Ok(maps)
     }
@@ -238,7 +235,7 @@ impl DatabaseClient {
     pub async fn map(&self, map_uid: &str) -> Result<Option<Map>> {
         let conn = self.conn().await?;
         let stmt = r#"
-            SELECT uid, file_name, name, author_login, author_display_name, author_millis, added_since, in_playlist, exchange_id
+            SELECT *
             FROM steward.map
             WHERE uid = $1
         "#;
@@ -251,71 +248,54 @@ impl DatabaseClient {
     /// If the given map already exists in the database, update
     ///  - its file
     ///  - its file path
-    ///  - whether it is in the playlist
     ///  - its exchange ID.
-    pub async fn upsert_map(&self, map: &MapEvidence) -> Result<()> {
-        let conn = self.conn().await?;
+    pub async fn upsert_map(&self, metadata: &Map, data: Vec<u8>) -> Result<()> {
+        let mut conn = self.conn().await?;
+
+        let txn = conn.transaction().await?;
+
         let stmt = r#"
             INSERT INTO steward.map
-                (uid, file_name, file,
-                 name, author_login, author_display_name,
-                 author_millis, added_since, in_playlist,
-                 exchange_id)
+                (uid, file_name, name,
+                 author_login, author_display_name, author_millis,
+                 added_since, exchange_id)
             VALUES
                 ($1, $2, $3,
                  $4, $5, $6,
-                 $7, $8, $9,
-                 $10)
+                 $7, $8)
             ON CONFLICT (uid)
             DO UPDATE SET
                 file_name = excluded.file_name,
-                file = excluded.file,
-                in_playlist = excluded.in_playlist,
                 exchange_id = COALESCE(excluded.exchange_id, steward.map.exchange_id)
         "#;
-        let _ = conn
+        let _ = txn
             .execute(
                 stmt,
                 &[
-                    &map.metadata.uid,
-                    &map.metadata.file_name,
-                    &map.data,
-                    &map.metadata.name.formatted.trim(),
-                    &map.metadata.author_login,
-                    &map.metadata.author_display_name.formatted.trim(),
-                    &map.metadata.author_millis,
-                    &map.metadata.added_since,
-                    &map.metadata.in_playlist,
-                    &map.metadata.exchange_id,
+                    &metadata.uid,
+                    &metadata.file_name,
+                    &metadata.name.formatted.trim(),
+                    &metadata.author_login,
+                    &metadata.author_display_name.formatted.trim(),
+                    &metadata.author_millis,
+                    &metadata.added_since,
+                    &metadata.exchange_id,
                 ],
             )
             .await?;
+
+        let stmt = r#"
+            INSERT INTO steward.map_file (map_uid, file)
+            VALUES ($1, $2)
+            ON CONFLICT (uid)
+            DO UPDATE SET file = excluded.file
+        "#;
+        let _ = txn.execute(stmt, &[&metadata.uid, &data]).await?;
+
+        txn.commit().await?;
         Ok(())
     }
 
-    async fn playlist_edit(&self, map_uid: &str, in_playlist: bool) -> Result<Option<Map>> {
-        let conn = self.conn().await?;
-        let stmt = r#"
-            UPDATE steward.map
-            SET in_playlist = $2
-            WHERE uid = $1
-            RETURNING uid, file_name, name, author_login, author_display_name, added_since, in_playlist, exchange_id
-        "#;
-        let row = conn.query_opt(stmt, &[&map_uid, &in_playlist]).await?;
-        Ok(row.map(Map::from))
-    }
-
-    /// Add the specified map to the playlist, and return it,
-    /// or `None` if there is no map with that UID.
-    pub async fn playlist_add(&self, map_uid: &str) -> Result<Option<Map>> {
-        self.playlist_edit(map_uid, true).await
-    }
-
-    /// Remove the specified map from the playlist, and return it,
-    /// or `None` if there is no map with that UID.
-    pub async fn playlist_remove(&self, map_uid: &str) -> Result<Option<Map>> {
-        self.playlist_edit(map_uid, false).await
-    }
     /// Return the number of players that have set a record on the specified map,
     /// with the specified lap count.
     ///
@@ -576,7 +556,7 @@ impl DatabaseClient {
         Ok(())
     }
 
-    /// Calculate the map rank of *every* player.
+    /// Calculate the map rank of *every* player, for each of the specified maps.
     ///
     /// For multi-lap maps, the best map rank will have the best flying lap.
     ///
@@ -584,7 +564,7 @@ impl DatabaseClient {
     /// The length of this collection is equal to the total number of `nb_laps == 0` records
     /// stored in the database. This function should only be used when calculating
     /// the server ranking.
-    pub async fn map_rankings(&self) -> Result<Vec<MapRank>> {
+    pub async fn map_rankings(&self, map_uids: Vec<&str>) -> Result<Vec<MapRank>> {
         let conn = self.conn().await?;
         let stmt = r#"
             SELECT
@@ -595,14 +575,15 @@ impl DatabaseClient {
                     PARTITION BY r.map_uid
                     ORDER BY r.millis ASC
                 ) pos,
-                COUNT(*) OVER (PARTITION BY r.map_uid) max_pos,
-                m.in_playlist
+                COUNT(*) OVER (PARTITION BY r.map_uid) max_pos
             FROM steward.record r
             INNER JOIN steward.player p ON r.player_login = p.login
-            INNER JOIN steward.map m ON r.map_uid = m.uid
+            INNER JOIN steward.map m ON
+                r.map_uid = m.uid
+                AND (CARDINALITY($1::text[]) = 0 OR r.map_uid = ANY($1::text[]))
             WHERE r.nb_laps = 0
         "#;
-        let rows = conn.query(stmt, &[]).await?;
+        let rows = conn.query(stmt, &[&map_uids]).await?;
         Ok(rows
             .iter()
             .map(|row| MapRank {
@@ -611,7 +592,6 @@ impl DatabaseClient {
                 player_display_name: DisplayString::from(row.get("display_name")),
                 pos: row.get("pos"),
                 max_pos: row.get("max_pos"),
-                in_playlist: row.get("in_playlist"),
             })
             .collect())
     }
@@ -667,17 +647,7 @@ impl From<Row> for Map {
             author_display_name: DisplayString::from(row.get("author_display_name")),
             author_millis: row.get("author_millis"),
             added_since: row.get("added_since"),
-            in_playlist: row.get("in_playlist"),
             exchange_id: row.get("exchange_id"),
-        }
-    }
-}
-
-impl From<Row> for MapEvidence {
-    fn from(row: Row) -> Self {
-        MapEvidence {
-            data: row.get("file"),
-            metadata: Map::from(row),
         }
     }
 }

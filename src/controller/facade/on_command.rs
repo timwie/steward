@@ -99,9 +99,24 @@ impl Controller {
             }
 
             ListMaps => {
-                let maps = self.db.maps().await.expect("failed to load maps");
-                let msg =
-                    CommandResponse::Output(CommandOutputResponse::MapList(maps.iter().collect()));
+                let playlist = self.server.playlist().await;
+
+                let maps = self.db.maps(vec![]).await.expect("failed to load maps");
+
+                let in_playlist = maps
+                    .iter()
+                    .filter(|m1| playlist.iter().any(|m2| m1.uid == m2.uid))
+                    .collect();
+                let not_in_playlist = maps
+                    .iter()
+                    .filter(|m1| !playlist.iter().any(|m2| m1.uid == m2.uid))
+                    .collect();
+
+                let msg = CommandResponse::Output(CommandOutputResponse::MapList {
+                    in_playlist,
+                    not_in_playlist,
+                });
+
                 self.widget.show_popup(msg, from_login).await;
             }
 
@@ -280,26 +295,29 @@ impl Controller {
                 self.widget.show_popup(msg, from_login).await;
             }
 
-            Unconfirmed(DeleteMap { uid }) => {
-                match self.db.map(&uid).await.expect("failed to load map") {
-                    Some(map) if !map.in_playlist => {
-                        let msg =
-                            CommandResponse::Confirm(CommandConfirmResponse::ConfirmMapDeletion {
-                                file_name: &map.file_name,
-                            });
-                        self.widget.show_popup(msg, from_login).await;
-                    }
-                    Some(_) => {
-                        let msg =
-                            CommandResponse::Error(CommandErrorResponse::CannotDeletePlaylistMap);
-                        self.widget.show_popup(msg, from_login).await;
-                    }
-                    None => {
-                        let msg = CommandResponse::Error(CommandErrorResponse::UnknownMap);
-                        self.widget.show_popup(msg, from_login).await;
-                    }
+            Unconfirmed(DeleteMap { uid }) => match self.playlist.map(&uid).await {
+                Some(map) => {
+                    let msg =
+                        CommandResponse::Confirm(CommandConfirmResponse::ConfirmMapDeletion {
+                            file_name: &map.file_name,
+                        });
+                    self.widget.show_popup(msg, from_login).await;
                 }
-            }
+                None if self
+                    .db
+                    .map(&uid)
+                    .await
+                    .expect("failed to load map")
+                    .is_some() =>
+                {
+                    let msg = CommandResponse::Error(CommandErrorResponse::CannotDeletePlaylistMap);
+                    self.widget.show_popup(msg, from_login).await;
+                }
+                None => {
+                    let msg = CommandResponse::Error(CommandErrorResponse::UnknownMap);
+                    self.widget.show_popup(msg, from_login).await;
+                }
+            },
 
             Unconfirmed(DeletePlayer { login }) => {
                 let blacklist = self.server.blacklist().await;

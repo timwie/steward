@@ -56,23 +56,8 @@ pub struct Map {
     /// The moment this map was added to the database.
     pub added_since: NaiveDateTime,
 
-    /// `True` if the map is in the server's playlist.
-    pub in_playlist: bool,
-
     /// This map's ID on Trackmania Exchange, or `None` if it is unknown.
     pub exchange_id: Option<i32>,
-}
-
-/// Database map, including its file data.
-pub struct MapEvidence {
-    pub metadata: Map,
-    pub data: Vec<u8>,
-}
-
-impl std::fmt::Debug for MapEvidence {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.metadata.fmt(f)
-    }
 }
 
 /// A player's preference towards a map.
@@ -148,7 +133,4 @@ pub struct MapRank {
     /// The maximum map rank; or the number of players that have set a
     /// record on this map.
     pub max_pos: i64,
-
-    /// `True` if the map is in the current playlist.
-    pub in_playlist: bool,
 }

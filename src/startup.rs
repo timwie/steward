@@ -10,7 +10,7 @@ use gbx::file::parse_map_file;
 
 use crate::config::Config;
 use crate::constants::{BLACKLIST_FILE, VERSION};
-use crate::database::{DatabaseClient, Map, MapEvidence};
+use crate::database::{DatabaseClient, Map};
 use crate::network::exchange_id;
 use crate::server::{
     Calls, Server, ServerBuildInfo, ServerOptions, SCRIPT_API_VERSION, SERVER_API_VERSION,
@@ -151,10 +151,10 @@ async fn prepare_maps(server: &Server, db: &DatabaseClient) {
 
 /// Add every map in the `.../UserData/Maps/` directory to the database.
 ///
-/// New maps should be added to the playlist, and old maps should have their file
-/// updated in case it changed.
+/// New maps are persisted in the database.
+/// We will also try to find their IDs on Trackmania Exchange.
 ///
-/// For new maps, we will also try to find their IDs on Trackmania Exchange.
+/// Old maps will have their file updated in case it changed.
 async fn check_maps(server: &Server, db: &DatabaseClient) {
     let maps_dir = server.user_data_dir().await.join("Maps");
 
@@ -168,7 +168,7 @@ async fn check_maps(server: &Server, db: &DatabaseClient) {
             .to_str()
             .expect("failed to read map file name");
 
-        add_db_map(db, &map_file, map_file_name).await;
+        upsert_map(db, &map_file, map_file_name).await;
     }
 }
 
@@ -196,11 +196,7 @@ fn read_to_bytes(file_path: &PathBuf) -> std::io::Result<Vec<u8>> {
     Ok(buffer)
 }
 
-/// If the given map is not in the database, insert it.
-/// Otherwise, update its file and file path in the database.
-/// If the given map has no Trackmania Exchange ID yet, try to look it up, and store it in
-/// the database.
-async fn add_db_map(db: &DatabaseClient, map_file: &PathBuf, map_file_name: &str) {
+async fn upsert_map(db: &DatabaseClient, map_file: &PathBuf, map_file_name: &str) {
     let header = match parse_map_file(&map_file) {
         Ok(header) => header,
         Err(err) => {
@@ -217,7 +213,6 @@ async fn add_db_map(db: &DatabaseClient, map_file: &PathBuf, map_file_name: &str
         author_display_name: header.author_display_name,
         added_since: Utc::now().naive_utc(),
         author_millis: header.millis_author,
-        in_playlist: true,
         exchange_id: None,
     };
 
@@ -225,13 +220,9 @@ async fn add_db_map(db: &DatabaseClient, map_file: &PathBuf, map_file_name: &str
 
     let maybe_db_map = db.map(&fs_map.uid).await.expect("failed to load map");
 
-    let mut new_db_map = match maybe_db_map {
-        Some(db_map) => db_map,
-        None => {
-            log::info!("found new map: {:#?}", &fs_map);
-            fs_map
-        }
-    };
+    let is_new_map = maybe_db_map.is_none();
+
+    let mut new_db_map = maybe_db_map.unwrap_or(fs_map);
 
     // Try to find exchange ID
     if new_db_map.exchange_id.is_none() {
@@ -240,38 +231,38 @@ async fn add_db_map(db: &DatabaseClient, map_file: &PathBuf, map_file_name: &str
         }
     }
 
-    let evidence = MapEvidence {
-        metadata: new_db_map,
-        data: fs_map_data,
-    };
-
     // FIXME if a new map has the same file name as a deleted map, this will violate the unique constraint
     //  => this is likely if a map was updated, but still has the same name
-    db.upsert_map(&evidence)
+    db.upsert_map(&new_db_map, fs_map_data)
         .await
         .expect("failed to upsert map");
+
+    if is_new_map {
+        log::info!("found new map: {:#?}", &new_db_map);
+    }
 }
 
-/// For every map in the database that was removed from the file system,
-/// restore their file, but remove them from the playlist.
+/// For every map in the database that was removed from the file system, restore their file.
 ///
 /// Panics if the file could not be written.
 async fn check_deleted_maps(server: &Server, db: &DatabaseClient) {
     let maps_dir = server.user_data_dir().await.join("Maps");
 
-    let restorable_maps = db.map_files().await.expect("failed to fetch db maps");
+    let restorable_maps = db.maps(vec![]).await.expect("failed to fetch db maps");
 
     // Restore map files that have been removed from the file system.
     for map in restorable_maps.iter() {
-        let map_path = maps_dir.join(&map.metadata.file_name);
+        let map_path = maps_dir.join(&map.file_name);
 
         if !map_path.is_file() {
-            db.playlist_remove(&map.metadata.uid)
+            let map_data = db
+                .map_file(&map.uid)
                 .await
-                .expect("failed to remove map from playlist");
+                .expect("failed to restore map file")
+                .expect("failed to restore map file");
 
             log::info!("restore deleted map file: {:#?}", map_path);
-            fs::write(&map_path, &map.data).expect("failed to restore map file");
+            fs::write(&map_path, &map_data).expect("failed to restore map file");
         }
     }
 }
