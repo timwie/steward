@@ -125,7 +125,7 @@ impl Calls for RpcClient {
     async fn players(&self) -> Vec<PlayerInfo> {
         self.call_method_unwrap(
             "GetPlayerList",
-            args!(-1, 0), // length, offset
+            args!(-1, 0, 1), // length, offset, compatibility mode
         )
         .await
     }

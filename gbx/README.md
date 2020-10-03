@@ -490,8 +490,6 @@ As of script API version `3.1.0`:
 [x] Maniaplanet.EndServer_End
 
 [/] Trackmania.Event.Default
-[/] Trackmania.Event.OnPlayerAdded
-[/] Trackmania.Event.OnPlayerRemoved
 [x] Trackmania.Event.StartLine
 [x] Trackmania.Event.WayPoint
 [x] Trackmania.Event.GiveUp
@@ -521,6 +519,9 @@ As of script API version `3.1.0`:
 [?] UI.Event.OnModuleStorePurchase
 [?] UI.Event.OnModuleInventoryDrop
 [?] UI.Event.OnModuleInventoryEquip
+
+[!] Trackmania.Event.OnPlayerAdded  // not triggered
+[!] Trackmania.Event.OnPlayerRemoved
 
 [!] Trackmania.Event.OnCommand  // presumably for #Command directives;
                                 // but not triggered by SendModeScriptCommands

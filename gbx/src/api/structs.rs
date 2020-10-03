@@ -811,6 +811,10 @@ pub struct PlayerScore {
     /// The player's login.
     pub login: String,
 
+    /// Yet another identifier for players.
+    #[serde(rename = "accountid")]
+    pub account_id: String,
+
     /// The player's formatted display name.
     #[serde(rename = "name")]
     pub display_name: DisplayString,

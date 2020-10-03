@@ -293,10 +293,7 @@ fn forward_script_callback(call: &Call) -> Option<Callback> {
             | "Maniaplanet.EndTurn_Start"
             | "Maniaplanet.EndTurn_End"
             | "Maniaplanet.Podium_Start"
-            | "Maniaplanet.Podium_End"
-            | "Trackmania.Event.OnPlayerAdded"
-            | "Trackmania.Event.OnPlayerRemoved"
-            | "Trackmania.Event.Stunt" => {
+            | "Maniaplanet.Podium_End" => {
                 // ignore without logging
                 None
             }
