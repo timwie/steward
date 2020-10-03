@@ -4,7 +4,8 @@ use serde::Deserialize;
 
 use crate::api::structs::*;
 use crate::api::Callback;
-use crate::xml::{from_value, Call, Value};
+use crate::xml::{Call, Value};
+use crate::SCRIPT_API_VERSION;
 
 /// Matches calls by their method name to their respective `Callback` variant.
 ///
@@ -62,15 +63,6 @@ fn to_regular_callback(call: &Call) -> Option<Callback> {
     use Callback::*;
     use Value::*;
 
-    // Deserialize a value to T, and panic if it fails.
-    // Using a macro since there are no generic closures.
-    macro_rules! de {
-        ($val:expr) => {
-            from_value($val)
-                .unwrap_or_else(|err| panic!("unexpected args for {}: {}", call.name, err))
-        };
-    }
-
     match call.name.as_ref() {
         "ManiaPlanet.PlayerChat" => {
             if let [Int(uid), String(login), String(msg), Bool(_is_registered_cmd)] = &call.args[..]
@@ -93,7 +85,7 @@ fn to_regular_callback(call: &Call) -> Option<Callback> {
 
         "ManiaPlanet.PlayerInfoChanged" => {
             if let [Struct(info)] = &call.args[..] {
-                let info = de!(Struct(info.clone()));
+                let info = from_arg(&call, Struct(info.clone()));
                 return Some(PlayerInfoChanged(info));
             }
         }
@@ -103,8 +95,7 @@ fn to_regular_callback(call: &Call) -> Option<Callback> {
                 let entries: HashMap<std::string::String, std::string::String> = entries
                     .iter()
                     .map(|val| {
-                        let entry = from_value::<ManialinkEntry>(val.clone())
-                            .unwrap_or_else(|_| panic!("unexpected signature for {:?}", call));
+                        let entry: ManialinkEntry = from_arg(&call, val.clone());
                         (entry.name, entry.value)
                     })
                     .collect();
@@ -152,171 +143,203 @@ fn to_regular_callback(call: &Call) -> Option<Callback> {
             return None;
         }
         _ => {
-            log::warn!("ignored callback {:?}", call);
+            log::warn!("ignored callback {:#?}", call);
             return None;
         }
     }
 
-    panic!("unexpected signature for {:?}", call)
+    panic!("unexpected signature for {:#?}", call)
+}
+
+fn from_arg<T>(call: &Call, value: Value) -> T
+where
+    T: serde::de::DeserializeOwned,
+{
+    crate::xml::from_value(value)
+        .unwrap_or_else(|err| panic!("unexpected signature for {:#?}: {}", call, err))
 }
 
 fn forward_script_callback(call: &Call) -> Option<Callback> {
     use crate::structs::ModeScriptSection::*;
     use Callback::*;
-    use Value::*;
 
-    // Deserialize JSON to T, and panic if it fails.
-    // Using a macro since there are no generic closures.
-    macro_rules! de {
-        ($json_str:expr) => {
-            serde_json::from_str($json_str)
-                .unwrap_or_else(|err| panic!("unexpected args for {}: {}", call.name, err))
-        };
+    match script_callback_name(call) {
+        "Maniaplanet.StartServer_Start" => {
+            let data: StartServerEvent = from_script_callback(call);
+            Some(ModeScriptSection(PreStartServer {
+                restarted_script: data.restarted,
+                changed_script: data.mode.updated,
+            }))
+        }
+        "Maniaplanet.StartServer_End" => Some(ModeScriptSection(PostStartServer)),
+        "Maniaplanet.StartMatch_Start" => Some(ModeScriptSection(PreStartMatch)),
+        "Maniaplanet.StartMatch_End" => Some(ModeScriptSection(PostStartMatch)),
+        "Maniaplanet.LoadingMap_Start" => {
+            let data: LoadingMapEvent = from_script_callback(call);
+            Some(ModeScriptSection(PreLoadMap {
+                is_restart: data.restarted,
+            }))
+        }
+        "Maniaplanet.LoadingMap_End" => Some(ModeScriptSection(PostLoadMap)),
+        "Maniaplanet.StartMap_Start" => Some(ModeScriptSection(PreStartMap)),
+        "Maniaplanet.StartMap_End" => Some(ModeScriptSection(PostStartMap)),
+        "Maniaplanet.StartRound_Start" => Some(ModeScriptSection(PreStartRound)),
+        "Maniaplanet.StartRound_End" => Some(ModeScriptSection(PostStartRound)),
+        "Maniaplanet.StartPlayLoop" => Some(ModeScriptSection(PrePlayloop)),
+        "Maniaplanet.EndPlayLoop" => Some(ModeScriptSection(PostPlayloop)),
+        "Maniaplanet.EndRound_Start" => Some(ModeScriptSection(PreEndRound)),
+        "Maniaplanet.EndRound_End" => Some(ModeScriptSection(PostEndRound)),
+        "Maniaplanet.EndMap_Start" => Some(ModeScriptSection(PreEndMap)),
+        "Maniaplanet.EndMap_End" => Some(ModeScriptSection(PostEndMap)),
+        "Maniaplanet.UnloadingMap_Start" => Some(ModeScriptSection(PreUnloadMap)),
+        "Maniaplanet.UnloadingMap_End" => Some(ModeScriptSection(PostUnloadMap)),
+        "Maniaplanet.EndMatch_Start" => Some(ModeScriptSection(PreEndMatch)),
+        "Maniaplanet.EndMatch_End" => Some(ModeScriptSection(PostEndMatch)),
+        "Maniaplanet.EndServer_Start" => Some(ModeScriptSection(PreEndServer)),
+        "Maniaplanet.EndServer_End" => Some(ModeScriptSection(PostEndServer)),
+
+        "Maniaplanet.Pause.Status" => {
+            let status: crate::structs::PauseStatus = from_script_callback(call);
+            Some(PauseStatus(status))
+        }
+
+        "Trackmania.Champion.Scores" => {
+            let scores: ChampionEndRoundEvent = from_script_callback(call);
+            Some(ChampionRoundEnd(scores))
+        }
+
+        "Trackmania.Event.GiveUp" | "Trackmania.Event.SkipOutro" => {
+            // Since TMNext, "Trackmania.Event.StartCountdown" is never triggered,
+            // but we know that the countdown will appear for players directly following
+            // these two events. "Trackmania.Event.StartLine" will *not* be triggered after
+            // either of these events.
+            let ev: GenericScriptEvent = from_script_callback(call);
+            Some(PlayerCountdown { login: ev.login })
+        }
+
+        "Trackmania.Event.Respawn" => {
+            let ev: CheckpointRespawnEvent = from_script_callback(call);
+            Some(PlayerCheckpointRespawn(ev))
+        }
+
+        "Trackmania.Event.StartLine" => {
+            // Since TMNext, "Trackmania.Event.StartLine" is not triggered consistently,
+            // but only when prior to spawning, the run outro was not skipped (this includes
+            // the very first spawn for instance)
+            let ev: GenericScriptEvent = from_script_callback(call);
+            Some(PlayerStartline { login: ev.login })
+        }
+
+        "Trackmania.Event.WayPoint" => {
+            let event: CheckpointEvent = from_script_callback(call);
+            let cb = if event.race_time_millis > 0 {
+                PlayerCheckpoint(event)
+            } else {
+                PlayerIncoherence {
+                    login: event.player_login,
+                }
+            };
+            Some(cb)
+        }
+
+        "Trackmania.Knockout.Elimination" => {
+            let elims: KnockoutEndRoundEvent = from_script_callback(call);
+            Some(KnockoutRoundEnd(elims))
+        }
+
+        "Trackmania.Scores" => {
+            let scores: crate::api::structs::Scores = from_script_callback(call);
+            Some(Scores(scores))
+        }
+
+        "Trackmania.WarmUp.EndRound" => {
+            let status: WarmupRoundStatus = from_script_callback(call);
+            Some(WarmupEnd(status))
+        }
+
+        "Trackmania.WarmUp.StartRound" => {
+            let status: WarmupRoundStatus = from_script_callback(call);
+            Some(WarmupBegin(status))
+        }
+
+        "Trackmania.WarmUp.Status" => {
+            let status: crate::structs::WarmupStatus = from_script_callback(call);
+            Some(WarmupStatus(status))
+        }
+
+        "XmlRpc.AllApiVersions" => {
+            #[derive(Deserialize)]
+            struct AllApiVersions {
+                pub latest: String,
+            }
+            let versions: AllApiVersions = from_script_callback(call);
+
+            if versions.latest != SCRIPT_API_VERSION {
+                log::warn!("not using latest script API version {}", &versions.latest);
+            }
+
+            None
+        }
+
+        "Maniaplanet.StartTurn_Start"
+        | "Maniaplanet.StartTurn_End"
+        | "Maniaplanet.EndTurn_Start"
+        | "Maniaplanet.EndTurn_End"
+        | "Maniaplanet.Podium_Start"
+        | "Maniaplanet.Podium_End" => {
+            // ignore without logging
+            None
+        }
+
+        _ => {
+            log::warn!("ignored script callback {:#?}", call);
+            None
+        }
     }
+}
 
-    if let [String(cb_name), Array(value_args)] = &call.args[..] {
-        // All arguments of script callbacks are strings.
-        let str_args: Vec<std::string::String> = value_args
+/// Deserialize data from the first JSON parameter of a script callback.
+fn from_script_callback<'a, T>(call: &'a Call) -> T
+where
+    T: Deserialize<'a>,
+{
+    if let [Value::String(_cb_name), Value::Array(cb_args)] = &call.args[..] {
+        let args: Vec<&str> = cb_args
             .iter()
             .map(|v| match v {
-                String(str) => str.clone(),
-                _ => panic!("expected only String args for {}", call.name),
+                Value::String(str) => str.as_ref(),
+                _ => panic!("unexpected signature for {:#?}", call),
             })
             .collect();
 
-        return match cb_name.as_ref() {
-            "Maniaplanet.StartServer_Start" => {
-                let data: StartServerEvent = de!(&str_args[0]);
-                Some(ModeScriptSection(PreStartServer {
-                    restarted_script: data.restarted,
-                    changed_script: data.mode.updated,
-                }))
-            }
-            "Maniaplanet.StartServer_End" => Some(ModeScriptSection(PostStartServer)),
-            "Maniaplanet.StartMatch_Start" => Some(ModeScriptSection(PreStartMatch)),
-            "Maniaplanet.StartMatch_End" => Some(ModeScriptSection(PostStartMatch)),
-            "Maniaplanet.LoadingMap_Start" => {
-                let data: LoadingMapEvent = de!(&str_args[0]);
-                Some(ModeScriptSection(PreLoadMap {
-                    is_restart: data.restarted,
-                }))
-            }
-            "Maniaplanet.LoadingMap_End" => Some(ModeScriptSection(PostLoadMap)),
-            "Maniaplanet.StartMap_Start" => Some(ModeScriptSection(PreStartMap)),
-            "Maniaplanet.StartMap_End" => Some(ModeScriptSection(PostStartMap)),
-            "Maniaplanet.StartRound_Start" => Some(ModeScriptSection(PreStartRound)),
-            "Maniaplanet.StartRound_End" => Some(ModeScriptSection(PostStartRound)),
-            "Maniaplanet.StartPlayLoop" => Some(ModeScriptSection(PrePlayloop)),
-            "Maniaplanet.EndPlayLoop" => Some(ModeScriptSection(PostPlayloop)),
-            "Maniaplanet.EndRound_Start" => Some(ModeScriptSection(PreEndRound)),
-            "Maniaplanet.EndRound_End" => Some(ModeScriptSection(PostEndRound)),
-            "Maniaplanet.EndMap_Start" => Some(ModeScriptSection(PreEndMap)),
-            "Maniaplanet.EndMap_End" => Some(ModeScriptSection(PostEndMap)),
-            "Maniaplanet.UnloadingMap_Start" => Some(ModeScriptSection(PreUnloadMap)),
-            "Maniaplanet.UnloadingMap_End" => Some(ModeScriptSection(PostUnloadMap)),
-            "Maniaplanet.EndMatch_Start" => Some(ModeScriptSection(PreEndMatch)),
-            "Maniaplanet.EndMatch_End" => Some(ModeScriptSection(PostEndMatch)),
-            "Maniaplanet.EndServer_Start" => Some(ModeScriptSection(PreEndServer)),
-            "Maniaplanet.EndServer_End" => Some(ModeScriptSection(PostEndServer)),
-
-            "Maniaplanet.Pause.Status" => {
-                let status: crate::structs::PauseStatus = de!(&str_args[0]);
-                Some(PauseStatus(status))
-            }
-
-            "Trackmania.Champion.Scores" => {
-                let scores: ChampionEndRoundEvent = de!(&str_args[0]);
-                Some(ChampionRoundEnd(scores))
-            }
-
-            "Trackmania.Event.GiveUp" | "Trackmania.Event.SkipOutro" => {
-                // Since TMNext, "Trackmania.Event.StartCountdown" is never triggered,
-                // but we know that the countdown will appear for players directly following
-                // these two events. "Trackmania.Event.StartLine" will *not* be triggered after
-                // either of these events.
-                let ev: GenericScriptEvent = de!(&str_args[0]);
-                Some(PlayerCountdown { login: ev.login })
-            }
-
-            "Trackmania.Event.Respawn" => {
-                let ev: CheckpointRespawnEvent = de!(&str_args[0]);
-                return Some(PlayerCheckpointRespawn(ev));
-            }
-
-            "Trackmania.Event.StartLine" => {
-                // Since TMNext, "Trackmania.Event.StartLine" is not triggered consistently,
-                // but only when prior to spawning, the run outro was not skipped (this includes
-                // the very first spawn for instance)
-                let ev: GenericScriptEvent = de!(&str_args[0]);
-                Some(PlayerStartline { login: ev.login })
-            }
-
-            "Trackmania.Event.WayPoint" => {
-                let event: CheckpointEvent = de!(&str_args[0]);
-                let cb = if event.race_time_millis > 0 {
-                    PlayerCheckpoint(event)
-                } else {
-                    PlayerIncoherence {
-                        login: event.player_login,
-                    }
-                };
-                Some(cb)
-            }
-
-            "Trackmania.Knockout.Elimination" => {
-                let elims: KnockoutEndRoundEvent = de!(&str_args[0]);
-                Some(KnockoutRoundEnd(elims))
-            }
-
-            "Trackmania.Scores" => {
-                let scores: crate::api::structs::Scores = de!(&str_args[0]);
-                Some(Scores(scores))
-            }
-
-            "Trackmania.WarmUp.EndRound" => {
-                let status: WarmupRoundStatus = de!(&str_args[0]);
-                Some(WarmupEnd(status))
-            }
-
-            "Trackmania.WarmUp.StartRound" => {
-                let status: WarmupRoundStatus = de!(&str_args[0]);
-                Some(WarmupBegin(status))
-            }
-
-            "Trackmania.WarmUp.Status" => {
-                let status: crate::structs::WarmupStatus = de!(&str_args[0]);
-                Some(WarmupStatus(status))
-            }
-
-            "Maniaplanet.StartTurn_Start"
-            | "Maniaplanet.StartTurn_End"
-            | "Maniaplanet.EndTurn_Start"
-            | "Maniaplanet.EndTurn_End"
-            | "Maniaplanet.Podium_Start"
-            | "Maniaplanet.Podium_End" => {
-                // ignore without logging
-                None
-            }
-            _ => {
-                log::warn!("ignored script callback {:?}", call);
-                None
-            }
+        let first_arg = match args.into_iter().next() {
+            Some(str) => str,
+            None => panic!("unexpected signature for {:#?}", call),
         };
-    }
 
-    panic!("unexpected signature for {:?}", call)
+        return serde_json::from_str(first_arg)
+            .unwrap_or_else(|err| panic!("unexpected signature for {:#?}: {}", call, err));
+    }
+    panic!("unexpected signature for {:#?}", call)
+}
+
+fn script_callback_name(call: &Call) -> &str {
+    match call.args.first() {
+        Some(Value::String(name)) => name,
+        _ => panic!("unexpected signature for {:#?}", call),
+    }
 }
 
 #[derive(Deserialize)]
 #[serde(rename_all = "PascalCase")]
 struct ManialinkEntry {
-    pub name: std::string::String,
-    pub value: std::string::String,
+    pub name: String,
+    pub value: String,
 }
 
 #[derive(Deserialize, Debug, PartialEq, Clone)]
 struct GenericScriptEvent {
-    pub login: std::string::String,
+    pub login: String,
 }
 
 #[derive(Deserialize, Debug, PartialEq, Clone)]

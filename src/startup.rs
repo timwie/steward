@@ -89,15 +89,18 @@ fn add_server_option_constraints(options: &mut ServerOptions) {
 /// be good to be aware of them.
 fn check_server_compat(info: ServerBuildInfo) {
     const SERVER_KNOWN_VERSION: &str = "3.3.0";
-    const SERVER_KNOWN_BUILD: &str = "2020-09-11_10_30";
+    const SERVER_KNOWN_BUILD: &str = "2020-09-25_18_30";
 
-    if &info.name != "Trackmania"
+    if info.name != "Trackmania"
         || info.version != SERVER_KNOWN_VERSION
         || info.version_date != SERVER_KNOWN_BUILD
-        || info.api_version != SERVER_API_VERSION
     {
         log::warn!("server has an unexpected version:");
         log::warn!("{:#?}", info);
+    }
+
+    if info.api_version != SERVER_API_VERSION {
+        log::warn!("not using latest server API version {}", info.api_version);
     }
 }
 

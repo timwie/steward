@@ -38,6 +38,9 @@ impl Calls for RpcClient {
             .await;
         self.call_script("XmlRpc.SetApiVersion", args!(SCRIPT_API_VERSION))
             .await;
+
+        // Make this call to log the latest script API version
+        self.call_script("XmlRpc.GetAllApiVersions", args!()).await;
     }
 
     async fn enable_manual_chat_routing(&self) -> Result<()> {
