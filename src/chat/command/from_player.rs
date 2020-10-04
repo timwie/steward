@@ -1,34 +1,47 @@
-/// Chat commands for players.
-#[derive(Debug)]
-pub enum PlayerCommand {
-    /// Print a reference of available commands.
-    ///
-    /// Usage: `/help`
-    Help,
+use lazy_static::lazy_static;
 
+use crate::chat::{BadCommandContext, CommandContext, CommandEnum, CommandReference};
+
+/// Chat commands for all players.
+#[derive(Debug, Copy, Clone)]
+pub enum PlayerCommand {
     /// Print information about server & controller.
     ///
     /// Usage: `/info`
     Info,
 }
 
-impl PlayerCommand {
-    /// Parse a player command.
-    pub fn from(chat_message: &str) -> Option<PlayerCommand> {
+lazy_static! {
+    static ref PLAYER_COMMANDS: Vec<PlayerCommand> = {
+        use PlayerCommand::*;
+        vec![Info]
+    };
+}
+
+impl CommandEnum<'_> for PlayerCommand {
+    fn all() -> &'static Vec<Self> {
+        &PLAYER_COMMANDS
+    }
+
+    fn parse(chat_message: &str) -> Option<Self> {
         use PlayerCommand::*;
 
         let parts: Vec<&str> = chat_message.split_whitespace().collect();
 
         match &parts[..] {
-            ["/help"] => Some(Help),
             ["/info"] => Some(Info),
             _ => None,
         }
     }
-}
 
-/// Player command reference that can be printed in-game.
-pub(in crate::chat) const PLAYER_COMMAND_REFERENCE: &str = "
-/help     Display this list.
-/info     Display information about server & controller.
-";
+    fn check(&self, _ctxt: CommandContext) -> Result<(), BadCommandContext> {
+        Ok(())
+    }
+
+    fn reference(&self) -> CommandReference {
+        use PlayerCommand::*;
+        match self {
+            Info => ("/info", "Display server & controller information").into(),
+        }
+    }
+}

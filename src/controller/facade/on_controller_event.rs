@@ -1,14 +1,13 @@
 use async_recursion::async_recursion;
 
-use crate::chat::{ServerMessage, TopRankMessage};
+use crate::chat::{Command, CommandOutputResponse, CommandResponse, ServerMessage, TopRankMessage};
 use crate::constants::{
     MAX_ANNOUNCED_RANK, MAX_ANNOUNCED_RECORD, MAX_ANNOUNCED_RECORD_IMPROVEMENT,
     MAX_NB_ANNOUNCED_RANKS,
 };
+use crate::controller::facade::announce;
 use crate::controller::{Controller, LiveConfig, LivePlayers, LivePlaylist, LiveQueue};
-use crate::event::{
-    Command, ControllerEvent, PbDiff, PlayerTransition, PlaylistDiff, ServerRankingDiff,
-};
+use crate::event::{ControllerEvent, PbDiff, PlayerTransition, PlaylistDiff, ServerRankingDiff};
 use crate::server::Calls;
 
 impl Controller {
@@ -19,7 +18,7 @@ impl Controller {
         log::debug!("{:#?}", &event);
 
         if let Some(server_msg) = self.message_from_event(&event).await {
-            self.chat.announce(server_msg).await;
+            announce(&self.server, server_msg).await;
         }
 
         match event {
@@ -151,7 +150,7 @@ impl Controller {
                     name: &next_map.name.formatted,
                     author: &next_map.author_display_name.formatted,
                 };
-                self.chat.announce(msg).await;
+                announce(&self.server, msg).await;
             }
 
             NewQueue(diff) => {
@@ -189,12 +188,17 @@ impl Controller {
                 self.widget.refresh_server_ranking(&change).await;
             }
 
-            IssueCommand(Command::Player { from, cmd }) => self.on_cmd(&from, cmd).await,
+            IssueCommand(ctxt, Command::Help) => {
+                let msg = CommandResponse::Output(CommandOutputResponse::CommandReference(ctxt));
+                self.widget.show_popup(msg, &ctxt.player.login).await;
+            }
 
-            IssueCommand(Command::Admin { from, cmd }) => self.on_admin_cmd(&from, cmd).await,
+            IssueCommand(ctxt, Command::Player(cmd)) => self.on_cmd(&ctxt.player, cmd).await,
 
-            IssueCommand(Command::SuperAdmin { from, cmd }) => {
-                self.on_super_admin_cmd(&from, cmd).await
+            IssueCommand(ctxt, Command::Admin(cmd)) => self.on_admin_cmd(&ctxt.player, cmd).await,
+
+            IssueCommand(ctxt, Command::SuperAdmin(cmd)) => {
+                self.on_super_admin_cmd(&ctxt.player, cmd).await
             }
 
             IssueAction { from_login, action } => {
@@ -212,6 +216,16 @@ impl Controller {
             BeginPause => {}
             EndPause => {}
             ChangeMode(_) => {} // TODO so far, we only handle the TimeAttack mode
+
+            ChatMessage { from, message } => {
+                if message.is_empty() {
+                    return;
+                }
+                self.server
+                    .chat_send_from_to(message, &from.login, vec![])
+                    .await
+                    .expect("failed to forward chat message");
+            }
         }
     }
 

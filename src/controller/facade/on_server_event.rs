@@ -1,4 +1,5 @@
-use crate::controller::Controller;
+use crate::chat::{Command, CommandContext, CommandErrorResponse, CommandResponse, PlayerRole};
+use crate::controller::{Controller, LiveConfig, LivePlayers};
 use crate::event::ControllerEvent;
 use crate::server::{Calls, ModeScriptSection, ServerEvent};
 use crate::widget::Action;
@@ -58,9 +59,11 @@ impl Controller {
             }
 
             ServerEvent::PlayerAnswered {
-                from_login, answer, ..
+                from_login,
+                mut answer,
+                ..
             } => {
-                let action = Action::from_answer(answer);
+                let action = Action::from_answer(&mut answer);
                 let ev = ControllerEvent::IssueAction {
                     from_login: &from_login,
                     action,
@@ -73,9 +76,50 @@ impl Controller {
                 message,
                 ..
             } => {
-                if let Some(cmd) = self.chat.forward(&message, &from_login).await {
-                    let ev = ControllerEvent::IssueCommand(cmd);
+                // FIXME this is only PoC
+                //  => build the context from state
+                let player = self.players.info(&from_login).await.unwrap();
+                let mode = self.server.mode().await.script;
+                let warmup = self.server.warmup_status().await;
+                let pause = self.server.pause_status().await;
+
+                let player_role = if self.config.is_super_admin(&from_login).await {
+                    PlayerRole::SuperAdmin
+                } else if self.config.is_admin(&from_login).await {
+                    PlayerRole::Admin
+                } else {
+                    PlayerRole::Player
+                };
+
+                let ctxt = CommandContext {
+                    cmd: &message,
+                    player: &player,
+                    mode: &mode,
+                    player_role,
+                    warmup: &warmup,
+                    pause: &pause,
+                };
+
+                if !message.starts_with('/') {
+                    // Message is not a command
+                    let ev = ControllerEvent::ChatMessage {
+                        from: &player,
+                        message: &message,
+                    };
                     self.on_controller_event(ev).await;
+                    return;
+                }
+
+                match Command::try_from(ctxt) {
+                    Ok(cmd) => {
+                        let ev = ControllerEvent::IssueCommand(ctxt, cmd);
+                        self.on_controller_event(ev).await;
+                    }
+                    Err(err) => {
+                        let msg =
+                            CommandResponse::Error(CommandErrorResponse::CommandError(ctxt, err));
+                        self.widget.show_popup(msg, &player.login).await;
+                    }
                 }
             }
 

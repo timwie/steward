@@ -1,9 +1,10 @@
 use std::sync::Arc;
 
+use crate::chat::ServerMessage;
 use crate::config::Config;
 use crate::controller::*;
 use crate::database::DatabaseClient;
-use crate::server::Server;
+use crate::server::{Calls, Server};
 
 mod on_action;
 mod on_command;
@@ -18,7 +19,6 @@ pub struct Controller {
     server: Server,
     db: DatabaseClient,
     config: ConfigController,
-    chat: ChatController,
     playlist: PlaylistController,
     players: PlayerController,
     prefs: PreferenceController,
@@ -47,18 +47,13 @@ impl Controller {
         let config = ConfigController::init(&server, config).await;
         let live_config = Arc::new(config.clone()) as Arc<dyn LiveConfig>;
 
-        let chat = ChatController::init(&server, &live_config);
-        let msg_players = Arc::new(chat.clone()) as Arc<dyn LiveChat>;
-
         let playlist = PlaylistController::init(&server, &db, &live_config).await;
         let live_playlist = Arc::new(playlist.clone()) as Arc<dyn LivePlaylist>;
 
         let players = PlayerController::init(&server, &db).await;
         let live_players = Arc::new(players.clone()) as Arc<dyn LivePlayers>;
 
-        let prefs =
-            PreferenceController::init(&server, &db, &msg_players, &live_playlist, &live_players)
-                .await;
+        let prefs = PreferenceController::init(&server, &db, &live_playlist, &live_players).await;
         let live_prefs = Arc::new(prefs.clone()) as Arc<dyn LivePreferences>;
 
         let queue =
@@ -104,7 +99,6 @@ impl Controller {
             server,
             db,
             config,
-            chat,
             playlist,
             players,
             prefs,
@@ -116,4 +110,14 @@ impl Controller {
             widget,
         }
     }
+}
+
+/// Send a message to all players.
+async fn announce(server: &Server, message: ServerMessage<'_>) {
+    let message_str = message.to_string();
+    if message_str.is_empty() {
+        return;
+    }
+    log::debug!("server msg> {}", &message);
+    server.chat_send(&message.to_string()).await;
 }

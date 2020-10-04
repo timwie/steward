@@ -22,17 +22,17 @@
     {% set y = 0 %}
     <label id="top1"     halign="right" textfont="RajdhaniMono" textcolor="{{col_white}}" textemboss="1" pos="0 {{y}}" textsize="{{textsize_big}}"/>
     {% set y = y - 5 %}
-    <label               halign="right" textfont="RajdhaniMono" textcolor="{{col_white}}" textemboss="1" pos="0 {{y}}" text="Top Record" textsize="{{textsize_small}}"/>
+    <label               halign="right" textfont="RajdhaniMono" textcolor="{{col_white}}" textemboss="1" pos="0 {{y}}" text="Server Top Record" textsize="{{textsize_small}}"/>
 
     {% set y = y - 5 %}
     <label id="pb"       halign="right" textfont="RajdhaniMono" textcolor="{{col_white}}" textemboss="1" pos="0 {{y}}" textsize="{{textsize_big}}"/>
     {% set y = y - 5 %}
-    <label               halign="right" textfont="RajdhaniMono" textcolor="{{col_white}}" textemboss="1" pos="0 {{y}}" text="Personal Best" textsize="{{textsize_small}}"/>
+    <label               halign="right" textfont="RajdhaniMono" textcolor="{{col_white}}" textemboss="1" pos="0 {{y}}" text="Server Personal Best" textsize="{{textsize_small}}"/>
 
     {% set y = y - 5 %}
     <label id="map-rank" halign="right" textfont="RajdhaniMono" textcolor="{{col_white}}" textemboss="1" pos="0 {{y}}" text="{{map_rank | default(value='-')}} / {{max_map_rank}}" textsize="{{textsize_big}}"/>
     {% set y = y - 5 %}
-    <label               halign="right" textfont="RajdhaniMono" textcolor="{{col_white}}" textemboss="1" pos="0 {{y}}" text="Map Record" textsize="{{textsize_small}}"/>
+    <label               halign="right" textfont="RajdhaniMono" textcolor="{{col_white}}" textemboss="1" pos="0 {{y}}" text="Server Record" textsize="{{textsize_small}}"/>
 
     {% set y = y - 5 %}
     <label               halign="right" textfont="RajdhaniMono" textcolor="{{col_white}}" textemboss="1"  pos="0 {{y}}" text="{{server_rank | default(value='-')}} / {{max_server_rank}}" textsize="{{textsize_big}}"/>

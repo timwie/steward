@@ -1,13 +1,14 @@
+use std::default::Default;
 use std::str::FromStr;
 
-/// Chat commands that can only be executed by admins.
-#[derive(Debug)]
-pub enum AdminCommand<'a> {
-    /// Print a reference of available admin commands.
-    ///
-    /// Usage: `/help`
-    Help,
+use lazy_static::lazy_static;
 
+use crate::chat::{BadCommandContext, CommandContext, CommandEnum, CommandReference, PlayerRole};
+use crate::server::ModeScript;
+
+/// Chat commands that can only be executed by admins.
+#[derive(Debug, Copy, Clone)]
+pub enum AdminCommand<'a> {
     /// Open the config editor.
     ///
     /// Usage: `/config`
@@ -91,9 +92,48 @@ pub enum AdminCommand<'a> {
     SkipWarmup,
 }
 
-impl AdminCommand<'_> {
-    /// Parse an admin command.
-    pub fn from(chat_message: &str) -> Option<AdminCommand> {
+lazy_static! {
+    static ref ADMIN_COMMANDS: Vec<AdminCommand<'static>> = {
+        use AdminCommand::*;
+        vec![
+            EditConfig,
+            ListMaps,
+            ListPlayers,
+            PlaylistAdd {
+                uid: Default::default(),
+            },
+            PlaylistRemove {
+                uid: Default::default(),
+            },
+            ImportMap {
+                id: Default::default(),
+            },
+            SkipCurrentMap,
+            RestartCurrentMap,
+            ForceQueue {
+                uid: Default::default(),
+            },
+            BlacklistAdd {
+                login: Default::default(),
+            },
+            BlacklistRemove {
+                login: Default::default(),
+            },
+            TogglePause,
+            ExtendWarmup {
+                secs: Default::default(),
+            },
+            SkipWarmup,
+        ]
+    };
+}
+
+impl<'a> CommandEnum<'a> for AdminCommand<'a> {
+    fn all() -> &'static Vec<Self> {
+        &ADMIN_COMMANDS
+    }
+
+    fn parse(chat_message: &'a str) -> Option<Self> {
         use AdminCommand::*;
 
         let parts: Vec<&str> = chat_message.split_whitespace().collect();
@@ -101,7 +141,6 @@ impl AdminCommand<'_> {
         match &parts[..] {
             ["/blacklist", login] => Some(BlacklistAdd { login: *login }),
             ["/config"] => Some(EditConfig),
-            ["/help"] => Some(Help),
             ["/map_import", id] => Some(ImportMap { id: *id }),
             ["/maps"] => Some(ListMaps),
             ["/pause"] => Some(TogglePause),
@@ -120,28 +159,55 @@ impl AdminCommand<'_> {
             _ => None,
         }
     }
+
+    fn check(&self, ctxt: CommandContext) -> Result<(), BadCommandContext> {
+        use AdminCommand::*;
+        use BadCommandContext::*;
+        use ModeScript::*;
+
+        match self {
+            _ if ctxt.player_role < PlayerRole::Admin => Err(NoPermission),
+
+            ExtendWarmup { .. } | SkipWarmup if !ctxt.warmup.available => Err(InOtherModes),
+            ExtendWarmup { .. } | SkipWarmup if !ctxt.warmup.active => Err(DuringWarmup),
+
+            TogglePause if !ctxt.pause.available => Err(InOtherModes),
+
+            ForceQueue { .. } | SkipCurrentMap | RestartCurrentMap if *ctxt.mode != TimeAttack => {
+                Err(InMode(TimeAttack))
+            }
+
+            _ => Ok(()),
+        }
+    }
+
+    fn reference(&self) -> CommandReference {
+        use AdminCommand::*;
+        match self {
+            EditConfig => ("/config", "Open the config editor").into(),
+            ListMaps => ("/maps", "List maps in- and outside of the playlist").into(),
+            ListPlayers => ("/players", "List connected players' logins and names").into(),
+            PlaylistAdd { .. } => ("/playlist add <uid>", "Add a map to the playlist").into(),
+            PlaylistRemove { .. } => {
+                ("/playlist remove <uid>", "Remove a map from the playlist").into()
+            }
+            ImportMap { .. } => (
+                "/map_import <id/uid>",
+                "Import the TMX map with the given id",
+            )
+                .into(),
+            SkipCurrentMap => ("/skip", "Start the next map immediately").into(),
+            RestartCurrentMap => ("/restart", "Restart the current map after this race").into(),
+            ForceQueue { .. } => ("/queue <uid>", "Select the next map").into(),
+            BlacklistAdd { .. } => ("/blacklist <login>", "Add a player to the blacklist").into(),
+            BlacklistRemove { .. } => {
+                ("/unblacklist <login>", "Remove a player from the blacklist").into()
+            }
+            TogglePause => ("/pause", "Pause or unpause the current match").into(),
+            ExtendWarmup { .. } => {
+                ("/warmup add <seconds>", "Extend the current warmup round").into()
+            }
+            SkipWarmup => ("/warmup skip", "End the current warmup section").into(),
+        }
+    }
 }
-
-/// Admin command reference that can be printed in-game.
-pub(in crate::chat) const ADMIN_COMMAND_REFERENCE: &str = "
-/config     Open the config editor.
-
-/maps        List the server's maps and their UIDs.
-/players     List the connected players with login and name.
-
-/map_import <id/uid>       Import the trackmania.exchange map with the given id.
-/playlist add <uid>        Add the specified map to the playlist.
-/playlist remove <uid>     Remove the specified map from the playlist.
-
-/skip            Start the next map immediately.
-/restart         Restart the current map after this race.
-/queue <uid>     Set the map that will be played after the current one.
-
-/pause     Pause or unpause the current match, if supported by the game mode.
-
-/warmup add <seconds>     Extend the current warmup round.
-/warmup skip              End the current warmup section.
-
-/blacklist <login>       Add a player to the server's blacklist.
-/unblacklist <login>     Remove a player from the server's blacklist.
-";

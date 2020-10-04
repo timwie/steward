@@ -233,10 +233,9 @@ impl WidgetController {
 
     /// Display a popup message to the specified player.
     pub async fn show_popup(&self, resp: CommandResponse<'_>, for_login: &str) {
-        let mode = PopupMode::from(&resp);
         if let Some(uid) = self.live_players.uid(for_login).await {
-            let output = &resp.to_string();
-            self.show_for(&PopupWidget { output, mode }, uid).await;
+            let widget = PopupWidget::from(resp);
+            self.show_for(&widget, uid).await;
         }
     }
 

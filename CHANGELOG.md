@@ -22,13 +22,22 @@ All `0.1.0-alpha` releases are unstable, and have missing widgets.
   - `/warmup skip` ends the remaining warmup.
   
 ### Changed
-- The controller will no longer override the server's playlist that was
-  initialized with the match settings the server is started with.
-- Changes to the playlist in the TimeAttack mode will be saved to
-  `MatchSettings/timeattack.txt`. The server can be started with
-  `/game_settings=MatchSettings/timeattack.txt` to use the TimeAttack
+- **Admin**: playlist management
+  - The controller will no longer override the server's playlist that was
+    initialized with the match settings the server is started with.
+  - Changes to the playlist in the TimeAttack mode will be saved to
+    `MatchSettings/timeattack.txt`. The server can be started with
+    `/game_settings=MatchSettings/timeattack.txt` to use the TimeAttack
   playlist that was in place before it was shut down.
+
+- The command reference is now displayed in a table, and categorized
+  to show which commands cannot be executed by the player, and why.
+  
+- Players will get useful error messages when trying to execute
+  commands that are not available to them.
+
 - `/info` now lists admins with their display name, rather than their login
+
 - Records will no longer have their checkpoint times stored in the database.
 
 <br>

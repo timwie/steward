@@ -1,4 +1,5 @@
 use crate::chat::ServerMessage;
+use crate::controller::facade::announce;
 use crate::controller::{Controller, LivePlayers};
 use crate::event::ConfigDiff;
 
@@ -16,11 +17,13 @@ impl Controller {
                 self.schedule.set_time_limit().await;
                 self.widget.refresh_schedule().await;
 
-                self.chat
-                    .announce(ServerMessage::TimeLimitChanged {
+                announce(
+                    &self.server,
+                    ServerMessage::TimeLimitChanged {
                         admin_name: &from_display_name.formatted,
-                    })
-                    .await;
+                    },
+                )
+                .await;
             }
             NewOutroDuration { .. } => {
                 self.widget.refresh_schedule().await;

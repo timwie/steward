@@ -253,7 +253,7 @@ where
 }
 
 /// Game modes that the server can play.
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, PartialOrd, Ord)]
 pub enum ModeScript {
     Champion, // round-based
     Cup,      // round-based

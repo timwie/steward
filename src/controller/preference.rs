@@ -9,7 +9,7 @@ use futures::future::join_all;
 use tokio::sync::{RwLock, RwLockReadGuard};
 
 use crate::chat::PlayerMessage;
-use crate::controller::{LiveChat, LivePlayers, LivePlaylist, PlayersState};
+use crate::controller::{tell, LivePlayers, LivePlaylist, PlayersState};
 use crate::database::{DatabaseClient, History, Map, Preference, PreferenceValue};
 use crate::event::{PlayerDiff, PlayerTransition, PlaylistDiff};
 use crate::server::{Calls, PlayerInfo, Server};
@@ -144,7 +144,6 @@ pub struct PreferenceController {
     state: Arc<RwLock<PreferencesState>>,
     server: Server,
     db: DatabaseClient,
-    live_chat: Arc<dyn LiveChat>,
     live_playlist: Arc<dyn LivePlaylist>,
     live_players: Arc<dyn LivePlayers>,
 }
@@ -153,7 +152,6 @@ impl PreferenceController {
     pub async fn init(
         server: &Server,
         db: &DatabaseClient,
-        live_chat: &Arc<dyn LiveChat>,
         live_playlist: &Arc<dyn LivePlaylist>,
         live_players: &Arc<dyn LivePlayers>,
     ) -> Self {
@@ -161,7 +159,6 @@ impl PreferenceController {
             state: Arc::new(RwLock::new(PreferencesState::init())),
             server: server.clone(),
             db: db.clone(),
-            live_chat: live_chat.clone(),
             live_playlist: live_playlist.clone(),
             live_players: live_players.clone(),
         };
@@ -224,14 +221,14 @@ impl PreferenceController {
             }
         }
 
-        self.live_chat
-            .tell(
-                PlayerMessage::PreferenceReminder {
-                    nb_active_preferences: preferences_state.nb_player_prefs(player.uid),
-                },
-                &player.login,
-            )
-            .await;
+        tell(
+            &self.server,
+            PlayerMessage::PreferenceReminder {
+                nb_active_preferences: preferences_state.nb_player_prefs(player.uid),
+            },
+            &player.login,
+        )
+        .await;
     }
 
     /// Load a player's data if they enter a player slot,

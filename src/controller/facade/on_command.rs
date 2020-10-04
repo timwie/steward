@@ -8,24 +8,20 @@ use crate::chat::{
 };
 use crate::constants::BLACKLIST_FILE;
 use crate::constants::VERSION;
+use crate::controller::facade::announce;
 use crate::controller::{Controller, LiveConfig, LivePlayers, LivePlaylist};
 use crate::event::{ControllerEvent, PlaylistDiff};
 use crate::network::most_recent_controller_version;
-use crate::server::Calls;
+use crate::server::{Calls, PlayerInfo};
 
 impl Controller {
-    pub(super) async fn on_cmd(&self, from_login: &str, cmd: PlayerCommand) {
+    pub(super) async fn on_cmd(&self, from: &PlayerInfo, cmd: PlayerCommand) {
         use PlayerCommand::*;
 
         match cmd {
-            Help => {
-                let msg = CommandResponse::Output(CommandOutputResponse::PlayerCommandReference);
-                self.widget.show_popup(msg, from_login).await;
-            }
-
             Info => {
                 let controller = self.clone(); // 'self' with 'static lifetime
-                let from_login = from_login.to_string(); // allow data to outlive the current scope
+                let from_login = from.login.to_string(); // allow data to outlive the current scope
                 let _ = tokio::spawn(async move {
                     let private_config = &*controller.config.lock().await;
                     let mode_config = controller.config.mode_config().await;
@@ -65,10 +61,10 @@ impl Controller {
         }
     }
 
-    pub(super) async fn on_admin_cmd(&self, from_login: &str, cmd: AdminCommand<'_>) {
+    pub(super) async fn on_admin_cmd(&self, from: &PlayerInfo, cmd: AdminCommand<'_>) {
         use AdminCommand::*;
 
-        let admin_name = match self.players.display_name(from_login).await {
+        let admin_name = match self.players.display_name(&from.login).await {
             Some(name) => name,
             None => return,
         };
@@ -84,18 +80,13 @@ impl Controller {
         };
 
         match cmd {
-            Help => {
-                let msg = CommandResponse::Output(CommandOutputResponse::AdminCommandReference);
-                self.widget.show_popup(msg, from_login).await;
-            }
-
             EditConfig => {
                 let curr_cfg = self.config.mode_config().await;
                 let curr_cfg = curr_cfg.to_string();
                 let msg = CommandResponse::Output(CommandOutputResponse::CurrentConfig {
                     repr: &curr_cfg,
                 });
-                self.widget.show_popup(msg, from_login).await;
+                self.widget.show_popup(msg, &from.login).await;
             }
 
             ListMaps => {
@@ -117,7 +108,7 @@ impl Controller {
                     not_in_playlist,
                 });
 
-                self.widget.show_popup(msg, from_login).await;
+                self.widget.show_popup(msg, &from.login).await;
             }
 
             ListPlayers => {
@@ -125,16 +116,16 @@ impl Controller {
                 let msg = CommandResponse::Output(CommandOutputResponse::PlayerList(
                     players_state.info_all(),
                 ));
-                self.widget.show_popup(msg, from_login).await;
+                self.widget.show_popup(msg, &from.login).await;
             }
 
             PlaylistAdd { uid } => {
-                self.on_playlist_cmd(from_login, self.playlist.add(&uid).await)
+                self.on_playlist_cmd(from, self.playlist.add(&uid).await)
                     .await
             }
 
             PlaylistRemove { uid } => {
-                self.on_playlist_cmd(from_login, self.playlist.remove(&uid).await)
+                self.on_playlist_cmd(from, self.playlist.remove(&uid).await)
                     .await
             }
 
@@ -142,19 +133,21 @@ impl Controller {
                 // Download maps in a separate task.
                 let controller = self.clone(); // 'self' with 'static lifetime
                 let id = id.to_string(); // allow data to outlive the current scope
-                let from_login = from_login.to_string();
+                let from = from.clone();
                 let _ = tokio::spawn(async move {
                     controller
-                        .on_playlist_cmd(&from_login, controller.playlist.import_map(&id).await)
+                        .on_playlist_cmd(&from, controller.playlist.import_map(&id).await)
                         .await;
                 });
             }
 
             SkipCurrentMap => {
                 if self.server.end_map().await.is_ok() {
-                    self.chat
-                        .announce(ServerMessage::CurrentMapSkipped { admin_name })
-                        .await;
+                    announce(
+                        &self.server,
+                        ServerMessage::CurrentMapSkipped { admin_name },
+                    )
+                    .await;
                 }
             }
 
@@ -163,9 +156,7 @@ impl Controller {
                     let ev = ControllerEvent::NewQueue(diff);
                     self.on_controller_event(ev).await;
                 }
-                self.chat
-                    .announce(ServerMessage::ForceRestart { admin_name })
-                    .await;
+                announce(&self.server, ServerMessage::ForceRestart { admin_name }).await;
             }
 
             ForceQueue { uid } => {
@@ -174,7 +165,7 @@ impl Controller {
                     Some(idx) => idx,
                     None => {
                         let msg = CommandResponse::Error(CommandErrorResponse::UnknownMap);
-                        self.widget.show_popup(msg, from_login).await;
+                        self.widget.show_popup(msg, &from.login).await;
                         return;
                     }
                 };
@@ -186,17 +177,19 @@ impl Controller {
                     let ev = ControllerEvent::NewQueue(diff);
                     self.on_controller_event(ev).await;
 
-                    self.chat
-                        .announce(ServerMessage::ForceQueued {
+                    announce(
+                        &self.server,
+                        ServerMessage::ForceQueued {
                             admin_name,
                             map_name: &map.name.formatted,
-                        })
-                        .await;
+                        },
+                    )
+                    .await;
                 }
             }
 
             BlacklistAdd { login } => {
-                if login == from_login {
+                if login == from.login {
                     // Do not allow admins to blacklist themselves.
                     return;
                 }
@@ -209,19 +202,21 @@ impl Controller {
                     .await
                     .expect("failed to save blacklist file");
 
-                self.chat
-                    .announce(ServerMessage::PlayerBlacklisted {
+                announce(
+                    &self.server,
+                    ServerMessage::PlayerBlacklisted {
                         admin_name,
                         player_name: &try_display_name(login.to_string()).await,
-                    })
-                    .await;
+                    },
+                )
+                .await;
             }
 
             BlacklistRemove { login } => {
                 let blacklist = self.server.blacklist().await;
                 if !blacklist.contains(&login.to_string()) {
                     let msg = CommandResponse::Error(CommandErrorResponse::UnknownBlacklistPlayer);
-                    self.widget.show_popup(msg, from_login).await;
+                    self.widget.show_popup(msg, &from.login).await;
                     return;
                 }
 
@@ -231,12 +226,14 @@ impl Controller {
                     .await
                     .expect("failed to save blacklist file");
 
-                self.chat
-                    .announce(ServerMessage::PlayerUnblacklisted {
+                announce(
+                    &self.server,
+                    ServerMessage::PlayerUnblacklisted {
                         admin_name,
                         player_name: &try_display_name(login.to_string()).await,
-                    })
-                    .await;
+                    },
+                )
+                .await;
             }
 
             TogglePause => {
@@ -244,17 +241,17 @@ impl Controller {
                 if !status.available {
                     // case 1: cannot pause
                     let msg = CommandResponse::Error(CommandErrorResponse::CannotPause);
-                    self.widget.show_popup(msg, from_login).await;
+                    self.widget.show_popup(msg, &from.login).await;
                 } else if status.active {
                     // case 2: unpause now
                     assert!(self.server.pause().await.active);
                     let msg = ServerMessage::MatchPaused { admin_name };
-                    self.chat.announce(msg).await;
+                    announce(&self.server, msg).await;
                 } else {
                     // case 3: pause now
                     assert!(!self.server.pause().await.active);
                     let msg = ServerMessage::MatchUnpaused { admin_name };
-                    self.chat.announce(msg).await;
+                    announce(&self.server, msg).await;
                 }
             }
 
@@ -263,10 +260,10 @@ impl Controller {
                 if status.active {
                     self.server.warmup_extend(Duration::from_secs(secs)).await;
                     let msg = ServerMessage::WarmupRoundExtended { admin_name, secs };
-                    self.chat.announce(msg).await;
+                    announce(&self.server, msg).await;
                 } else {
                     let msg = CommandResponse::Error(CommandErrorResponse::NotInWarmup);
-                    self.widget.show_popup(msg, from_login).await;
+                    self.widget.show_popup(msg, &from.login).await;
                 }
             }
 
@@ -275,33 +272,30 @@ impl Controller {
                 if status.active {
                     self.server.force_end_warmup().await;
                     let msg = ServerMessage::WarmupSkipped { admin_name };
-                    self.chat.announce(msg).await;
+                    announce(&self.server, msg).await;
                 } else {
                     let msg = CommandResponse::Error(CommandErrorResponse::NotInWarmup);
-                    self.widget.show_popup(msg, from_login).await;
+                    self.widget.show_popup(msg, &from.login).await;
                 }
             }
         };
     }
 
-    pub(super) async fn on_super_admin_cmd(&self, from_login: &str, cmd: SuperAdminCommand) {
+    pub(super) async fn on_super_admin_cmd(&self, from: &PlayerInfo, cmd: SuperAdminCommand<'_>) {
         use DangerousCommand::*;
         use SuperAdminCommand::*;
 
         match cmd {
-            Help => {
-                let msg =
-                    CommandResponse::Output(CommandOutputResponse::SuperAdminCommandReference);
-                self.widget.show_popup(msg, from_login).await;
-            }
-
-            Unconfirmed(DeleteMap { uid }) => match self.playlist.map(&uid).await {
+            Prepare(DeleteMap { uid }) => match self.playlist.map(&uid).await {
                 Some(map) => {
-                    let msg =
-                        CommandResponse::Confirm(CommandConfirmResponse::ConfirmMapDeletion {
+                    let dcmd = DeleteMap { uid };
+                    let msg = CommandResponse::Confirm(
+                        dcmd,
+                        CommandConfirmResponse::ConfirmMapDeletion {
                             file_name: &map.file_name,
-                        });
-                    self.widget.show_popup(msg, from_login).await;
+                        },
+                    );
+                    self.widget.show_popup(msg, &from.login).await;
                 }
                 None if self
                     .db
@@ -311,42 +305,44 @@ impl Controller {
                     .is_some() =>
                 {
                     let msg = CommandResponse::Error(CommandErrorResponse::CannotDeletePlaylistMap);
-                    self.widget.show_popup(msg, from_login).await;
+                    self.widget.show_popup(msg, &from.login).await;
                 }
                 None => {
                     let msg = CommandResponse::Error(CommandErrorResponse::UnknownMap);
-                    self.widget.show_popup(msg, from_login).await;
+                    self.widget.show_popup(msg, &from.login).await;
                 }
             },
 
-            Unconfirmed(DeletePlayer { login }) => {
+            Prepare(DeletePlayer { login }) => {
                 let blacklist = self.server.blacklist().await;
-                if blacklist.contains(&login) {
-                    let msg =
-                        CommandResponse::Confirm(CommandConfirmResponse::ConfirmPlayerDeletion {
-                            login: &login,
-                        });
-                    self.widget.show_popup(msg, from_login).await;
+                if blacklist.contains(&login.to_string()) {
+                    let dcmd = DeletePlayer { login };
+                    let msg = CommandResponse::Confirm(
+                        dcmd,
+                        CommandConfirmResponse::ConfirmPlayerDeletion { login: &login },
+                    );
+                    self.widget.show_popup(msg, &from.login).await;
                 } else {
                     let msg =
                         CommandResponse::Error(CommandErrorResponse::CannotDeleteWhitelistedPlayer);
-                    self.widget.show_popup(msg, from_login).await;
+                    self.widget.show_popup(msg, &from.login).await;
                 }
             }
 
-            Unconfirmed(Shutdown) => {
-                let msg = CommandResponse::Confirm(CommandConfirmResponse::ConfirmShutdown);
-                self.widget.show_popup(msg, from_login).await;
+            Prepare(Shutdown) => {
+                let msg =
+                    CommandResponse::Confirm(Shutdown, CommandConfirmResponse::ConfirmShutdown);
+                self.widget.show_popup(msg, &from.login).await;
             }
         }
     }
 
-    pub(super) async fn on_dangerous_cmd(&self, from_login: &str, cmd: DangerousCommand) {
+    pub(super) async fn on_dangerous_cmd(&self, from: &PlayerInfo, cmd: DangerousCommand<'_>) {
         use DangerousCommand::*;
 
-        log::warn!("{}> {:#?}", from_login, &cmd);
+        log::warn!("{}> {:#?}", &from.display_name.plain(), &cmd);
 
-        let admin_name = match self.players.display_name(from_login).await {
+        let admin_name = match self.players.display_name(&from.login).await {
             Some(name) => name,
             None => return,
         };
@@ -368,12 +364,14 @@ impl Controller {
                     std::fs::remove_file(map_path).expect("failed to delete map file");
                 }
 
-                self.chat
-                    .announce(ServerMessage::MapDeleted {
+                announce(
+                    &self.server,
+                    ServerMessage::MapDeleted {
                         admin_name,
                         map_name: &map.name.formatted,
-                    })
-                    .await;
+                    },
+                )
+                .await;
             }
 
             DeletePlayer { login } => {
@@ -385,7 +383,7 @@ impl Controller {
 
                 if maybe_player.is_none() {
                     let msg = CommandResponse::Error(CommandErrorResponse::UnknownPlayer);
-                    self.widget.show_popup(msg, from_login).await;
+                    self.widget.show_popup(msg, &from.login).await;
                 }
             }
 
@@ -397,7 +395,7 @@ impl Controller {
 
     async fn on_playlist_cmd(
         &self,
-        from_login: &str,
+        from: &PlayerInfo,
         cmd_res: Result<PlaylistDiff, PlaylistCommandError>,
     ) {
         match cmd_res {
@@ -407,7 +405,7 @@ impl Controller {
             }
             Err(err) => {
                 let msg = CommandResponse::Error(CommandErrorResponse::InvalidPlaylistCommand(err));
-                self.widget.show_popup(msg, from_login).await;
+                self.widget.show_popup(msg, &from.login).await;
             }
         }
     }

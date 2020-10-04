@@ -34,7 +34,7 @@
     {% endif %}
 
     {% set width  = 200 %}
-    {% set height = 100 %}
+    {% set height = 125 %}
 
     {% set button_w  = 40 %}
     {% set button_h  = 12 %}
@@ -106,16 +106,8 @@ Void OnClickConfirm() {
 
     {% if mode == MODE_CONFIG_EDITOR %}
         TriggerPageAction("""{ "action": "SetConfig" }""");
-    {% else %}
-        TriggerPageAction("""{ "action": "CommandConfirm" }""");
-    {% endif %}
-}
-
-Void OnClickCancel() {
-    OnClose();
-
-    {% if mode == MODE_CONFIRM %}
-        TriggerPageAction("""{ "action": "CommandCancel" }""");
+    {% elif mode == MODE_CONFIRM %}
+        TriggerPageAction("""{ "action": "ConfirmCommand", "cmd": {{ cmd }} }""");
     {% endif %}
 }
 
@@ -137,7 +129,7 @@ if (Event.Type == CMlScriptEvent::Type::MouseClick) {
             OnClickConfirm();
         }
         case "btn-cancel": {
-            OnClickCancel();
+            OnClose();
         }
         default: {}
     }

@@ -1,6 +1,7 @@
 use serde::Deserialize;
 use serde_repr::{Deserialize_repr, Serialize_repr};
 
+use crate::chat::DangerousCommand;
 use crate::server::PlayerManialinkEvent;
 
 /// Actions are triggered within widgets via ManiaScript
@@ -17,11 +18,11 @@ use crate::server::PlayerManialinkEvent;
 /// when calling `TriggerPageAction`.
 #[derive(Deserialize, Debug)]
 #[serde(tag = "action")]
-pub enum Action {
-    // no &'a str, see https://github.com/serde-rs/serde/issues/1413#issuecomment-494892266
+pub enum Action<'a> {
     /// Update a player's map preference.
     SetPreference {
-        map_uid: String,
+        #[serde(borrow)]
+        map_uid: &'a str,
         preference: ActivePreferenceValue, // 1..3 in JSON
     },
 
@@ -30,10 +31,10 @@ pub enum Action {
     VoteRestart { vote: bool },
 
     /// Confirm the execution of a pending, dangerous command.
-    CommandConfirm,
-
-    /// Cancel the execution of a pending, dangerous command.
-    CommandCancel,
+    ConfirmCommand {
+        #[serde(borrow)]
+        cmd: DangerousCommand<'a>,
+    },
 
     /// Update the config, which is textually represented here.
     ///
@@ -45,13 +46,13 @@ pub enum Action {
     },
 }
 
-impl Action {
+impl Action<'_> {
     /// Parse an action from a widget answer.
     ///
     /// # Panics
     /// Panics if `answer` is not a valid JSON representation of any action,
     /// or if there are missing entries in `entries`.
-    pub fn from_answer(mut answer: PlayerManialinkEvent) -> Action {
+    pub fn from_answer(answer: &mut PlayerManialinkEvent) -> Action {
         let mut action: Action =
             serde_json::from_str(&answer.answer).expect("failed to deserialize action");
 

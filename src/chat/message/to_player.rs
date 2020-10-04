@@ -32,7 +32,7 @@ impl Display for PlayerMessage {
             } => {
                 write!(
                     f,
-                    "You are influencing the map queue with {}. ",
+                    "You are influencing the map queue with {}.",
                     pluralize("preference", *nb)
                 )?;
                 write!(

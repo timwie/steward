@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::chat::{AdminCommand, PlayerCommand, SuperAdminCommand};
+use crate::chat::{Command, CommandContext};
 use crate::database::{Map, Record};
 use crate::server::{CheckpointEvent, ModeScript};
 use crate::server::{DisplayString, PlayerInfo};
@@ -72,10 +72,19 @@ pub enum ControllerEvent<'a> {
     },
 
     /// Signals that a chat command has been issued.
-    IssueCommand(Command<'a>),
+    IssueCommand(CommandContext<'a>, Command<'a>),
+
+    /// Signals that someone wrote in chat.
+    ChatMessage {
+        from: &'a PlayerInfo,
+        message: &'a str,
+    },
 
     /// Signals that a player has issued an `Action`.
-    IssueAction { from_login: &'a str, action: Action },
+    IssueAction {
+        from_login: &'a str,
+        action: Action<'a>,
+    },
 
     /// Signals that the warmup section ahead of a match has begun.
     BeginWarmup,
@@ -206,25 +215,8 @@ pub struct PbDiff {
     pub new_record: Option<Record>,
 }
 
-/// A command with its sender, who was confirmed to have the necessary permission.
-#[derive(Debug)]
-pub enum Command<'a> {
-    Player {
-        from: &'a str,
-        cmd: PlayerCommand,
-    },
-    Admin {
-        from: &'a str,
-        cmd: AdminCommand<'a>,
-    },
-    SuperAdmin {
-        from: &'a str,
-        cmd: SuperAdminCommand,
-    },
-}
-
 /// A change made to the controller config.
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub enum ConfigDiff {
     /// The settings that determine the time limit of each map
     /// have changed.

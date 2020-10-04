@@ -10,7 +10,7 @@ use crate::server::PlayerInfo;
 use crate::widget::Action;
 
 impl Controller {
-    pub(super) async fn on_action(&self, player: &PlayerInfo, action: Action) {
+    pub(super) async fn on_action(&self, player: &PlayerInfo, action: Action<'_>) {
         use Action::*;
 
         match action {
@@ -36,14 +36,8 @@ impl Controller {
                 }
             },
 
-            CommandConfirm => {
-                if let Some(cmd) = self.chat.pop_unconfirmed_command(&player.login).await {
-                    self.on_dangerous_cmd(&player.login, cmd).await;
-                }
-            }
-
-            CommandCancel => {
-                let _ = self.chat.pop_unconfirmed_command(&player.login).await;
+            ConfirmCommand { cmd } => {
+                self.on_dangerous_cmd(&player, cmd).await;
             }
 
             SetPreference {

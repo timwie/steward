@@ -2,9 +2,7 @@ use std::fmt::{Display, Formatter};
 
 use semver::Version;
 
-use crate::chat::{
-    ADMIN_COMMAND_REFERENCE, PLAYER_COMMAND_REFERENCE, SUPER_ADMIN_COMMAND_REFERENCE,
-};
+use crate::chat::{BadCommandContext, CommandContext, CommandDeniedError, DangerousCommand};
 use crate::config::TimeAttackConfig;
 use crate::database::{Map, Player};
 use crate::server::{PlayerInfo, ServerBuildInfo, ServerNetStats};
@@ -15,27 +13,17 @@ pub enum CommandResponse<'a> {
     Output(CommandOutputResponse<'a>),
 
     /// Responses for dangerous commands that need confirmation.
-    Confirm(CommandConfirmResponse<'a>),
+    Confirm(DangerousCommand<'a>, CommandConfirmResponse<'a>),
 
     /// Responses for failed commands.
-    Error(CommandErrorResponse),
+    Error(CommandErrorResponse<'a>),
 }
 
 pub enum CommandOutputResponse<'a> {
-    /// Tell a super admin the command reference.
-    ///
-    /// Output for: `/help`
-    SuperAdminCommandReference,
-
-    /// Tell an admin the command reference.
-    ///
-    /// Output for: `/help`
-    AdminCommandReference,
-
     /// Tell a player the command reference.
     ///
     /// Output for: `/help`
-    PlayerCommandReference,
+    CommandReference(CommandContext<'a>),
 
     /// List the current config, so that an admin can edit it.
     ///
@@ -79,7 +67,10 @@ pub struct InfoResponse {
     pub admins: Vec<Player>,
 }
 
-pub enum CommandErrorResponse {
+pub enum CommandErrorResponse<'a> {
+    /// The reason why a command was not executed.
+    CommandError(CommandContext<'a>, CommandDeniedError),
+
     /// Feedback for commands that affect the playlist.
     ///
     /// Output for `/playlist add`, `/playlist remove`, `/map_import`
@@ -170,6 +161,7 @@ pub enum PlaylistCommandError {
 
 impl Display for CommandResponse<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        use crate::chat::CommandDeniedError::*;
         use CommandConfirmResponse::*;
         use CommandErrorResponse::*;
         use CommandOutputResponse::*;
@@ -177,31 +169,7 @@ impl Display for CommandResponse<'_> {
         use PlaylistCommandError::*;
 
         match self {
-            Output(SuperAdminCommandReference) => {
-                writeln!(f, "Super admin commands:")?;
-                write!(f, "====================")?;
-                write!(f, "{}", SUPER_ADMIN_COMMAND_REFERENCE)?;
-                writeln!(f)?;
-                writeln!(f, "Admin commands:")?;
-                write!(f, "===============")?;
-                write!(f, "{}", ADMIN_COMMAND_REFERENCE)?;
-                writeln!(f)?;
-                writeln!(f, "Player commands:")?;
-                write!(f, "================")?;
-                write!(f, "{}", PLAYER_COMMAND_REFERENCE)
-            }
-
-            Output(AdminCommandReference) => {
-                writeln!(f, "Admin commands:")?;
-                write!(f, "===============")?;
-                write!(f, "{}", ADMIN_COMMAND_REFERENCE)?;
-                writeln!(f)?;
-                writeln!(f, "Player commands:")?;
-                writeln!(f, "================")?;
-                write!(f, "{}", PLAYER_COMMAND_REFERENCE)
-            }
-
-            Output(PlayerCommandReference) => write!(f, "{}", PLAYER_COMMAND_REFERENCE),
+            Output(CommandReference(ctxt)) => write!(f, "{}", ctxt.reference()),
 
             Output(CurrentConfig { repr }) => write!(f, "{}", repr),
 
@@ -313,6 +281,33 @@ impl Display for CommandResponse<'_> {
                 writeln!(f, "Admins: {}", names.join(", "))
             }
 
+            Error(CommandError(ctxt, NotAvailable(err))) => {
+                match err {
+                    BadCommandContext::DuringWarmup => {
+                        writeln!(f, "The '{}' command only works during warmups", ctxt.cmd)
+                    }
+                    BadCommandContext::InMode(script) => writeln!(
+                        f,
+                        "The '{}' command is for the '{}' mode only",
+                        ctxt.cmd,
+                        script.name()
+                    ),
+                    BadCommandContext::InOtherModes => {
+                        writeln!(f, "You cannot use '{}' in this game mode", ctxt.cmd)
+                    }
+                    BadCommandContext::NoPermission => {
+                        writeln!(f, "You are not permitted to use the '{}' command", ctxt.cmd)
+                    }
+                }?;
+                writeln!(f)?;
+                write!(f, "{}", ctxt.reference())
+            }
+            Error(CommandError(ctxt, NoSuchCommand)) => {
+                writeln!(f, "'{}' is not a valid command", ctxt.cmd)?;
+                writeln!(f)?;
+                write!(f, "{}", ctxt.reference())
+            }
+
             Error(UnknownPlayer) => writeln!(f, "There is no player with that login!"),
 
             Error(UnknownBlacklistPlayer) => {
@@ -335,19 +330,19 @@ impl Display for CommandResponse<'_> {
 
             Error(NotInWarmup) => writeln!(f, "This command works only during warmup."),
 
-            Confirm(ConfirmMapDeletion { file_name }) => writeln!(
+            Confirm(_, ConfirmMapDeletion { file_name }) => writeln!(
                 f,
                 "Warning: this action will delete map '{}', and all of its records.",
                 file_name
             ),
 
-            Confirm(ConfirmPlayerDeletion { login }) => writeln!(
+            Confirm(_, ConfirmPlayerDeletion { login }) => writeln!(
                 f,
                 "Warning: this action will delete player '{}', and all of their records.",
                 login
             ),
 
-            Confirm(ConfirmShutdown) => writeln!(f, "Warning: this will stop the server."),
+            Confirm(_, ConfirmShutdown) => writeln!(f, "Warning: this will stop the server."),
         }
     }
 }
