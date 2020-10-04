@@ -4,7 +4,7 @@ Version numbers consist of `MAJOR.MINOR.PATCH`:
 - `MINOR`: increased when features are added or removed
 - `PATCH`: increased for bug fix releases
 
-<!-- Updating, Added, Changed, Removed, Fixed --> 
+<!-- Updating, Added, Changed, Removed, Fixed, Commits --> 
 
 <br>
 
@@ -16,13 +16,13 @@ All `0.1.0-alpha` releases are unstable, and have missing widgets.
 - Clear your database with `DROP SCHEMA steward CASCADE`.
 
 ### Added
-- **Chat**: Admin Commands
+- **Admin Commands**:
   - `/pause` toggles a match pause, if supported by the game mode.
   - `/warmup add <seconds>` extends an active warmup round.
   - `/warmup skip` ends the remaining warmup.
   
 ### Changed
-- **Admin**: playlist management
+- **Admin**: Playlist Management
   - The controller will no longer override the server's playlist that was
     initialized with the match settings the server is started with.
   - Changes to the playlist in the TimeAttack mode will be saved to
@@ -30,15 +30,16 @@ All `0.1.0-alpha` releases are unstable, and have missing widgets.
     `/game_settings=MatchSettings/timeattack.txt` to use the TimeAttack
   playlist that was in place before it was shut down.
 
-- The command reference is now displayed in a table, and categorized
-  to show which commands cannot be executed by the player, and why.
-  
-- Players will get useful error messages when trying to execute
-  commands that are not available to them.
-
-- `/info` now lists admins with their display name, rather than their login
+- **Commands**:
+  - The command reference is now displayed in a table, and categorized
+    to show which commands cannot be executed by the player, and why. 
+  - Players will get useful error messages when trying to execute
+    commands that are not available to them.
+  - `/info` now lists admins with their display name, rather than their login
 
 - Records will no longer have their checkpoint times stored in the database.
+
+### [Commits](https://github.com/timwie/steward/compare/v0.1.0-alpha5...v0.1.0-alpha6)
 
 <br>
 
@@ -62,6 +63,8 @@ This is the first version for the new Trackmania.
 - Replays can no longer be stored in the database.
 - **Widget**: Sector times have been removed, since you can race ghosts online
   as well now.
+
+### [Commits](https://github.com/timwie/steward/compare/v0.1.0-alpha4...v0.1.0-alpha5)
 
 <br>
 
@@ -111,6 +114,8 @@ This will be the last version built for TM².
 ### Fixed
 - Fixed a crash that occurred when setting a record while crossing at least one
   checkpoint backwards.
+
+### [Commits](https://github.com/timwie/steward/compare/v0.1.0-alpha3...v0.1.0-alpha4)
 
 <br>
 
@@ -172,6 +177,8 @@ All `0.1.0-alpha` releases are unstable, and have missing widgets.
 ### Fixed
 - Fixed not updating improved records in the database.
 
+
+### [Commits](https://github.com/timwie/steward/compare/v0.1.0-alpha2...v0.1.0-alpha3)
 <br>
 
 ## [0.1.0-alpha2] - 2020-05-23
@@ -180,6 +187,8 @@ All `0.1.0-alpha` releases are unstable, and have missing widgets.
 ### Fixed
 - Fixed a critical bug that would crash the controller simply by dis- and reconnecting.
 - Fixed a bug that lead to comparing incorrect times in the sector times widget.
+
+### [Commits](https://github.com/timwie/steward/compare/v0.1.0-alpha1...v0.1.0-alpha2)
 
 <br>
 
