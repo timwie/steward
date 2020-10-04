@@ -416,7 +416,7 @@ As of script API version `3.1.0`:
 [/] XmlRpc.GetDocumentation
 [x] XmlRpc.SetApiVersion
 [/] XmlRpc.GetApiVersion
-[/] XmlRpc.GetAllApiVersions
+[x] XmlRpc.GetAllApiVersions
 
 [ ] Trackmania.SetPlayerPoints
 [ ] Trackmania.SetTeamPoints
@@ -458,7 +458,7 @@ As of script API version `3.1.0`:
 [/] XmlRpc.MethodHelp
 [/] XmlRpc.Documentation
 [/] XmlRpc.ApiVersion
-[/] XmlRpc.AllApiVersions
+[x] XmlRpc.AllApiVersions
 
 [x] Maniaplanet.StartServer_Start
 [x] Maniaplanet.StartServer_End

@@ -33,23 +33,36 @@ TBD
 <br>
 
 ## Features
+### ***TimeAttack***
 - [x] **Map Rankings**
- - Compare your personal best in a ranking of local records.
- - Try to beat the best records on every map.
+  - Compare your personal best in a ranking of local records.
+  - Try to beat the best records on every map.
 - [x] **Server Ranking**
- - Set top records on every map to rise in the server ranking.
- - You will get updates of your progression at the end of every race.
+  - Set top records on every map to rise in the server ranking.
+  - You will get updates of your progression at the end of every race.
 - [x] **Playlist**
- - Bring up the list of maps to see all of your record rankings.
-- [x] **Map Preferences**
- - Cast your vote on a map to make either it more or less likely
-   to be played whenever you connect to the server.
- - Open the playlist to find maps you want to improve your record on,
-   and *pick* them.
- - If you'd rather skip a map, you can *veto* it.
- - If you do not like a map at all, vote to *remove* it.
+  - Bring up the list of maps to see all of your record rankings.
+  - Easily identify new maps on the server.
+- [x] **Adaptive Map Queue**
+  - Cast your vote on a map to make either it more or less likely
+    to be played whenever you connect to the server.
+  - Open the playlist to find maps you want to improve your record on, and *pick* them.
+  - If you'd rather skip a map, you can *veto* it.
+  - If you do not like a map at all, vote to *remove* it.
+  - Maps that score well for the players that are currently on the server
+    are more likely to be queued by the controller. 
+  - Maps that have been recently played by connected players
+    are less likely to be queued by the controller. 
+- [x] **Schedule**
+  - See a preview of the next maps that will be played on the server. 
 
-You can find a more detailed list of all features [here](CHANGELOG.md).
+
+### ***General***
+- Chat commands
+  - Outputs that can be copy-pasted when needed.
+  - Extensive command reference and useful error messages.
+- In-game config editor that uses the same format as the config file.
+- Map imports from Trackmania Exchange
 
 <br>
 
@@ -58,12 +71,10 @@ You can find a more detailed list of all features [here](CHANGELOG.md).
   Other controllers (see [Related Projects](#related-projects)) at this time
   typically integrate with any game, environment and mode within [ManiaPlanet],
   which includes the previous iteration of Trackmania.
-  
-- At least for now, **this controller targets only the classic *Time Attack* mode of
-  the new Trackmania.**
-  
-- Support for TM² servers or other game modes - in any of the games -
-  is not a goal of this project.
+
+- Support for ManiaPlanet/TM² servers is a not a goal of this project.
+
+- At least for now, **this controller targets only the *Time Attack* mode**.
   
 - Within this single game mode, the controller is supposed to: 
   - Encourage players to set records on all maps on the server.
@@ -71,13 +82,10 @@ You can find a more detailed list of all features [here](CHANGELOG.md).
   - Let players influence the map queue, so that they it's more likely they get
     to play the maps they want to play.
   - Provide admins with tools to keep the map rotation fresh.
-  
-- The design of new user interfaces should be optimized for couch gaming:
-  - A gamepad must suffice to navigate. Do not require use of a mouse.
-  - Readability must be ensured for players sitting a bit further from the
-    (albeit larger) screen.
-  - Present information in widgets, instead of relying on chat messages.
-  - Do not hide common functionality behind chat commands.
+
+- Other default modes benefit only from basic commands, but may receive
+  proper support in the future.
+
 
 <br>
 
@@ -120,7 +128,7 @@ $ export STEWARD_CONFIG=/your/path/steward.toml # you can also use an .env file
 $ ./steward
 ```
 
-#### Admin Commands
+#### 6. Join the Server
 - Use the `/players` command to find your login, and make sure to add it to
   the `super_admin_whitelist` in the controller config.
 - List available commands by typing `/help` into the chat in-game.
@@ -129,8 +137,10 @@ $ ./steward
 - The controller will not try to recover when encountering errors.
   To be on the safe side, you should restart the process automatically.
 - The controller logs to `stderr`. Usually, you want to redirect that output to files.
-- It's a good idea to do regular backups. Since maps and replays are embedded into
-  the Postgres database, you only need to backup the latter. 
+
+#### Backups
+- Your maps are embedded into the Postgres database, so you won't have to backup your maps directory.
+- Not in the database are server & controller configs, as well as match settings.
 
 #### Upgrading
 - You can check for new releases using the `/info` command.
