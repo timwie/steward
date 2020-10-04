@@ -238,7 +238,14 @@ impl Controller {
 
             ServerEvent::PlayerCheckpointRespawn(_) => {}
             ServerEvent::ChampionRoundEnd(_) => {}
-            ServerEvent::KnockoutRoundEnd(_) => {}
+
+            ServerEvent::KnockoutRoundEnd(_) => {
+                // TODO knockout elimination event
+                //  => for some reason, eliminated players are listed with their account id only
+                //  => that id is not part of PlayerInfo
+                //  => instead, the best course of action is probably to request Scores
+                //     at the start of a round, since that includes the account id for players
+            }
         }
     }
 }

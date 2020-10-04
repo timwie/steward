@@ -27,6 +27,7 @@ This crate provides Rust bindings for Trackmania's dedicated server API.
 - [Callbacks](#callbacks)
 - [Script Methods](#script-methods)
 - [Script Callbacks](#script-callbacks)
+- [Script Commands](#script-commands)
 
 <br>
 
@@ -549,4 +550,14 @@ As of script API version `3.1.0`:
 [!] Trackmania.Event.OnVehicleArmorEmpty
 [!] Trackmania.Event.OnVehicleCollision
 [!] Trackmania.Event.OnVehicleVsVehicleCollision
+```
+
+<br>
+
+### Script Commands
+###### Champion
+As of script version `2020-09-10`:
+```
+[x] Command_StartNewMatch (Boolean) // Start a new match
+[x] Command_SetRoundNb (Integer)    // Set round number
 ```

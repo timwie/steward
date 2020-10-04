@@ -127,20 +127,13 @@ is a bug. The following list contains many of the potential runtime errors when 
 <br>
 
 ## References
-- [Dedicated Server Documentation]
-- [Dedicated Server Forum]
-- [Server Settings for Mode Scripts]
-- [XML-RPC Methods]
-- [XML-RPC Callbacks]
-- [XML-RPC Methods & Callbacks for Mode Scripts]
-- [XML-RPC Client Example]
-- [ManiaPlanet Mode Scripts]
+- [XML-RPC Methods & Callbacks]
+- [Openplanet] can be used to extract mode scripts
 - [Manialink Reference]
 - [ManiaScript Reference]
 - [ManiaScript API for Widgets]
 - [In-game Text Formatting]
-- [ManiaExchange API]
-
+- [Trackmania Exchange API]
 
 <br>
 
@@ -205,16 +198,10 @@ Remember to...
 [Dedicated Server]: http://files.v04.maniaplanet.com/server/TrackmaniaServer_Latest.zip
 [PostgreSQL server]: https://www.postgresql.org/download/
 
-[Dedicated Server Documentation]: https://doc.maniaplanet.com/dedicated-server/getting-started
-[Dedicated Server Forum]: https://forum.maniaplanet.com/viewforum.php?f=533
-[Server Settings for Mode Scripts]: https://doc.maniaplanet.com/dedicated-server/references/settings-list-for-nadeo-gamemodes
-[XML-RPC Methods]: https://doc.maniaplanet.com/dedicated-server/references/xml-rpc-methods
-[XML-RPC Callbacks]: https://doc.maniaplanet.com/dedicated-server/references/xml-rpc-callbacks
-[XML-RPC Methods & Callbacks for Mode Scripts]: https://github.com/maniaplanet/script-xmlrpc/
-[XML-RPC Client Example]: https://github.com/maniaplanet/dedicated-server-api
-[ManiaPlanet Mode Scripts]: https://github.com/maniaplanet/game-modes
+[XML-RPC Methods & Callbacks]: https://github.com/timwie/steward/blob/master/gbx/README.md#xml-rpc-bindings
 [Manialink Reference]: https://doc.maniaplanet.com/manialink/getting-started
 [ManiaScript Reference]: https://doc.maniaplanet.com/maniascript/syntax-basics
 [ManiaScript API for Widgets]: https://maniascript.boss-bravo.fr/class_c_sm_ml_script_ingame.html
 [In-game Text Formatting]: https://doc.maniaplanet.com/client/text-formatting
-[ManiaExchange API]: https://api.mania-exchange.com/documents/reference
+[Trackmania Exchange API]: https://api.mania-exchange.com/documents/reference
+[Openplanet]: https://openplanet.nl/
