@@ -169,6 +169,8 @@ impl Controller {
 
                     let ev = ControllerEvent::ChangeMode(mode_script);
                     self.on_controller_event(ev).await;
+
+                    self.config.save_match_settings().await;
                 }
             }
 
@@ -224,10 +226,14 @@ impl Controller {
             ServerEvent::ModeScriptSection(PreEndServer) => {}
             ServerEvent::ModeScriptSection(PostEndServer) => {}
 
-            ServerEvent::PlaylistChanged { curr_idx, .. } => {
+            ServerEvent::PlaylistChanged { curr_idx, playlist_modified, .. } => {
                 // TODO sync playlist
                 if let Some(curr_idx) = curr_idx {
                     self.playlist.set_index(curr_idx as usize).await;
+                }
+
+                if playlist_modified {
+                    self.config.save_match_settings().await;
                 }
             }
 

@@ -7,7 +7,7 @@ use tokio::sync::{RwLock, RwLockReadGuard};
 
 use crate::config::{Config, TimeAttackConfig};
 use crate::event::ConfigDiff;
-use crate::server::{Calls, ModeOptions, Server};
+use crate::server::{Calls, ModeOptions, ModeScript, Server};
 
 /// Use to look up controller and server configs.
 #[async_trait]
@@ -50,11 +50,15 @@ pub struct ConfigController {
 
 impl ConfigController {
     pub async fn init(server: &Server, config: Config) -> Self {
-        set_mode_options(server, &config).await;
-        ConfigController {
+        let controller = ConfigController {
             state: Arc::new(RwLock::new(config)),
             server: server.clone(),
+        };
+        {
+            let config = controller.state.read().await;
+            controller.set_mode_options(&config).await;
         }
+        controller
     }
 
     /// Update the public parts of the controller config.
@@ -70,7 +74,7 @@ impl ConfigController {
             });
 
             cfg.timeattack.outro_duration_secs = new_cfg.outro_duration_secs;
-            set_mode_options(&self.server, &cfg).await;
+            self.set_mode_options(&cfg).await;
         }
 
         if cfg.timeattack.time_limit_factor != new_cfg.time_limit_factor
@@ -99,16 +103,37 @@ impl ConfigController {
         let config = self.state.read().await;
         config.timeattack
     }
-}
 
-async fn set_mode_options(server: &Server, config: &Config) {
-    let mode_options = server.mode_options().await;
-    if let ModeOptions::TimeAttack(mut options) = mode_options {
-        options.chat_time_secs = config.timeattack.outro_duration_secs as i32;
-        server
-            .set_mode_options(&ModeOptions::TimeAttack(options))
+    async fn set_mode_options(&self, config: &Config) {
+        let mode_options = self.server.mode_options().await;
+
+        if let ModeOptions::TimeAttack(mut options) = mode_options {
+            options.chat_time_secs = config.timeattack.outro_duration_secs as i32;
+            self.server
+                .set_mode_options(&ModeOptions::TimeAttack(options))
+                .await
+                .expect("failed to set mode options");
+        }
+
+        self.save_match_settings().await;
+    }
+
+    /// Save the current match settings in `.../UserData/Maps/MatchSettings/recent.txt`.
+    /// Save them also in `timeattack.txt` if that is the current mode.
+    pub async fn save_match_settings(&self) {
+        let current_mode = self.server.mode().await.script;
+
+        self.server
+            .save_match_settings("recent.txt")
             .await
-            .expect("failed to set mode options");
+            .expect("failed to save recent match settings");
+
+        if current_mode == ModeScript::TimeAttack {
+            self.server
+                .save_match_settings("timeattack.txt")
+                .await
+                .expect("failed to save TimeAttack match settings");
+        }
     }
 }
 

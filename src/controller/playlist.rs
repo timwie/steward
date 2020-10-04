@@ -175,11 +175,6 @@ impl PlaylistController {
             .await
             .expect("tried to add duplicate map to playlist");
 
-        self.server
-            .save_match_settings("timeattack.txt")
-            .await
-            .expect("failed to save match settings");
-
         // 2. add to controller playlist
         playlist_state.maps.push(map.clone());
 
@@ -220,11 +215,6 @@ impl PlaylistController {
             .playlist_remove(&map.file_name)
             .await
             .expect("cannot remove that map from playlist");
-
-        self.server
-            .save_match_settings("timeattack.txt")
-            .await
-            .expect("failed to save match settings");
 
         // 2. remove from controller playlist
         if playlist_state.current_index == Some(map_index) {
@@ -289,11 +279,6 @@ impl PlaylistController {
             .playlist_add(&file_name)
             .await
             .expect("tried to add duplicate map to playlist");
-
-        self.server
-            .save_match_settings("timeattack.txt")
-            .await
-            .expect("failed to save match settings");
 
         // 2. add to db
         let header = match parse_map_file(&file_path) {

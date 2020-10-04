@@ -27,8 +27,10 @@ All `0.1.0-alpha` releases are unstable, and have missing widgets.
     initialized with the match settings the server is started with.
   - Changes to the playlist in the TimeAttack mode will be saved to
     `MatchSettings/timeattack.txt`. The server can be started with
-    `/game_settings=MatchSettings/timeattack.txt` to use the TimeAttack
-  playlist that was in place before it was shut down.
+    these settings to use the most recent TimeAttack playlist.
+  - The server can be started with the `MatchSettings/recent.txt`
+    settings to use the configuration that was used before
+    the server was shutdown.
 
 - **Commands**:
   - The command reference is now displayed in a table, and categorized
