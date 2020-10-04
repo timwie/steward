@@ -90,6 +90,32 @@ impl Config {
         Self::path()
             .unwrap_or_else(|| panic!("cannot locate config: use the '{}' env var", CONFIG_ENV_VAR))
     }
+
+    pub fn role_of(&self, player_login: &str) -> PlayerRole {
+        if self
+            .super_admin_whitelist
+            .iter()
+            .any(|login| login == player_login)
+        {
+            PlayerRole::SuperAdmin
+        } else if self
+            .admin_whitelist
+            .iter()
+            .any(|login| login == player_login)
+        {
+            PlayerRole::Admin
+        } else {
+            PlayerRole::Player
+        }
+    }
+}
+
+/// Player permission level.
+#[derive(Debug, PartialEq, Eq, Copy, Clone, PartialOrd)]
+pub enum PlayerRole {
+    Player,
+    Admin,
+    SuperAdmin,
 }
 
 /// Controller config for the TimeAttack mode.

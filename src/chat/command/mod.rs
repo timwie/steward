@@ -5,6 +5,7 @@ pub use from_player::*;
 pub use from_super_admin::*;
 pub use response::*;
 
+use crate::config::PlayerRole;
 use crate::server::{ModeScript, PauseStatus, PlayerInfo, WarmupStatus};
 
 mod from_admin;
@@ -43,14 +44,6 @@ pub struct CommandContext<'a> {
     pub mode: &'a ModeScript,
     pub warmup: &'a WarmupStatus,
     pub pause: &'a PauseStatus,
-}
-
-/// Player permission level.
-#[derive(Debug, PartialEq, Eq, Copy, Clone, PartialOrd)]
-pub enum PlayerRole {
-    Player,
-    Admin,
-    SuperAdmin,
 }
 
 /// Details why a command cannot be executed in this context.

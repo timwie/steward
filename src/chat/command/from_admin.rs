@@ -3,7 +3,7 @@ use std::str::FromStr;
 
 use lazy_static::lazy_static;
 
-use crate::chat::{BadCommandContext, CommandContext, CommandEnum, CommandReference, PlayerRole};
+use crate::chat::{BadCommandContext, CommandContext, CommandEnum, CommandReference};
 use crate::server::ModeScript;
 
 /// Chat commands that can only be executed by admins.
@@ -161,6 +161,7 @@ impl<'a> CommandEnum<'a> for AdminCommand<'a> {
     }
 
     fn check(&self, ctxt: CommandContext) -> Result<(), BadCommandContext> {
+        use crate::config::PlayerRole;
         use AdminCommand::*;
         use BadCommandContext::*;
         use ModeScript::*;

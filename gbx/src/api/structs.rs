@@ -17,9 +17,6 @@ pub struct ServerBuildInfo {
     /// The build's version date, f.e. "2020-07-01_14_30".
     #[serde(rename = "Build")]
     pub version_date: String,
-
-    /// The highest supported server XML-RPC API version.
-    pub api_version: String,
 }
 
 /// Dedicated server options.

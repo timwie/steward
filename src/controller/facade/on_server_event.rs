@@ -1,4 +1,4 @@
-use crate::chat::{Command, CommandContext, CommandErrorResponse, CommandResponse, PlayerRole};
+use crate::chat::{Command, CommandContext, CommandErrorResponse, CommandResponse};
 use crate::controller::{Controller, LiveConfig, LivePlayers};
 use crate::event::ControllerEvent;
 use crate::server::{Calls, ModeScriptSection, ServerEvent};
@@ -78,18 +78,13 @@ impl Controller {
             } => {
                 // FIXME this is only PoC
                 //  => build the context from state
+                let cfg = self.config.lock().await;
                 let player = self.players.info(&from_login).await.unwrap();
                 let mode = self.server.mode().await.script;
                 let warmup = self.server.warmup_status().await;
                 let pause = self.server.pause_status().await;
 
-                let player_role = if self.config.is_super_admin(&from_login).await {
-                    PlayerRole::SuperAdmin
-                } else if self.config.is_admin(&from_login).await {
-                    PlayerRole::Admin
-                } else {
-                    PlayerRole::Player
-                };
+                let player_role = cfg.role_of(&from_login);
 
                 let ctxt = CommandContext {
                     cmd: &message,

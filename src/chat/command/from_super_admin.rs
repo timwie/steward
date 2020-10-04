@@ -3,7 +3,7 @@ use std::default::Default;
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 
-use crate::chat::{BadCommandContext, CommandContext, CommandEnum, CommandReference, PlayerRole};
+use crate::chat::{BadCommandContext, CommandContext, CommandEnum, CommandReference};
 
 /// Chat commands that can only be executed by super admins.
 #[derive(Debug, Clone, Copy)]
@@ -71,6 +71,7 @@ impl<'a> CommandEnum<'a> for SuperAdminCommand<'a> {
     }
 
     fn check(&self, ctxt: CommandContext) -> Result<(), BadCommandContext> {
+        use crate::config::PlayerRole;
         use BadCommandContext::*;
 
         match self {
