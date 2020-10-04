@@ -35,26 +35,30 @@ TBD
 ## Features
 ### ***TimeAttack***
 - [x] **Map Rankings**
-  - Compare your personal best in a ranking of local records.
-  - Try to beat the best records on every map.
+- Compare your personal best in a ranking of local records.
+- Try to beat the best records on every map. <br><br>
 - [x] **Server Ranking**
-  - Set top records on every map to rise in the server ranking.
-  - You will get updates of your progression at the end of every race.
+- Set top records on every map to rise in the server ranking.
+- To encourage players to compete on every track, all maps are weighted the same,
+  regardless of how many records have been set. <br><br>
 - [x] **Playlist**
-  - Bring up the list of maps to see all of your record rankings.
-  - Easily identify new maps on the server.
-- [x] **Adaptive Map Queue**
-  - Cast your vote on a map to make either it more or less likely
-    to be played whenever you connect to the server.
-  - Open the playlist to find maps you want to improve your record on, and *pick* them.
-  - If you'd rather skip a map, you can *veto* it.
-  - If you do not like a map at all, vote to *remove* it.
-  - Maps that score well for the players that are currently on the server
-    are more likely to be queued by the controller. 
-  - Maps that have been recently played by connected players
-    are less likely to be queued by the controller. 
+- Bring up the list of maps to see all of your record rankings.
+- Easily identify new maps on the server. <br><br>
+- [x] **Smart Queue**
+- Cast your vote on a map to make either it more or less likely
+  to be played whenever you connect to the server.
+- Open the playlist to find maps you want to improve your record on, and *pick* them.
+- If you'd rather skip a map, you can *veto* it.
+- If you do not like a map at all, vote to *remove* it.
+- Maps that score well for the players that are currently on the server
+  are more likely to be queued by the controller. 
+- Maps that have been recently played by connected players
+  are less likely to be queued by the controller. <br><br>
 - [x] **Schedule**
-  - See a preview of the next maps that will be played on the server. 
+- See a preview of the next maps that will be played on the server. <br><br>
+- [x] **Match Summary**
+- During the outro, you can see how your map and server rank changed over the last race.
+- Vote for a restart at the end of every map.
 
 
 ### ***General***
