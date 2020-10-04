@@ -10,7 +10,7 @@ use gbx::file::parse_map_file;
 
 use crate::config::Config;
 use crate::constants::{BLACKLIST_FILE, VERSION};
-use crate::database::{DatabaseClient, Map};
+use crate::database::{DatabaseClient, Map, MapQueries};
 use crate::network::exchange_id;
 use crate::server::{
     Calls, Server, ServerBuildInfo, ServerOptions, SCRIPT_API_VERSION, SERVER_API_VERSION,

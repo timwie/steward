@@ -8,7 +8,7 @@ use tokio::sync::{RwLock, RwLockReadGuard};
 
 use crate::constants::MAX_DISPLAYED_MAP_RANKS;
 use crate::controller::{LivePlayers, LivePlaylist};
-use crate::database::{DatabaseClient, Map, Record, RecordEvidence};
+use crate::database::{DatabaseClient, Map, Record, RecordEvidence, RecordQueries};
 use crate::event::{PbDiff, PlayerDiff, PlayerTransition};
 use crate::server::{CheckpointEvent, PlayerInfo};
 

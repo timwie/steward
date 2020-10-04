@@ -120,6 +120,11 @@ impl ConfigController {
 
     /// Save the current match settings in `.../UserData/Maps/MatchSettings/recent.txt`.
     /// Save them also in `timeattack.txt` if that is the current mode.
+    ///
+    /// Call this function
+    ///  - whenever the mode changes
+    ///  - whenever the playlist changes
+    ///  - whenever we change mode options
     pub async fn save_match_settings(&self) {
         let current_mode = self.server.mode().await.script;
 

@@ -9,7 +9,7 @@ use tokio::sync::RwLock;
 
 use crate::config::TimeAttackConfig;
 use crate::controller::{LiveConfig, LivePlaylist, LiveQueue, LiveRecords};
-use crate::database::DatabaseClient;
+use crate::database::{DatabaseClient, RecordQueries};
 use crate::event::PlaylistDiff;
 use crate::server::{Calls, ModeOptions, Server};
 

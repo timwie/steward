@@ -226,7 +226,11 @@ impl Controller {
             ServerEvent::ModeScriptSection(PreEndServer) => {}
             ServerEvent::ModeScriptSection(PostEndServer) => {}
 
-            ServerEvent::PlaylistChanged { curr_idx, playlist_modified, .. } => {
+            ServerEvent::PlaylistChanged {
+                curr_idx,
+                playlist_modified,
+                ..
+            } => {
                 // TODO sync playlist
                 if let Some(curr_idx) = curr_idx {
                     self.playlist.set_index(curr_idx as usize).await;

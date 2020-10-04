@@ -1,16 +1,22 @@
 use std::collections::{HashMap, HashSet};
 
+use async_trait::async_trait;
 use chrono::NaiveDateTime;
 use chrono::Utc;
 
 use crate::database::{
-    DatabaseClient, History, Map, MapRank, Player, Preference, PreferenceValue, Record,
-    RecordEvidence,
+    History, Map, MapQueries, MapRank, Player, PlayerQueries, Preference, PreferenceValue, Record,
+    RecordEvidence, RecordQueries, TimeAttackQueries,
 };
 use crate::server::DisplayString;
 use crate::server::PlayerInfo;
 
 pub type Result<T> = anyhow::Result<T>;
+
+#[derive(Default)]
+pub struct DatabaseClient {
+    pub mock: MockDatabase,
+}
 
 #[derive(Default)]
 pub struct MockDatabase {
@@ -19,75 +25,67 @@ pub struct MockDatabase {
     pub records: Vec<RecordEvidence>,
 }
 
-impl Clone for MockDatabase {
+impl Clone for DatabaseClient {
     fn clone(&self) -> Self {
         unimplemented!()
     }
 }
 
 impl DatabaseClient {
-    fn mock_db(&self) -> &MockDatabase {
-        match self {
-            DatabaseClient::Mock(db) => db,
-        }
-    }
-
-    fn mut_mock_db(&mut self) -> &mut MockDatabase {
-        match self {
-            DatabaseClient::Mock(db) => db,
-        }
-    }
-
     pub async fn migrate(&self) -> Result<()> {
         unimplemented!()
     }
+}
 
-    pub async fn player(&self, _login: &str) -> Result<Option<Player>> {
+#[async_trait]
+impl PlayerQueries for DatabaseClient {
+    async fn player(&self, _login: &str) -> Result<Option<Player>> {
         unimplemented!()
     }
 
-    pub async fn players(&self, _logins: Vec<&str>) -> Result<Vec<Player>> {
+    async fn players(&self, _logins: Vec<&str>) -> Result<Vec<Player>> {
         unimplemented!()
     }
 
-    pub async fn upsert_player(&self, _player: &PlayerInfo) -> Result<()> {
+    async fn upsert_player(&self, _player: &PlayerInfo) -> Result<()> {
         unimplemented!()
     }
 
-    pub async fn add_history(
-        &self,
-        _player_login: &str,
-        _map_uid: &str,
-        _last_played: &NaiveDateTime,
-    ) -> Result<()> {
+    async fn delete_player(&self, _player_login: &str) -> Result<Option<Player>> {
+        unimplemented!()
+    }
+}
+
+#[async_trait]
+impl MapQueries for DatabaseClient {
+    async fn map_file(&self, _uid: &str) -> Result<Option<Vec<u8>>> {
         unimplemented!()
     }
 
-    pub async fn history(&self, _player_login: &str, _map_uids: Vec<&str>) -> Result<Vec<History>> {
+    async fn maps(&self, _map_uids: Vec<&str>) -> Result<Vec<Map>> {
         unimplemented!()
     }
 
-    pub async fn map_file(&self, _uid: &str) -> Result<Option<Vec<u8>>> {
+    async fn map(&self, _map_uid: &str) -> Result<Option<Map>> {
         unimplemented!()
     }
 
-    pub async fn maps(&self, _map_uids: Vec<&str>) -> Result<Vec<Map>> {
+    async fn upsert_map(&self, _metadata: &Map, _data: Vec<u8>) -> Result<()> {
         unimplemented!()
     }
 
-    pub async fn map(&self, _map_uid: &str) -> Result<Option<Map>> {
+    async fn delete_map(&self, _map_uid: &str) -> Result<Option<Map>> {
+        unimplemented!()
+    }
+}
+
+#[async_trait]
+impl RecordQueries for DatabaseClient {
+    async fn nb_records(&self, _map_uid: &str, _nb_laps: i32) -> Result<i64> {
         unimplemented!()
     }
 
-    pub async fn upsert_map(&self, _metadata: &Map, _data: Vec<u8>) -> Result<()> {
-        unimplemented!()
-    }
-
-    pub async fn nb_records(&self, _map_uid: &str, _nb_laps: i32) -> Result<i64> {
-        unimplemented!()
-    }
-
-    pub async fn records(
+    async fn records(
         &self,
         _map_uids: Vec<&str>,
         _player_logins: Vec<&str>,
@@ -97,7 +95,7 @@ impl DatabaseClient {
         unimplemented!()
     }
 
-    pub async fn top_record(&self, map_uid: &str, nb_laps: i32) -> Result<Option<Record>> {
+    async fn top_record(&self, map_uid: &str, nb_laps: i32) -> Result<Option<Record>> {
         Ok(self
             .records(vec![map_uid], vec![], nb_laps, Some(1))
             .await?
@@ -105,18 +103,13 @@ impl DatabaseClient {
             .next())
     }
 
-    pub async fn top_records(
-        &self,
-        map_uid: &str,
-        limit: i64,
-        nb_laps: i32,
-    ) -> Result<Vec<Record>> {
+    async fn top_records(&self, map_uid: &str, limit: i64, nb_laps: i32) -> Result<Vec<Record>> {
         Ok(self
             .records(vec![map_uid], vec![], nb_laps, Some(limit))
             .await?)
     }
 
-    pub async fn player_record(
+    async fn player_record(
         &self,
         map_uid: &str,
         player_login: &str,
@@ -129,9 +122,9 @@ impl DatabaseClient {
             .next())
     }
 
-    pub async fn nb_players_with_record(&self) -> Result<i64> {
+    async fn nb_players_with_record(&self) -> Result<i64> {
         let logins: HashSet<&str> = self
-            .mock_db()
+            .mock
             .records
             .iter()
             .map(|rec| rec.player_login.as_str())
@@ -139,35 +132,48 @@ impl DatabaseClient {
         Ok(logins.len() as i64)
     }
 
-    pub async fn maps_without_player_record(&self, _player_login: &str) -> Result<Vec<String>> {
+    async fn maps_without_player_record(&self, _player_login: &str) -> Result<Vec<String>> {
         unimplemented!()
     }
 
-    pub async fn record_preview(&self, _record: &RecordEvidence) -> Result<i64> {
+    async fn record_preview(&self, _record: &RecordEvidence) -> Result<i64> {
         unimplemented!()
     }
 
-    pub async fn upsert_record(&self, _rec: &RecordEvidence) -> Result<()> {
+    async fn upsert_record(&self, _rec: &RecordEvidence) -> Result<()> {
         unimplemented!()
     }
+}
 
-    pub async fn player_preferences(&self, _player_login: &str) -> Result<Vec<Preference>> {
-        unimplemented!()
-    }
-
-    pub async fn count_map_preferences(
+#[async_trait]
+impl TimeAttackQueries for DatabaseClient {
+    async fn add_history(
         &self,
+        _player_login: &str,
         _map_uid: &str,
-    ) -> Result<Vec<(PreferenceValue, i64)>> {
+        _last_played: &NaiveDateTime,
+    ) -> Result<()> {
         unimplemented!()
     }
 
-    pub async fn upsert_preference(&self, _pref: &Preference) -> Result<()> {
+    async fn history(&self, _player_login: &str, _map_uids: Vec<&str>) -> Result<Vec<History>> {
         unimplemented!()
     }
 
-    pub async fn map_rankings(&self, map_uids: Vec<&str>) -> Result<Vec<MapRank>> {
-        let db = self.mock_db();
+    async fn player_preferences(&self, _player_login: &str) -> Result<Vec<Preference>> {
+        unimplemented!()
+    }
+
+    async fn count_map_preferences(&self, _map_uid: &str) -> Result<Vec<(PreferenceValue, i64)>> {
+        unimplemented!()
+    }
+
+    async fn upsert_preference(&self, _pref: &Preference) -> Result<()> {
+        unimplemented!()
+    }
+
+    async fn map_rankings(&self, map_uids: Vec<&str>) -> Result<Vec<MapRank>> {
+        let db = &self.mock;
         let mut grp_by_map = HashMap::<&str, Vec<&RecordEvidence>>::new();
         for rec in db.records.iter() {
             if !map_uids.contains(&rec.map_uid.as_str()) {
@@ -196,19 +202,11 @@ impl DatabaseClient {
             })
             .collect())
     }
-
-    pub async fn delete_player(&self, _player_login: &str) -> Result<Option<Player>> {
-        unimplemented!()
-    }
-
-    pub async fn delete_map(&self, _map_uid: &str) -> Result<Option<Map>> {
-        unimplemented!()
-    }
 }
 
 impl DatabaseClient {
     pub fn push_player(&mut self, login: &str, display_name: &str) {
-        let db = self.mut_mock_db();
+        let db = &mut self.mock;
         db.players.push(Player {
             login: login.to_string(),
             display_name: DisplayString::from(display_name.to_string()),
@@ -216,7 +214,7 @@ impl DatabaseClient {
     }
 
     pub fn push_map(&mut self, uid: &str) {
-        let db = self.mut_mock_db();
+        let db = &mut self.mock;
         db.maps.push(Map {
             uid: uid.to_string(),
             file_name: "".to_string(),
@@ -230,7 +228,7 @@ impl DatabaseClient {
     }
 
     pub fn push_record(&mut self, login: &str, uid: &str, millis: i32) {
-        let db = self.mut_mock_db();
+        let db = &mut self.mock;
         db.records.push(RecordEvidence {
             player_login: login.to_string(),
             map_uid: uid.to_string(),

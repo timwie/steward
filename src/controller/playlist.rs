@@ -11,7 +11,7 @@ use gbx::file::parse_map_file;
 
 use crate::chat::PlaylistCommandError;
 use crate::controller::LiveConfig;
-use crate::database::{DatabaseClient, Map};
+use crate::database::{DatabaseClient, Map, MapQueries};
 use crate::event::PlaylistDiff;
 use crate::network::{exchange_map, ExchangeError};
 use crate::server::{Calls, Server};

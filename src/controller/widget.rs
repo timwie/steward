@@ -9,7 +9,9 @@ use crate::constants::{
     MAX_DISPLAYED_IN_QUEUE, MAX_DISPLAYED_RACE_RANKS, START_HIDE_WIDGET_DELAY_MILLIS,
 };
 use crate::controller::*;
-use crate::database::{DatabaseClient, PreferenceValue};
+use crate::database::{
+    DatabaseClient, PlayerQueries, PreferenceValue, RecordQueries, TimeAttackQueries,
+};
 use crate::event::*;
 use crate::server::{Calls, Fault, PlayerInfo, Server};
 use crate::widget::*;

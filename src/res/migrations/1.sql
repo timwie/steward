@@ -29,7 +29,21 @@ CREATE TABLE steward.map_file (
     FOREIGN KEY (map_uid) REFERENCES steward.map (uid)
 );
 
-CREATE TABLE steward.history (
+CREATE TABLE steward.record (
+    player_login  TEXT,
+    map_uid       TEXT,
+    millis        INTEGER   NOT NULL,
+    timestamp     TIMESTAMP NOT NULL,
+    nb_laps       INTEGER   NOT NULL, -- use '0' if not multi-lap or for flying laps
+
+    PRIMARY KEY (player_login, map_uid, nb_laps),
+    FOREIGN KEY (player_login) REFERENCES steward.player (login),
+    FOREIGN KEY (map_uid)      REFERENCES steward.map (uid),
+
+    CONSTRAINT nb_laps_positive CHECK (nb_laps >= 0)
+);
+
+CREATE TABLE steward.ta_history (
     player_login TEXT,
     map_uid      TEXT,
     last_played  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -45,7 +59,7 @@ CREATE TYPE steward.Pref AS ENUM (
     'Remove'
 );
 
-CREATE TABLE steward.preference (
+CREATE TABLE steward.ta_preference (
     player_login TEXT,
     map_uid      TEXT,
     value        steward.Pref DEFAULT NULL,
@@ -53,20 +67,6 @@ CREATE TABLE steward.preference (
     PRIMARY KEY (player_login, map_uid),
     FOREIGN KEY (player_login) REFERENCES steward.player (login),
     FOREIGN KEY (map_uid)      REFERENCES steward.map (uid)
-);
-
-CREATE TABLE steward.record (
-    player_login  TEXT,
-    map_uid       TEXT,
-    millis        INTEGER   NOT NULL,
-    timestamp     TIMESTAMP NOT NULL,
-    nb_laps       INTEGER   NOT NULL, -- use '0' if not multi-lap or for flying laps
-
-    PRIMARY KEY (player_login, map_uid, nb_laps),
-    FOREIGN KEY (player_login) REFERENCES steward.player (login),
-    FOREIGN KEY (map_uid)      REFERENCES steward.map (uid),
-
-    CONSTRAINT nb_laps_positive CHECK (nb_laps >= 0)
 );
 
 UPDATE steward.meta SET at_migration = 1;

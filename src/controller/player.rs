@@ -4,7 +4,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use tokio::sync::{RwLock, RwLockReadGuard};
 
-use crate::database::DatabaseClient;
+use crate::database::{DatabaseClient, PlayerQueries};
 use crate::event::{PlayerDiff, PlayerTransition};
 use crate::server::{Calls, DisplayString, PlayerInfo, PlayerSlot, Server};
 

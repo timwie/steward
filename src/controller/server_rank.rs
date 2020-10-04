@@ -10,7 +10,7 @@ use tokio::sync::{RwLock, RwLockReadGuard};
 
 use crate::constants::MAX_DISPLAYED_SERVER_RANKS;
 use crate::controller::LivePlayers;
-use crate::database::DatabaseClient;
+use crate::database::{DatabaseClient, RecordQueries, TimeAttackQueries};
 use crate::event::{ServerRankDiff, ServerRankingDiff};
 use crate::server::{Calls, DisplayString, Server};
 
@@ -247,7 +247,7 @@ mod test {
 
     #[tokio::test]
     async fn empty_server_ranking() {
-        let mut mock_db = DatabaseClient::Mock(Default::default());
+        let mut mock_db: DatabaseClient = Default::default();
         let ranking = calc_server_ranking(&mock_db, vec![]).await;
         assert!(ranking.is_empty());
 
@@ -261,7 +261,7 @@ mod test {
 
     #[tokio::test]
     async fn trivial_server_ranking() {
-        let mut mock_db = DatabaseClient::Mock(Default::default());
+        let mut mock_db: DatabaseClient = Default::default();
         mock_db.push_player("login1", "nick1");
         mock_db.push_map("uid1");
         mock_db.push_record("login1", "uid1", 10000);
@@ -282,7 +282,7 @@ mod test {
 
     #[tokio::test]
     async fn single_map_server_ranking() {
-        let mut mock_db = DatabaseClient::Mock(Default::default());
+        let mut mock_db: DatabaseClient = Default::default();
         mock_db.push_player("login1", "nick1");
         mock_db.push_player("login2", "nick2");
         mock_db.push_player("login3", "nick3");
@@ -326,7 +326,7 @@ mod test {
 
     #[tokio::test]
     async fn multi_map_server_ranking() {
-        let mut mock_db = DatabaseClient::Mock(Default::default());
+        let mut mock_db: DatabaseClient = Default::default();
         mock_db.push_player("login1", "nick1");
         mock_db.push_player("login2", "nick2");
         mock_db.push_map("uid1");
@@ -364,7 +364,7 @@ mod test {
 
     #[tokio::test]
     async fn only_rank_playlist_maps() {
-        let mut mock_db = DatabaseClient::Mock(Default::default());
+        let mut mock_db: DatabaseClient = Default::default();
         mock_db.push_player("login1", "nick1");
         mock_db.push_player("login2", "nick2");
         mock_db.push_map("uid1");
