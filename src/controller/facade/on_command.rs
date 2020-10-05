@@ -13,7 +13,7 @@ use crate::controller::{Controller, LiveConfig, LivePlayers, LivePlaylist};
 use crate::database::{MapQueries, PlayerQueries};
 use crate::event::{ControllerEvent, PlaylistDiff};
 use crate::network::most_recent_controller_version;
-use crate::server::{Calls, PlayerInfo};
+use crate::server::{Calls, ModeCalls, PlayerInfo, RoundBasedModeCalls};
 
 impl Controller {
     pub(super) async fn on_cmd(&self, from: &PlayerInfo, cmd: PlayerCommand) {
@@ -27,7 +27,7 @@ impl Controller {
                     let private_config = &*controller.config.lock().await;
                     let mode_config = controller.config.mode_config().await;
                     let server_info = controller.server.server_build_info().await;
-                    let net_stats = controller.server.net_stats().await;
+                    let net_stats = controller.server.server_net_stats().await;
 
                     let most_recent_controller_version = most_recent_controller_version()
                         .await

@@ -21,45 +21,12 @@ macro_rules! args {
 
 #[async_trait]
 impl Calls for RpcClient {
-    async fn authenticate(&self, username: &str, password: &str) {
-        self.call_method_unwrap_unit("Authenticate", args!(username, password))
-            .await;
-    }
-
-    async fn enable_callbacks(&self) {
-        self.call_method_unwrap_unit("EnableCallbacks", args!(true))
-            .await;
-        self.call_script("XmlRpc.EnableCallbacks", args!("true"))
-            .await;
-    }
-
-    async fn set_api_version(&self) {
-        self.call_method_unwrap_unit("SetApiVersion", args!(SERVER_API_VERSION))
-            .await;
-        self.call_script("XmlRpc.SetApiVersion", args!(SCRIPT_API_VERSION))
-            .await;
-
-        // Make this call to log the latest script API version
-        self.call_script("XmlRpc.GetAllApiVersions", args!()).await;
-    }
-
-    async fn enable_manual_chat_routing(&self) -> Result<()> {
-        self.call_method_unit(
-            "ChatEnableManualRouting",
-            args!(true, true), // enable, but keep auto-forwarding server messages
-        )
-        .await
-    }
-
-    async fn clear_manialinks(&self) {
-        // ignore fault caused by having no players connected
-        let _ = self
-            .call_method_unit("SendHideManialinkPage", args!())
-            .await;
-    }
-
     async fn server_build_info(&self) -> ServerBuildInfo {
         self.call_method_unwrap("GetVersion", args!()).await
+    }
+
+    async fn server_net_stats(&self) -> ServerNetStats {
+        self.call_method_unwrap("GetNetworkStats", args!()).await
     }
 
     async fn server_options(&self) -> ServerOptions {
@@ -78,14 +45,6 @@ impl Calls for RpcClient {
     async fn set_mode(&self, script: ModeScript) -> Result<()> {
         self.call_method_unit("SetScriptName", args!(script.file_name()))
             .await
-    }
-
-    async fn user_data_dir(&self) -> PathBuf {
-        let path_str: String = self.call_method_unwrap("GameDataDirectory", args!()).await;
-        Path::new(&path_str)
-            .parent()
-            .expect("failed to locate server directory")
-            .join("UserData")
     }
 
     async fn mode_options(&self) -> ModeOptions {
@@ -123,6 +82,47 @@ impl Calls for RpcClient {
 
         self.call_method_unit("SetModeScriptSettings", args!(options))
             .await
+    }
+
+    async fn scores(&self) -> Scores {
+        let cb = self
+            .call_script_result("Trackmania.GetScores", args!())
+            .await;
+
+        if let Callback::Scores(scores) = cb {
+            return scores;
+        }
+        panic!("unexpected callback {:?}", cb);
+    }
+
+    async fn pause_status(&self) -> PauseStatus {
+        let cb = self
+            .call_script_result("Maniaplanet.Pause.GetStatus", args!())
+            .await;
+
+        if let Callback::PauseStatus(status) = cb {
+            return status;
+        }
+        panic!("unexpected callback {:?}", cb);
+    }
+
+    async fn warmup_status(&self) -> WarmupStatus {
+        let cb = self
+            .call_script_result("Trackmania.WarmUp.GetStatus", args!())
+            .await;
+
+        if let Callback::WarmupStatus(status) = cb {
+            return status;
+        }
+        panic!("unexpected callback {:?}", cb);
+    }
+
+    async fn user_data_dir(&self) -> PathBuf {
+        let path_str: String = self.call_method_unwrap("GameDataDirectory", args!()).await;
+        Path::new(&path_str)
+            .parent()
+            .expect("failed to locate server directory")
+            .join("UserData")
     }
 
     async fn players(&self) -> Vec<PlayerInfo> {
@@ -216,14 +216,6 @@ impl Calls for RpcClient {
         Ok(())
     }
 
-    async fn restart_map(&self) {
-        self.call_method_unwrap_unit("RestartMap", args!()).await;
-    }
-
-    async fn end_map(&self) -> Result<()> {
-        self.call_method_unit("NextMap", args!()).await
-    }
-
     async fn chat_send(&self, msg: &str) {
         self.call_method_unwrap_unit("ChatSendServerMessage", args!(msg))
             .await;
@@ -262,90 +254,6 @@ impl Calls for RpcClient {
         self.call_method_unit("ForceSpectatorId", args!(player_uid, SPECTATOR_MODE))
             .await?;
         self.call_method_unit("SpectatorReleasePlayerSlotId", args!(player_uid))
-            .await
-    }
-
-    async fn scores(&self) -> Scores {
-        let cb = self
-            .call_script_result("Trackmania.GetScores", args!())
-            .await;
-
-        if let Callback::Scores(scores) = cb {
-            return scores;
-        }
-        panic!("unexpected callback {:?}", cb);
-    }
-
-    async fn pause_status(&self) -> PauseStatus {
-        let cb = self
-            .call_script_result("Maniaplanet.Pause.GetStatus", args!())
-            .await;
-
-        if let Callback::PauseStatus(status) = cb {
-            return status;
-        }
-        panic!("unexpected callback {:?}", cb);
-    }
-
-    async fn warmup_status(&self) -> WarmupStatus {
-        let cb = self
-            .call_script_result("Trackmania.WarmUp.GetStatus", args!())
-            .await;
-
-        if let Callback::WarmupStatus(status) = cb {
-            return status;
-        }
-        panic!("unexpected callback {:?}", cb);
-    }
-
-    async fn pause(&self) -> PauseStatus {
-        let cb = self
-            .call_script_result("Maniaplanet.Pause.SetActive", args!("true"))
-            .await;
-
-        if let Callback::PauseStatus(status) = cb {
-            return status;
-        }
-        panic!("unexpected callback {:?}", cb);
-    }
-
-    async fn unpause(&self) -> PauseStatus {
-        let cb = self
-            .call_script_result("Maniaplanet.Pause.SetActive", args!("false"))
-            .await;
-
-        if let Callback::PauseStatus(status) = cb {
-            return status;
-        }
-        panic!("unexpected callback {:?}", cb);
-    }
-
-    async fn force_end_warmup(&self) {
-        self.call_script("Trackmania.WarmUp.ForceStop", args!())
-            .await;
-    }
-
-    async fn warmup_extend(&self, duration: Duration) {
-        let millis = duration.as_millis().to_string();
-        self.call_script("Trackmania.WarmUp.Extend", args!(millis))
-            .await;
-    }
-
-    async fn force_end_round(&self) {
-        self.call_script("Trackmania.ForceEndRound", args!()).await;
-    }
-
-    async fn start_new_match(&self) -> Result<()> {
-        let mut map = BTreeMap::new();
-        map.insert("Command_StartNewMatch".to_string(), Value::Bool(true));
-        self.call_method_unit("SendModeScriptCommands", args!(map))
-            .await
-    }
-
-    async fn start_round_nb(&self, round_nb: i32) -> Result<()> {
-        let mut map = BTreeMap::new();
-        map.insert("Command_SetRoundNb".to_string(), Value::Int(round_nb));
-        self.call_method_unit("SendModeScriptCommands", args!(map))
             .await
     }
 
@@ -394,13 +302,117 @@ impl Calls for RpcClient {
         self.call_method_unit("Kick", args).await
     }
 
-    async fn net_stats(&self) -> ServerNetStats {
-        self.call_method_unwrap("GetNetworkStats", args!()).await
-    }
-
     async fn shutdown_server(&self) {
         self.call_method_unwrap_unit("StopServer", args!()).await;
         self.call_method_unwrap_unit("QuitGame", args!()).await;
+    }
+}
+
+#[async_trait]
+impl SetupCalls for RpcClient {
+    async fn authenticate(&self, username: &str, password: &str) {
+        self.call_method_unwrap_unit("Authenticate", args!(username, password))
+            .await;
+    }
+
+    async fn enable_callbacks(&self) {
+        self.call_method_unwrap_unit("EnableCallbacks", args!(true))
+            .await;
+        self.call_script("XmlRpc.EnableCallbacks", args!("true"))
+            .await;
+    }
+
+    async fn set_api_version(&self) {
+        self.call_method_unwrap_unit("SetApiVersion", args!(SERVER_API_VERSION))
+            .await;
+        self.call_script("XmlRpc.SetApiVersion", args!(SCRIPT_API_VERSION))
+            .await;
+
+        // Make this call to log the latest script API version
+        self.call_script("XmlRpc.GetAllApiVersions", args!()).await;
+    }
+
+    async fn enable_manual_chat_routing(&self) -> Result<()> {
+        self.call_method_unit(
+            "ChatEnableManualRouting",
+            args!(true, true), // enable, but keep auto-forwarding server messages
+        )
+        .await
+    }
+
+    async fn clear_manialinks(&self) {
+        // ignore fault caused by having no players connected
+        let _ = self
+            .call_method_unit("SendHideManialinkPage", args!())
+            .await;
+    }
+}
+
+#[async_trait]
+impl ModeCalls for RpcClient {
+    async fn restart_map(&self) {
+        self.call_method_unwrap_unit("RestartMap", args!()).await;
+    }
+
+    async fn end_map(&self) -> Result<()> {
+        self.call_method_unit("NextMap", args!()).await
+    }
+}
+
+#[async_trait]
+impl RoundBasedModeCalls for RpcClient {
+    async fn pause(&self) -> PauseStatus {
+        let cb = self
+            .call_script_result("Maniaplanet.Pause.SetActive", args!("true"))
+            .await;
+
+        if let Callback::PauseStatus(status) = cb {
+            return status;
+        }
+        panic!("unexpected callback {:?}", cb);
+    }
+
+    async fn unpause(&self) -> PauseStatus {
+        let cb = self
+            .call_script_result("Maniaplanet.Pause.SetActive", args!("false"))
+            .await;
+
+        if let Callback::PauseStatus(status) = cb {
+            return status;
+        }
+        panic!("unexpected callback {:?}", cb);
+    }
+
+    async fn force_end_warmup(&self) {
+        self.call_script("Trackmania.WarmUp.ForceStop", args!())
+            .await;
+    }
+
+    async fn warmup_extend(&self, duration: Duration) {
+        let millis = duration.as_millis().to_string();
+        self.call_script("Trackmania.WarmUp.Extend", args!(millis))
+            .await;
+    }
+
+    async fn force_end_round(&self) {
+        self.call_script("Trackmania.ForceEndRound", args!()).await;
+    }
+}
+
+#[async_trait]
+impl ChampionCalls for RpcClient {
+    async fn start_new_match(&self) -> Result<()> {
+        let mut map = BTreeMap::new();
+        map.insert("Command_StartNewMatch".to_string(), Value::Bool(true));
+        self.call_method_unit("SendModeScriptCommands", args!(map))
+            .await
+    }
+
+    async fn start_round_nb(&self, round_nb: i32) -> Result<()> {
+        let mut map = BTreeMap::new();
+        map.insert("Command_SetRoundNb".to_string(), Value::Int(round_nb));
+        self.call_method_unit("SendModeScriptCommands", args!(map))
+            .await
     }
 }
 

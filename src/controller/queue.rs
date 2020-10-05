@@ -11,7 +11,7 @@ use crate::constants::{
 use crate::controller::{LivePlayers, LivePlaylist, LivePreferences};
 use crate::database::Map;
 use crate::event::{PlaylistDiff, QueueDiff};
-use crate::server::{Calls, Server};
+use crate::server::{Calls, ModeCalls, Server};
 use crate::widget::ActivePreferenceValue;
 
 /// Use to lookup the current queue, which is an ordering of the playlist.

@@ -319,7 +319,7 @@ impl<'de> Deserialize<'de> for ModeScript {
     }
 }
 
-/// Common sections for matches of all game modes.
+/// Sections for matches of all default game modes.
 ///
 /// All game modes build on a template (`Libs/Nadeo/TMxSM/Race/ModeTrackmania.Script.txt`)
 /// using a structure with several nested loops representing the progression of the game mode.
@@ -338,7 +338,9 @@ impl<'de> Deserialize<'de> for ModeScript {
 /// allow game modes to implement their logic.
 ///
 /// The template also triggers callbacks when entering or leaving one of the loops;
-/// these callbacks are represented by this enum.
+/// these callbacks are represented by this enum. Note that the callbacks will also be
+/// triggered if they are irrelevant for a mode: the TimeAttack will trigger `_Round`
+/// sections f.e., even though there are no rounds in this mode.
 #[derive(Debug, Clone)]
 pub enum ModeScriptSection {
     PreStartServer {
@@ -941,6 +943,8 @@ pub struct WarmupStatus {
     pub(in crate) response_id: Option<String>,
 
     /// True if a warmup is available in the game mode, false otherwise.
+    ///
+    /// Warmups are available for all default modes.
     pub available: bool,
 
     /// True if a warmup is ongoing, false otherwise.
@@ -954,6 +958,17 @@ pub struct PauseStatus {
     pub(in crate) response_id: Option<String>,
 
     /// True if a pause is available in the game mode, false otherwise.
+    ///
+    /// Pauses are available for all round-based default modes:
+    ///  - Cup
+    ///  - Champion
+    ///  - Knockout
+    ///  - Rounds
+    ///  - Teams
+    ///
+    /// Pauses are *not* available for:
+    ///  - Laps
+    ///  - TimeAttack
     pub available: bool,
 
     /// True if a pause is ongoing, false otherwise.

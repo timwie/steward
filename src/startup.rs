@@ -13,7 +13,8 @@ use crate::constants::{BLACKLIST_FILE, VERSION};
 use crate::database::{DatabaseClient, Map, MapQueries};
 use crate::network::exchange_id;
 use crate::server::{
-    Calls, Server, ServerBuildInfo, ServerOptions, SCRIPT_API_VERSION, SERVER_API_VERSION,
+    Calls, Server, ServerBuildInfo, ServerOptions, SetupCalls, SCRIPT_API_VERSION,
+    SERVER_API_VERSION,
 };
 
 /// Runs everything that needs to run at startup.

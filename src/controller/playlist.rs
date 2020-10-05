@@ -14,7 +14,7 @@ use crate::controller::LiveConfig;
 use crate::database::{DatabaseClient, Map, MapQueries};
 use crate::event::PlaylistDiff;
 use crate::network::{exchange_map, ExchangeError};
-use crate::server::{Calls, Server};
+use crate::server::{Calls, ModeCalls, Server};
 
 /// Use to lookup the current playlist, and the map that is currently being played.
 #[async_trait]

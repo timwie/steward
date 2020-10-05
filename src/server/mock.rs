@@ -12,27 +12,11 @@ pub struct Server;
 
 #[async_trait]
 impl Calls for Server {
-    async fn authenticate(&self, _username: &str, _password: &str) {
-        unimplemented!()
-    }
-
-    async fn enable_callbacks(&self) {
-        unimplemented!()
-    }
-
-    async fn set_api_version(&self) {
-        unimplemented!()
-    }
-
-    async fn enable_manual_chat_routing(&self) -> Result<()> {
-        unimplemented!()
-    }
-
-    async fn clear_manialinks(&self) {
-        unimplemented!()
-    }
-
     async fn server_build_info(&self) -> ServerBuildInfo {
+        unimplemented!()
+    }
+
+    async fn server_net_stats(&self) -> ServerNetStats {
         unimplemented!()
     }
 
@@ -52,15 +36,27 @@ impl Calls for Server {
         unimplemented!()
     }
 
-    async fn user_data_dir(&self) -> PathBuf {
-        unimplemented!()
-    }
-
     async fn mode_options(&self) -> ModeOptions {
         unimplemented!()
     }
 
     async fn set_mode_options(&self, _options: &ModeOptions) -> Result<()> {
+        unimplemented!()
+    }
+
+    async fn scores(&self) -> Scores {
+        unimplemented!()
+    }
+
+    async fn pause_status(&self) -> PauseStatus {
+        unimplemented!()
+    }
+
+    async fn warmup_status(&self) -> WarmupStatus {
+        unimplemented!()
+    }
+
+    async fn user_data_dir(&self) -> PathBuf {
         unimplemented!()
     }
 
@@ -112,14 +108,6 @@ impl Calls for Server {
         unimplemented!()
     }
 
-    async fn restart_map(&self) {
-        unimplemented!()
-    }
-
-    async fn end_map(&self) -> Result<()> {
-        unimplemented!()
-    }
-
     async fn chat_send(&self, _msg: &str) {
         unimplemented!()
     }
@@ -141,46 +129,6 @@ impl Calls for Server {
     }
 
     async fn force_pure_spectator(&self, _player_uid: i32) -> Result<()> {
-        unimplemented!()
-    }
-
-    async fn scores(&self) -> Scores {
-        unimplemented!()
-    }
-
-    async fn pause_status(&self) -> PauseStatus {
-        unimplemented!()
-    }
-
-    async fn warmup_status(&self) -> WarmupStatus {
-        unimplemented!()
-    }
-
-    async fn pause(&self) -> PauseStatus {
-        unimplemented!()
-    }
-
-    async fn unpause(&self) -> PauseStatus {
-        unimplemented!()
-    }
-
-    async fn force_end_warmup(&self) {
-        unimplemented!()
-    }
-
-    async fn warmup_extend(&self, _duration: Duration) {
-        unimplemented!()
-    }
-
-    async fn force_end_round(&self) {
-        unimplemented!()
-    }
-
-    async fn start_new_match(&self) -> Result<()> {
-        unimplemented!()
-    }
-
-    async fn start_round_nb(&self, _round_nb: i32) -> Result<()> {
         unimplemented!()
     }
 
@@ -208,11 +156,75 @@ impl Calls for Server {
         unimplemented!()
     }
 
-    async fn net_stats(&self) -> ServerNetStats {
+    async fn shutdown_server(&self) {
+        unimplemented!()
+    }
+}
+
+#[async_trait]
+impl SetupCalls for Server {
+    async fn authenticate(&self, _username: &str, _password: &str) {
         unimplemented!()
     }
 
-    async fn shutdown_server(&self) {
+    async fn enable_callbacks(&self) {
+        unimplemented!()
+    }
+
+    async fn set_api_version(&self) {
+        unimplemented!()
+    }
+
+    async fn enable_manual_chat_routing(&self) -> Result<()> {
+        unimplemented!()
+    }
+
+    async fn clear_manialinks(&self) {
+        unimplemented!()
+    }
+}
+
+#[async_trait]
+impl ModeCalls for Server {
+    async fn restart_map(&self) {
+        unimplemented!()
+    }
+
+    async fn end_map(&self) -> Result<()> {
+        unimplemented!()
+    }
+}
+
+#[async_trait]
+impl RoundBasedModeCalls for Server {
+    async fn pause(&self) -> PauseStatus {
+        unimplemented!()
+    }
+
+    async fn unpause(&self) -> PauseStatus {
+        unimplemented!()
+    }
+
+    async fn force_end_warmup(&self) {
+        unimplemented!()
+    }
+
+    async fn warmup_extend(&self, _duration: Duration) {
+        unimplemented!()
+    }
+
+    async fn force_end_round(&self) {
+        unimplemented!()
+    }
+}
+
+#[async_trait]
+impl ChampionCalls for Server {
+    async fn start_new_match(&self) -> Result<()> {
+        unimplemented!()
+    }
+
+    async fn start_round_nb(&self, _round_nb: i32) -> Result<()> {
         unimplemented!()
     }
 }
