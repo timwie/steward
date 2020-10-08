@@ -11,17 +11,16 @@ use crate::server::PlayerManialinkEvent;
 /// `{ "action": "VoteRestart", "vote": true }`
 ///
 /// # Limitations
-/// ManiaScript's `TriggerPageAction` only supports strings up to 128
+/// ManiaScript's `TriggerPageAction` only supports single-line strings up to 128
 /// characters. Trying to trigger larger actions will fail silently.
 /// A workaround for this is to use `<entry name="...">` or `<textedit name="...">`.
 /// Their contents can have any length, and will be included in the answer entries
-/// when calling `TriggerPageAction`.
+/// when calling `TriggerPageAction`. See `InputAction` for such actions.
 #[derive(Deserialize, Debug)]
 #[serde(tag = "action")]
 pub enum Action<'a> {
     /// Update a player's map preference.
     SetPreference {
-        #[serde(borrow)]
         map_uid: &'a str,
         preference: ActivePreferenceValue, // 1..3 in JSON
     },
@@ -31,19 +30,23 @@ pub enum Action<'a> {
     VoteRestart { vote: bool },
 
     /// Confirm the execution of a pending, dangerous command.
-    ConfirmCommand {
-        #[serde(borrow)]
-        cmd: DangerousCommand<'a>,
-    },
+    ConfirmCommand { cmd: DangerousCommand<'a> },
 
     /// Update the config, which is textually represented here.
     ///
     /// For this, we use a single text entry in a widget, so a config will
     /// have some format, and parsed from `repr`.
-    SetConfig {
-        #[serde(default)] // too long to include in the JSON string; use <textedit> entry
-        repr: String,
-    },
+    #[serde(skip_serializing)]
+    SetConfig { toml_config: String },
+}
+
+/// "Private" actions that are converted to an `Action` variant that
+/// is built from the contents of `<entry name="...">` or `<textedit name="...">`
+/// elements.
+#[derive(Deserialize, Debug)]
+#[serde(tag = "action")]
+enum InputAction {
+    SetConfig { entry_name: String },
 }
 
 impl Action<'_> {
@@ -53,18 +56,25 @@ impl Action<'_> {
     /// Panics if `answer` is not a valid JSON representation of any action,
     /// or if there are missing entries in `entries`.
     pub fn from_answer(answer: &mut PlayerManialinkEvent) -> Action {
-        let mut action: Action =
-            serde_json::from_str(&answer.answer).expect("failed to deserialize action");
-
-        if let Action::SetConfig { repr } = &mut action {
-            // Read config string from Manialink entry:
-            *repr = answer
-                .entries
-                .remove("config_input")
-                .expect("missing config_input");
+        if let Ok(action) = serde_json::from_str::<Action>(&answer.answer) {
+            return action;
         }
 
-        action
+        let action: InputAction =
+            serde_json::from_str(&answer.answer).expect("failed to deserialize action");
+
+        match action {
+            InputAction::SetConfig {
+                entry_name: entry_id,
+            } => {
+                let repr = answer
+                    .entries
+                    .remove(&entry_id)
+                    .expect("missing config_input");
+
+                Action::SetConfig { toml_config: repr }
+            }
+        }
     }
 }
 

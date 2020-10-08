@@ -1,0 +1,15 @@
+{% extends "common/base.xml" %}
+
+{# TODO outro_queue: display next few maps after the vote #}
+
+{#
+    TODO outro_queue
+    - display next few maps after the vote
+    - use "narrow" filter for "map_name", "map_author_display_name"
+    - use "days_since" filter for "last_played"
+    - use "queue_annotation" filter for "annotation"
+#}
+
+{% block manialink %}
+
+{% endblock %}

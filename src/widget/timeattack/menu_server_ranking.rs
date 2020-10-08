@@ -1,20 +1,20 @@
-use serde::Serialize;
+use askama::Template;
 
 use crate::server::DisplayString;
-use crate::widget::formatters::format_narrow;
+use crate::widget::filters;
 
 /// A widget that displays the top server ranks.
 ///
 /// # Sending
 /// - Send this widget to a player after the intro.
 /// - This widget has to be re-sent, since we cannot update the rankings.
-#[derive(Serialize, Debug)]
+#[derive(Template, Debug)]
+#[template(path = "timeattack/menu_server_ranking.xml")]
 pub struct ServerRankingWidget<'a> {
-    #[serde(flatten)]
     pub ranking: ServerRanking<'a>,
 }
 
-#[derive(Serialize, Debug)]
+#[derive(Debug)]
 pub struct ServerRanking<'a> {
     /// A selection of top server ranks.
     pub entries: Vec<ServerRankingEntry<'a>>,
@@ -27,13 +27,12 @@ pub struct ServerRanking<'a> {
     pub max_pos: usize,
 }
 
-#[derive(Serialize, Debug)]
+#[derive(Debug)]
 pub struct ServerRankingEntry<'a> {
     /// The server rank.
     pub pos: usize,
 
     /// Formatted display name of the player at this server rank.
-    #[serde(serialize_with = "format_narrow")]
     pub display_name: &'a DisplayString,
 
     /// The number of beaten records, summed up for every map.

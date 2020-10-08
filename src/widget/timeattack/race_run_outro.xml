@@ -1,4 +1,4 @@
-{% extends "base_static.j2" %}
+{% extends "common/base.xml" %}
 
 {# ============================= MANIALINK ============================= #}
 {% block manialink %}
@@ -10,4 +10,4 @@
            style="TextButtonSmall" textsize="0.25"/>
 </frame>
 
-{% endblock manialink %}
+{% endblock %}

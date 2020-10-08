@@ -14,7 +14,7 @@ impl Controller {
         use Action::*;
 
         match action {
-            SetConfig { repr } => match TimeAttackConfig::from_str(&repr) {
+            SetConfig { toml_config } => match TimeAttackConfig::from_str(&toml_config) {
                 Ok(new_cfg) => {
                     let changes = self.config.set_mode_config(new_cfg).await;
                     join_all(changes.into_iter().map(|change| async move {

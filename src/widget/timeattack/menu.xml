@@ -1,23 +1,17 @@
-{% extends "base_menu.j2" %}
+{% extends "common/base.xml" %}
 
-{# ============================= VARIABLES ============================= #}
-{% block vars %}
-    {{ super() }}
-
-{% endblock vars %}
 {# ============================= MANIALINK ============================= #}
 {% block manialink %}
-{{ super() }}
 
 <frame id="menu" z-index="100">
     <quad pos="-160 90" size="320 180" style="Bgs1" substyle="BgEmpty" z-index="-3"/>
     <quad pos="-160 90" size="320 180" bgcolor="{{col_bg}}" opacity="0.95" z-index="-3"/>
 </frame>
 
-{% endblock manialink %}
+{% endblock %}
 {# ============================= SCRIPT DECLARATIONS ============================= #}
 {% block decl %}
-{{ super() }}
+{% call super() %}
 
 #Const TOGGLE_GAMEPAD CInputEvent::EButton::View
 #Const TOGGLE_KB      129
@@ -38,7 +32,7 @@ Void Toggle() {
     ClientUI.OverlayScoreSummary = P_ToggleMenuState != {{ MENU_HIDDEN }}; // if True, hides the toggleable scores
 }
 
-{% endblock decl %}
+{% endblock %}
 {# ============================= SCRIPT MAIN ============================= #}
 {% block main %}
 
@@ -55,7 +49,7 @@ P_ToggleMenuState = {{ MENU_INIT }};
 
 Toggle();
 
-{% endblock main %}
+{% endblock %}
 {# ============================= SCRIPT EVENTS ============================= #}
 {% block input_events %}
 
@@ -63,7 +57,7 @@ if (Event.Button == TOGGLE_GAMEPAD) {
     Toggle();
 }
 
-{% endblock input_events %}
+{% endblock %}
 
 {% block ml_events %}
 
@@ -75,4 +69,4 @@ switch (Event.Type) {
     }
 }
 
-{% endblock ml_events %}
+{% endblock %}

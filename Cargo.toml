@@ -13,6 +13,7 @@ panic = "abort"
 
 [dependencies]
 anyhow = "1.0"
+askama = { version = "0.10", features = ["serde-json"] }
 async-recursion = "0.3"
 async-trait = "0.1"
 bb8 = "0.4"
@@ -33,7 +34,6 @@ semver = "0.11"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 serde_repr = "0.1"
-tera = { version = "1", default-features = false }
 testcontainers = { version = "0.10", optional = true }
 thiserror = "1.0"
 tokio = { version = "0.2", features = ["macros", "rt-threaded", "sync", "time"] }

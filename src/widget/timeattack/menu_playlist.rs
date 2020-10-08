@@ -1,11 +1,11 @@
 use core::cmp::{Ord, Ordering, PartialOrd};
 use core::option::Option::Some;
 
+use askama::Template;
 use chrono::NaiveDateTime;
-use serde::Serialize;
 
 use crate::server::DisplayString;
-use crate::widget::formatters::{format_last_played, format_map_age, format_narrow};
+use crate::widget::filters;
 use crate::widget::ActivePreferenceValue;
 
 /// A widget that displays the server's playlist, and lets players change their map preferences.
@@ -14,25 +14,26 @@ use crate::widget::ActivePreferenceValue;
 /// - Send this widget to a player after the intro.
 /// - This widget has to be re-sent, since we cannot update the map ranks and
 ///   queue positions it displays.
-#[derive(Serialize, Debug)]
+#[derive(Template, Debug)]
+#[template(path = "timeattack/menu_playlist.xml")]
 pub struct PlaylistWidget<'a> {
+    pub cdn: &'a str,
+
     /// The server's playlist, sorted so that maps with worse or
     /// missing personal records are higher up. The first entry is
     /// the current map.
     pub entries: Vec<PlaylistWidgetEntry<'a>>,
 }
 
-#[derive(Serialize, Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct PlaylistWidgetEntry<'a> {
     /// UID of the map at this entry.
     pub map_uid: &'a str,
 
     /// Display name of the map at this entry.
-    #[serde(serialize_with = "format_narrow")]
     pub map_name: &'a DisplayString,
 
     /// Author of the map at this entry.
-    #[serde(serialize_with = "format_narrow")]
     pub map_author_display_name: &'a DisplayString,
 
     /// The player's preference for the map at this entry.
@@ -47,7 +48,6 @@ pub struct PlaylistWidgetEntry<'a> {
     pub map_rank: Option<usize>,
 
     /// The moment this map was added to the server.
-    #[serde(serialize_with = "format_map_age")]
     pub added_since: NaiveDateTime,
 
     /// `True` if this map is currently being played.
@@ -68,7 +68,6 @@ pub struct PlaylistWidgetEntry<'a> {
 
     /// The most recent time this player has played this map, or `None` if
     /// they have never played it. "Playing" means "finishing" here.
-    #[serde(serialize_with = "format_last_played")]
     pub last_played: Option<NaiveDateTime>,
 }
 

@@ -105,10 +105,7 @@ is a bug. The following list contains many of the potential runtime errors when 
   - **XML-RPC faults:** As there is no clear documentation on the possible
     error cases of RPC methods, we might try to `.unwrap()` faults
     when not expecting them.
-    
-  - **Template errors**: Rendering widgets will `panic` if the templates or the input
-    context are not valid.
-    
+
   - **ManiaScript errors:** You can press `Ctrl + ~` to display ManiaScript logs
     and errors in-game. Some errors are detected early, when the scripts are compiled. 
     

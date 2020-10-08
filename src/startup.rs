@@ -51,7 +51,7 @@ pub async fn on_startup(server: &Server, db: &DatabaseClient, config: &Config) {
     server.clear_manialinks().await;
 
     // "Clearing" the chat is also helpful during development.
-    let empty_lines = std::iter::repeat("\n").take(10).collect::<String>();
+    let empty_lines = std::iter::repeat("$z\n").take(10).collect::<String>();
     server.chat_send(&empty_lines).await;
 }
 

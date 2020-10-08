@@ -1,11 +1,12 @@
-use serde::Serialize;
+use askama::Template;
 
 /// A widget that summarizes a player's run.
 ///
 /// # Sending
 /// - Send this widget when the player finishes a run.
 /// - Remove this widget when the player starts their next run.
-#[derive(Serialize, Debug)]
+#[derive(Template, Debug)]
+#[template(path = "timeattack/race_run_outro.xml")]
 pub struct RunOutroWidget {
     /// Compares this run to the personal best.
     /// If this is negative, this run has set a new personal best.

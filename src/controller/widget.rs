@@ -1,12 +1,14 @@
+use std::fmt::{Debug, Display};
 use std::sync::Arc;
 
+use askama::Template;
 use chrono::Duration;
 use futures::future::join_all;
 use tokio::sync::RwLock;
 
 use crate::chat::CommandResponse;
 use crate::constants::{
-    MAX_DISPLAYED_IN_QUEUE, MAX_DISPLAYED_RACE_RANKS, START_HIDE_WIDGET_DELAY_MILLIS,
+    cdn_prefix, MAX_DISPLAYED_IN_QUEUE, MAX_DISPLAYED_RACE_RANKS, START_HIDE_WIDGET_DELAY_MILLIS,
 };
 use crate::controller::*;
 use crate::database::{
@@ -14,6 +16,7 @@ use crate::database::{
 };
 use crate::event::*;
 use crate::server::{Calls, Fault, PlayerInfo, Server};
+use crate::widget::timeattack::*;
 use crate::widget::*;
 
 /// This controller collects cached & event data,
@@ -237,53 +240,72 @@ impl WidgetController {
     pub async fn show_popup(&self, resp: CommandResponse<'_>, for_login: &str) {
         if let Some(uid) = self.live_players.uid(for_login).await {
             let widget = PopupWidget::from(resp);
-            self.show_for(&widget, uid).await;
+            self.show_singleton_for(&widget, uid).await;
         }
     }
 
-    async fn show_for<T>(&self, widget: &T, for_uid: i32)
+    async fn show<T>(&self, ml: &Manialink<'_, T>)
     where
-        T: Widget,
+        T: Template,
+        T: Display,
+        T: Debug,
     {
-        let res = self
-            .server
-            .send_manialink_to(&widget.render(), for_uid)
-            .await;
-        check_send_res(res);
+        let rendered = render_template(ml);
+        self.server.send_manialink(&rendered).await;
     }
 
     #[allow(dead_code)]
-    async fn show<T>(&self, widget: T)
+    async fn show_singleton<T>(&self, widget: &T)
     where
-        T: Widget,
+        T: SingletonWidget,
     {
-        self.server.send_manialink(&widget.render()).await;
+        let ml = widget.manialink();
+        self.show(&ml).await;
     }
 
-    async fn hide<T>(&self)
+    async fn show_for<T>(&self, ml: &Manialink<'_, T>, for_uid: i32)
     where
-        T: Widget,
+        T: Template,
+        T: Display,
+        T: Debug,
     {
-        self.server.send_manialink(&T::hidden()).await;
-    }
-
-    async fn hide_for<T>(&self, for_uid: i32)
-    where
-        T: Widget,
-    {
-        let res = self.server.send_manialink_to(&T::hidden(), for_uid).await;
+        let rendered = render_template(ml);
+        let res = self.server.send_manialink_to(&rendered, for_uid).await;
         check_send_res(res);
+    }
+
+    async fn show_singleton_for<T>(&self, widget: &T, for_uid: i32)
+    where
+        T: SingletonWidget,
+    {
+        let ml = widget.manialink();
+        self.show_for(&ml, for_uid).await;
+    }
+
+    async fn hide_singleton<T>(&self)
+    where
+        T: SingletonWidget,
+    {
+        let ml = T::empty();
+        self.show(&ml).await;
+    }
+
+    async fn hide_singleton_for<T>(&self, for_uid: i32)
+    where
+        T: SingletonWidget,
+    {
+        let ml = T::empty();
+        self.show_for(&ml, for_uid).await;
     }
 
     async fn hide_for_delayed<T>(&self, for_uid: i32, delay: Duration)
     where
-        T: Widget,
+        T: SingletonWidget,
     {
-        let server = self.server.clone();
+        let controller = self.clone();
         let _ = tokio::spawn(async move {
             tokio::time::delay_for(delay.to_std().expect("failed to hide widget with delay")).await;
-            let res = server.send_manialink_to(&T::hidden(), for_uid).await;
-            check_send_res(res);
+            controller.hide_singleton_for::<T>(for_uid).await;
         });
     }
 
@@ -292,13 +314,13 @@ impl WidgetController {
     }
 
     async fn hide_race_widgets_for(&self, for_uid: i32) {
-        self.hide_for::<RunOutroWidget>(for_uid).await;
-        self.hide_for::<LiveRanksWidget>(for_uid).await;
+        self.hide_singleton_for::<RunOutroWidget>(for_uid).await;
+        self.hide_singleton_for::<LiveRanksWidget>(for_uid).await;
     }
 
     async fn hide_race_widgets(&self) {
-        self.hide::<RunOutroWidget>().await;
-        self.hide::<LiveRanksWidget>().await;
+        self.hide_singleton::<RunOutroWidget>().await;
+        self.hide_singleton::<LiveRanksWidget>().await;
     }
 
     async fn show_outro_widgets(&self) {
@@ -318,7 +340,7 @@ impl WidgetController {
                 outro_duration_secs: config.timeattack.outro_duration_secs,
                 vote_duration_secs: config.timeattack.vote_duration_secs(),
             };
-            self.show_for(&widget, player.uid).await;
+            self.show_singleton_for(&widget, player.uid).await;
         }
     }
 
@@ -356,9 +378,11 @@ impl WidgetController {
         };
 
         let menu = MenuWidget {};
-        self.show_for(&menu, player.uid).await;
-        self.show_for(&server_ranking_widget, player.uid).await;
-        self.show_for(&map_ranking_widget, player.uid).await;
+        self.show_singleton_for(&menu, player.uid).await;
+        self.show_singleton_for(&server_ranking_widget, player.uid)
+            .await;
+        self.show_singleton_for(&map_ranking_widget, player.uid)
+            .await;
 
         self.show_playlist_for(&player).await;
         self.show_schedule_for(&player).await;
@@ -372,12 +396,12 @@ impl WidgetController {
             .curr_map_list(&*playlist_state, &*preferences_state, &player)
             .await;
 
-        self.show_for(&playlist_widget, player.uid).await;
+        self.show_singleton_for(&playlist_widget, player.uid).await;
     }
 
     async fn show_schedule_for(&self, player: &PlayerInfo) {
         let schedule_widget = ScheduleWidget {};
-        self.show_for(&schedule_widget, player.uid).await;
+        self.show_singleton_for(&schedule_widget, player.uid).await;
     }
 
     async fn show_run_outro_for(&self, diff: &PbDiff) {
@@ -391,7 +415,7 @@ impl WidgetController {
             record_pos: diff.new_pos,
             record_pos_gained: diff.pos_gained,
         };
-        self.show_for(&widget, diff.player_uid).await;
+        self.show_singleton_for(&widget, diff.player_uid).await;
     }
 
     async fn hide_run_outro_for(&self, player_login: &str) {
@@ -499,7 +523,7 @@ impl WidgetController {
                 next_maps: next_maps.to_vec(),
                 next_map: preview,
             };
-            self.show_for(&widget, uid).await;
+            self.show_singleton_for(&widget, uid).await;
         }
     }
 
@@ -521,7 +545,7 @@ impl WidgetController {
                     .curr_server_ranking(&*server_ranking_state, &info)
                     .await,
             };
-            self.show_for(&widget, *id).await;
+            self.show_singleton_for(&widget, *id).await;
         }
     }
 
@@ -549,7 +573,7 @@ impl WidgetController {
             max_server_rank: server_ranking_state.max_pos(),
         };
 
-        self.show_for(&widget, player.uid).await;
+        self.show_singleton_for(&widget, player.uid).await;
     }
 
     async fn curr_server_ranking<'a>(
@@ -651,8 +675,22 @@ impl WidgetController {
         }))
         .await;
         maps.sort();
-        PlaylistWidget { entries: maps }
+        PlaylistWidget {
+            cdn: cdn_prefix(),
+            entries: maps,
+        }
     }
+}
+
+fn render_template<T>(widget: &T) -> String
+where
+    T: Template,
+    T: Debug,
+{
+    widget.render().unwrap_or_else(|err| {
+        log::error!("{:#?}", widget);
+        panic!("failed to render template: {}", err)
+    })
 }
 
 fn check_send_res(res: Result<(), Fault>) {
@@ -662,3 +700,67 @@ fn check_send_res(res: Result<(), Fault>) {
         _ => res.expect("failed to send widget"),
     }
 }
+
+/// Any widget that is never more than once the the screen
+/// can always have the same Manialink ID.
+trait SingletonWidget
+where
+    Self: Template,
+    Self: Display,
+    Self: Debug,
+    Self: Sized,
+{
+    fn manialink(&self) -> Manialink<'_, Self>;
+
+    fn empty() -> Manialink<'static, EmptyWidget>;
+}
+
+macro_rules! handle {
+    ($name:expr, $typ:ty) => {
+        impl SingletonWidget for $typ {
+            fn manialink(&self) -> Manialink<'_, Self> {
+                Manialink {
+                    id: $name,
+                    name: $name,
+                    widget: self,
+                }
+            }
+
+            fn empty() -> Manialink<'static, EmptyWidget> {
+                Manialink {
+                    id: $name,
+                    name: $name,
+                    widget: &EmptyWidget {},
+                }
+            }
+        }
+    };
+}
+
+handle!("Steward:Popup", PopupWidget<'_>);
+
+handle!("Steward:TimeAttack:Menu", timeattack::MenuWidget);
+handle!(
+    "Steward:TimeAttack:MapRanking",
+    timeattack::MapRankingWidget<'_>
+);
+handle!(
+    "Steward:TimeAttack:Playlist",
+    timeattack::PlaylistWidget<'_>
+);
+handle!("Steward:TimeAttack:Schedule", timeattack::ScheduleWidget);
+handle!(
+    "Steward:TimeAttack:ServerRanking",
+    timeattack::ServerRankingWidget<'_>
+);
+handle!("Steward:TimeAttack:Outro", timeattack::OutroWidget<'_>);
+handle!(
+    "Steward:TimeAttack:OutroQueue",
+    timeattack::OutroQueueWidget<'_>
+);
+handle!(
+    "Steward:TimeAttack:OutroServerRanking",
+    timeattack::OutroServerRankingWidget<'_>
+);
+handle!("Steward:TimeAttack:LiveRanks", timeattack::LiveRanksWidget);
+handle!("Steward:TimeAttack:RunOutro", timeattack::RunOutroWidget);

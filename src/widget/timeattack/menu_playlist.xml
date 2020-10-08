@@ -1,82 +1,71 @@
-{% extends "base_menu.j2" %}
+{% extends "common/base.xml" %}
 
 {# TODO playlist widget #}
 
-{# ============================= VARIABLES ============================= #}
-{% block vars %}
-    {{ super() }}
-
-    {% set w_map_name = 80 %}
-    {% set w_map_author = 30 %}
-
-    {% set h_map = 10 %}
-
-    {% set max_visible_maps = (h_menu - 10) / h_map | int %}
-
-{% endblock vars %}
 {# ============================= MANIALINK ============================= #}
 {% block manialink %}
-{{ super() }}
 
 <frame id="page1" z-index="101" pos="{{x_menu}} {{y_menu}}" hidden="1">
     <label text="Playlist" textfont="RajdhaniMono" textsize="5"/>
 
-    {% set y = -10 %}
+    {% let y = -10 %}
 
     <quad id="scroll-up" halign="center" pos="-{{(160+x_menu)/2}} {{y}}" size="{{h_map/2}} {{h_map/2}}" image="{{cdn}}/icon_scroll_up.png"/>
-    <quad id="scroll-down" halign="center" valign="bottom" pos="-{{(160+x_menu)/2}} {{y - max_visible_maps * h_map}}" size="{{h_map/2}} {{h_map/2}}" image="{{cdn}}/icon_scroll_down.png"/>
+    <quad id="scroll-down" halign="center" valign="bottom" pos="-{{(160+x_menu)/2}} {{y + max_visible_maps|neg * h_map|signed}}" size="{{h_map/2}} {{h_map/2}}" image="{{cdn}}/icon_scroll_down.png"/>
 
     <frame id="maps">
     <frame pos="0 {{y}}">
         <frame id="map_focus">
             <quad size="{{w_menu}} {{h_map}}" bgcolor="fff" opacity="0.15"/>
-            <quad z-index="1" halign="right" valign="bottom" pos="{{w_menu}} {{h_map * -0.25}}" size="{{w_menu / 2}} {{h_map}}" bgcolor="000"/>
+            <quad z-index="1" halign="right" valign="bottom" pos="{{w_menu}} {{h_map|neg / 4}}" size="{{w_menu / 2}} {{h_map}}" bgcolor="000"/>
         </frame>
     </frame>
 
     {# TODO add header with column labels #}
 
     {% for map in entries %}
-        <frame class="map" pos="0 {{y + loop.index0 * h_map*-1}}">
-            {% if loop.index0 > 0 %}
-                <quad z-index="-1" pos="0 {{y + h_map}}" size="{{w_menu}} 0.2" bgcolor="{{col_white}}" opacity="0.05" valign="center"/>
-            {% endif %}
+    <frame class="map" pos="0 {{y + loop.index0|signed * h_map|neg}}">
+        {% if loop.index0 > 0 %}
+        <quad z-index="-1" pos="0 {{y + h_map|signed}}" size="{{w_menu}} 0.2" bgcolor="{{col_white}}" opacity="0.05" valign="center"/>
+        {% endif %}
 
-            {% set x = 0 %}
-            {% if map.preference == PREF_PICK or map.preference == PREF_AUTOPICK %}
-                {% set col = col_remove %}
-                {% set icon = "icon_pref_remove" %}
-            {% elif map.preference == PREF_VETO %}
-                {% set col = col_veto %}
-                {% set icon = "icon_pref_veto" %}
-            {% elif map.preference == PREF_REMOVE %}
-                {% set col = col_remove %}
-                {% set icon = "icon_pref_remove" %}
-            {% endif %}
-            {% if col %}
-                <quad pos="{{x}} 0" size="{{h_map}} {{h_map}}" bgcolor="{{col}}"/>
-                <quad pos="{{x + 3}} -3" size="{{h_map - 6}} {{h_map - 6}}" z-index="1" image="{{cdn}}/{{icon}}.png"/>
-            {% endif %}
+        {% let col %}
+        {% let icon %}
 
-            {% set x = x + h_map + 2 %}
-            <label z-index="2" textemboss="1" textfont="RajdhaniMono" text="{{map.map_name}}"
-                   size="{{w_map_name}} 4" pos="{{x}} -{{h_map/2}}" valign="center" textsize="3"/>
+        {% match map.preference %}
+            {% when ActivePreferenceValue::None %}
+            {% when ActivePreferenceValue::Veto %}
+                {% let col = col_veto %}
+                {% let icon = "icon_pref_veto" %}
+            {% when ActivePreferenceValue::Remove %}
+                {% let col = col_remove %}
+                {% let icon = "icon_pref_remove" %}
+            {% else %}
+                {% let col = col_remove %}
+                {% let icon = "icon_pref_remove" %}
+        {% endmatch %}
 
-            {% set x = x + w_map_name %}
-            <label z-index="2" textemboss="1" textfont="RajdhaniMono" text="{{map.map_author_display_name}}"
-                   size="{{w_map_author}} 4" pos="{{x}} -{{h_map/2}}"  valign="center" textsize="2"/>
+        {% let x = h_map + 2 %}
+        <label z-index="2" textemboss="1" textfont="RajdhaniMono" text="{{map.map_name|narrow}}"
+               size="{{w_map_name}} 4" pos="{{x}} -{{h_map/2}}" valign="center" textsize="3"/>
 
-            {# TODO display map rank #}
-            {# TODO display last played #}
-        </frame>
-    {% endfor %}
+        {% let x2 = x + w_map_name %}
+        <label z-index="2" textemboss="1" textfont="RajdhaniMono" text="{{map.map_author_display_name|narrow}}"
+               size="{{w_map_author}} 4" pos="{{x2}} -{{h_map/2}}"  valign="center" textsize="2"/>
+
+        {# TODO display map rank #}
+        {# TODO display last played #}
     </frame>
+    {% endfor %}
 </frame>
 
-{% endblock manialink %}
+</frame>
+
+{% endblock %}
+
 {# ============================= SCRIPT DECLARATIONS ============================= #}
 {% block decl %}
-{{ super() }}
+{% call super() %}
 
 #Const MAX_VISIBLE_MAPS {{max_visible_maps}}
 
@@ -88,6 +77,8 @@
     Integer Rank;
     Integer MaxRank;
     Text    AddedSince;
+    Integer QueuePos;
+    Text    LastPlayed;
 }
 
 declare CMlFrame UI_Page1;
@@ -127,7 +118,7 @@ Void OnScroll(Integer OffsetY) {
     }
 
     UI_ScrollUp  .Visible = G_ScrollY > 0;
-    UI_ScrollDown.Visible = G_ScrollY < {{entries | length}} - MAX_VISIBLE_MAPS;
+    UI_ScrollDown.Visible = G_ScrollY < {{entries|length}} - MAX_VISIBLE_MAPS;
 }
 
 Void FocusRight() {
@@ -176,7 +167,8 @@ Void SetPreference() {
     TriggerPageAction(Action);
 }
 
-{% endblock decl %}
+{% endblock %}
+
 {# ============================= SCRIPT MAIN ============================= #}
 {% block main %}
 
@@ -189,12 +181,14 @@ UI_ScrollDown = (Page.GetFirstChild("scroll-down") as CMlQuad);
 {% for entry in entries %}
     G_Maps.add(SMapEntry {
         Uid = "{{entry.map_uid}}",
-        Name = "{{entry.map_name}}",
-        Author = "{{entry.map_author_display_name}}",
-        Preference = {{entry.preference}},
-        Rank = {{entry.map_rank | default(value=0) }},
+        Name = "{{entry.map_name|narrow}}",
+        Author = "{{entry.map_author_display_name|narrow}}",
+        Preference = {{entry.preference|json}},
+        Rank = {% if entry.map_rank.is_some() %} {{entry.map_rank.unwrap()}} {% else %} 0 {% endif %},
         MaxRank = {{entry.nb_records}},
-        AddedSince = "{{entry.added_since}}"
+        AddedSince = "{{entry.added_since|age}}",
+        QueuePos = {{entry.queue_pos}},
+        LastPlayed = "{{entry.last_played|when}}"
     });
 {% endfor %}
 
@@ -212,7 +206,7 @@ OnScroll(0);
 
 declare Integer P_ToggleMenuState for This;
 
-{% endblock main %}
+{% endblock %}
 {# ============================= LOOP ============================= #}
 {% block loop %}
 
@@ -223,7 +217,7 @@ if (P_ToggleMenuState != {{ MENU_PAGE1 }}) {
     continue;
 }
 
-{% endblock loop %}
+{% endblock %}
 {# ============================= SCRIPT EVENTS ============================= #}
 {% block ml_events %}
 
@@ -255,4 +249,4 @@ switch (Event.Type) {
     }
 }
 
-{% endblock ml_events %}
+{% endblock %}

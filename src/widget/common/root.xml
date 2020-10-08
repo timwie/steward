@@ -1,0 +1,3 @@
+<manialink version="3" id="{{ id }}" name="{{ name }}">
+    {{ widget|safe }}
+</manialink>

@@ -1,10 +1,8 @@
+use askama::Template;
 use chrono::NaiveDateTime;
-use serde::Serialize;
 
 use crate::database::PreferenceValue;
 use crate::server::DisplayString;
-use crate::widget::formatters::format_queue_annotation;
-use crate::widget::formatters::{format_last_played, format_narrow};
 use crate::widget::ActivePreferenceValue;
 
 /// A widget displayed during the outro and after the vote,
@@ -13,7 +11,8 @@ use crate::widget::ActivePreferenceValue;
 /// # Updates
 /// - Send this widget after the vote ends.
 /// - Remove it when the next map starts.
-#[derive(Serialize, Debug)]
+#[derive(Template, Debug)]
+#[template(path = "timeattack/outro_queue.xml")]
 pub struct OutroQueueWidget<'a> {
     /// A number of maps with the highest priority,
     /// the first item being the map that is played next.
@@ -26,13 +25,11 @@ pub struct OutroQueueWidget<'a> {
     pub next_map: MapPreview<'a>,
 }
 
-#[derive(Serialize, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct OutroQueueEntry<'a> {
     /// The formatted map name.
-    #[serde(serialize_with = "format_narrow")]
     pub map_name: &'a DisplayString,
 
-    #[serde(serialize_with = "format_queue_annotation")]
     pub annotation: QueueEntryAnnotation,
 }
 
@@ -44,17 +41,15 @@ pub enum QueueEntryAnnotation {
     PlayingNow,
 }
 
-#[derive(Serialize, Debug)]
+#[derive(Debug)]
 pub struct MapPreview<'a> {
     /// The formatted map name.
-    #[serde(serialize_with = "format_narrow")]
     pub map_name: &'a DisplayString,
 
     /// The map author's display name.
     ///
     /// This name is read from the map file and might consequently be outdated.
     /// It will only be updated whenever the author joins the server.
-    #[serde(serialize_with = "format_narrow")]
     pub map_author_display_name: &'a DisplayString,
 
     /// The player's map ranking, or `None` if they have not
@@ -74,6 +69,5 @@ pub struct MapPreview<'a> {
 
     /// The most recent time this player has played this map, or `None` if
     /// they have never played it. "Playing" means "finishing" here.
-    #[serde(serialize_with = "format_last_played")]
     pub last_played: Option<NaiveDateTime>,
 }

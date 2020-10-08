@@ -239,7 +239,7 @@ impl LiveServerRanking for ServerRankController {
     }
 }
 
-#[cfg(test)]
+#[cfg(feature = "unit_test")]
 mod test {
     use std::default::Default;
 

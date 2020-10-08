@@ -1,24 +1,18 @@
-{% extends "base_menu.j2" %}
+{% extends "common/base.xml" %}
 
 {# TODO server ranking widget #}
 
-{# ============================= VARIABLES ============================= #}
-{% block vars %}
-    {{ super() }}
-
-{% endblock vars %}
 {# ============================= MANIALINK ============================= #}
 {% block manialink %}
-{{ super() }}
 
 <frame id="server-ranking" z-index="101" pos="{{x_menu_tl}} {{y_menu_tl}}" hidden="1">
     <label text="Server Ranking" textfont="RajdhaniMono" textsize="4"/>
 </frame>
 
-{% endblock manialink %}
+{% endblock %}
 {# ============================= SCRIPT DECLARATIONS ============================= #}
 {% block decl %}
-{{ super() }}
+{% call super() %}
 
 #Struct SServerRank {
     Integer Pos;
@@ -39,7 +33,7 @@ Void OhNo() {
     // TODO if we don't put this here, we get "syntax error, unexpected MANIASCRIPT_MAIN" ???
 }
 
-{% endblock decl %}
+{% endblock %}
 {# ============================= SCRIPT MAIN ============================= #}
 {% block main %}
 
@@ -47,36 +41,40 @@ declare Integer P_ToggleMenuState for This;
 
 UI_Frame = (Page.GetFirstChild("server-ranking") as CMlFrame);
 
-G_MaxPos = {{max_pos}};
+G_MaxPos = {{ranking.max_pos}};
 
-{% for entry in entries %}
+{% for entry in ranking.entries %}
     G_Ranking.add(SServerRank {
         Pos = {{entry.pos}},
-        DisplayName = "{{entry.display_name}}",
+        DisplayName = "{{entry.display_name|narrow}}",
         NbWins = {{entry.nb_wins}},
         NbLosses = {{entry.nb_losses}},
         IsOwn = {% if entry.is_own %}True{% else %}False{% endif %}
     });
 {% endfor %}
 
-{% set nb_ranks = entries | length %}
+{% let nb_ranks = ranking.entries|length %}
 
-{% if personal_entry and personal_entry.pos > nb_ranks %}
-    G_PersonalPos = {{personal_entry.pos}};
-    G_Ranking.add(SServerRank {
-        Pos = {{personal_entry.pos}},
-        DisplayName = "{{personal_entry.display_name}}",
-        NbWins = {{personal_entry.nb_wins}},
-        NbLosses = {{personal_entry.nb_losses}},
-        IsOwn = {% if personal_entry.is_own %}True{% else %}False{% endif %}
-    });
-{% endif %}
+{% match ranking.personal_entry %}
+    {% when None %}
+    {% when Some with (e) %}
+        {% if e.pos > nb_ranks %}
+            G_PersonalPos = {{e.pos}};
+            G_Ranking.add(SServerRank {
+                Pos = {{e.pos}},
+                DisplayName = "{{e.display_name|narrow}}",
+                NbWins = {{e.nb_wins}},
+                NbLosses = {{e.nb_losses}},
+                IsOwn = {% if e.is_own %}True{% else %}False{% endif %}
+            });
+        {% endif %}
+{% endmatch %}
 
 
-{% endblock main %}
+{% endblock %}
 {# ============================= LOOP ============================= #}
 {% block loop %}
 
 UI_Frame.Visible = P_ToggleMenuState == {{ MENU_PAGE2 }};
 
-{% endblock loop %}
+{% endblock %}

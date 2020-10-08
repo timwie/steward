@@ -1,4 +1,4 @@
-use serde::Serialize;
+use askama::Template;
 
 /// A widget displayed during the race, that can be toggled by pressing a key.
 /// This widget is only responsible for displaying the menu frame - the actual
@@ -7,5 +7,6 @@ use serde::Serialize;
 ///
 /// # Sending
 /// - Send this widget to a player after the intro.
-#[derive(Serialize, Debug)]
+#[derive(Template, Debug)]
+#[template(path = "timeattack/menu.xml")]
 pub struct MenuWidget {}

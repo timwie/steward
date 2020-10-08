@@ -1,0 +1,76 @@
+{% let col_success = "107dff" %}
+{% let col_fail    = "FF1F57" %}
+{% let col_neutral = "142430" %}
+
+{% let col_white = "F5F8FA" %}
+{% let col_bg    = col_neutral %}
+
+{% let col_pick   = "20A652" %}
+{% let col_veto   = "fbc02d" %}
+{% let col_remove = "f44336" %}
+
+{% let font_text = "BiryaniDemiBold" %}
+{% let font_bold_big = "TextButtonMedium" %}
+{% let font_bold_small = "TextButtonSmall" %}
+
+{% let PREF_NONE     = 0 %}
+{% let PREF_PICK     = 1 %}
+{% let PREF_VETO     = 2 %}
+{% let PREF_REMOVE   = 3 %}
+{% let PREF_AUTOPICK = 100 %}
+
+{% let MENU_INIT   = -1 %}
+{% let MENU_HIDDEN = 0 %}
+{% let MENU_PAGE1  = 1 %}
+{% let MENU_PAGE2  = 2 %}
+
+{# ======== menu ======== #}
+{% let w_menu = 290 %}
+{% let h_menu = 150 %}
+
+{% let x_menu = -160 + (320 - w_menu) / 2 %}
+{% let y_menu =   90 - (180 - h_menu) / 2 %}
+
+{% let x_menu_tl = x_menu %}
+{% let y_menu_tl = y_menu %}
+
+{% let x_menu_tr = x_menu + w_menu / 2 %}
+{% let y_menu_tr = y_menu %}
+
+{% let x_menu_br = x_menu + w_menu / 2 %}
+{% let y_menu_br = y_menu - h_menu / 2 %}
+
+{% let x_menu_bl = x_menu %}
+{% let y_menu_bl = y_menu - h_menu / 2 %}
+
+{# ======== menu playlist ======== #}
+{% let w_map_name = 80 %}
+{% let w_map_author = 30 %}
+{% let h_map = 10 %}
+{% let max_visible_maps = (h_menu - 10) / h_map %}
+
+{% block manialink %}{% endblock %}
+
+<script><!--
+#RequireContext CSmMlScriptIngame
+
+{% block decl %}
+#Include "ColorLib" as ColorLib
+#Include "MathLib" as MathLib
+#Include "TextLib" as TextLib
+{% endblock %}
+
+main() {
+    {% block main %}{% endblock %}
+    while(True) {
+        yield;
+        {% block loop %}{% endblock %}
+        foreach (Event in PendingEvents) {
+            {% block ml_events %}{% endblock %}
+        }
+        foreach (Event in Input.PendingEvents) {
+            {% block input_events %}{% endblock %}
+        }
+    }
+}
+--></script>

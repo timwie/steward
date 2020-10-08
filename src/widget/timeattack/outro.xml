@@ -1,4 +1,4 @@
-{% extends "base_dynamic.j2" %}
+{% extends "common/base.xml" %}
 
 {#
     TODO outro
@@ -9,6 +9,5 @@
 #}
 
 {% block manialink %}
-{{ super() }}
 
-{% endblock manialink %}
+{% endblock %}

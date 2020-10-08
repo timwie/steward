@@ -1,49 +1,40 @@
-{% extends "base_dynamic.j2" %}
+{% extends "base.xml" %}
 
-{# ============================= VARIABLES ============================= #}
-{% block vars %}
-    {{ super() }}
-
-    {% set col_btn_neutral = "111" %}
-    {% set col_btn_neutral_hover = "222" %}
-    {% set col_btn_danger = "db3c30" %}
-    {% set col_btn_danger_hover = col_remove %}
-
-    {% set MODE_DEFAULT = 0 %}
-    {% set MODE_CONFIRM = 1 %}
-    {% set MODE_CONFIG_EDITOR = 2 %}
-
-    {% if mode == MODE_DEFAULT %}
-        {% set cancel_txt = "Close" %}
-    {% else %}
-        {% set cancel_txt = "Cancel" %}
-    {% endif %}
-
-    {% if mode == MODE_CONFIRM %}
-        {% set confirm_txt = "Confirm" %}
-    {% else %}
-        {% set confirm_txt = "Submit" %}
-    {% endif %}
-
-    {% if mode == MODE_DEFAULT %}
-        {% set header_txt = "Command Output" %}
-    {% elif mode == MODE_CONFIRM %}
-        {% set header_txt = "Are you sure you want to execute this command?" %}
-    {% else %}
-        {% set header_txt = "Config Editor" %}
-    {% endif %}
-
-    {% set width  = 200 %}
-    {% set height = 125 %}
-
-    {% set button_w  = 40 %}
-    {% set button_h  = 12 %}
-    {% set button_pad  = 2 %}
-
-{% endblock vars %}
 {# ============================= MANIALINK ============================= #}
 {% block manialink %}
-{{ super() }}
+
+{% let col_btn_neutral = "111" %}
+{% let col_btn_neutral_hover = "222" %}
+{% let col_btn_danger = "db3c30" %}
+{% let col_btn_danger_hover = col_remove %}
+
+{% let header_txt %}
+{% let confirm_txt %}
+{% let cancel_txt %}
+
+{% match variant %}
+    {% when PopupVariant::Default %}
+        {% let confirm_txt = ""%}
+        {% let header_txt = "Command Output" %}
+        {% let cancel_txt = "Close" %}
+
+    {% when PopupVariant::Confirm with { cmd } %}
+        {% let header_txt = "Are you sure you want to execute this command?" %}
+        {% let confirm_txt = "Confirm" %}
+        {% let cancel_txt = "Cancel" %}
+
+    {% when PopupVariant::ConfigEditor %}
+        {% let header_txt = "Config Editor" %}
+        {% let confirm_txt = "Submit" %}
+        {% let cancel_txt = "Cancel" %}
+{% endmatch %}
+
+{% let width  = 200 %}
+{% let height = 125 %}
+
+{% let button_w  = 40 %}
+{% let button_h  = 12 %}
+{% let button_pad  = 2 %}
 
 <frame id="popup" z-index="200">
     <quad pos="-160 90" size="320 180" style="Bgs1" substyle="BgEmpty" z-index="-2"/>
@@ -61,35 +52,37 @@
               size="{{width}} {{height}}" pos="{{width / -2}} {{height / 2}}"/>
 
     <frame pos="0 {{height / -2}}">
-        {% set y = button_pad * -1 %}
-        {% set x = width / 2 %}
+        {% let y = -button_pad %}
+        {% let x = width / 2 %}
         <label id="btn-cancel"
                scriptevents="1" focusareacolor1="{{col_btn_neutral}}" focusareacolor2="{{col_btn_neutral_hover}}"
                pos="{{x}} {{y}}" size="{{button_w}} {{button_h}}" halign="right"/>
 
-        {% set x = x - button_w %}
+        {% let x2 = x - button_w %}
         <label z-index="1" text="{{cancel_txt}}" textemboss="1" textfont="RajdhaniMono"
-               pos="{{x + button_pad*2}} {{y - button_h / 2}}" valign="center"
+               pos="{{x2 + button_pad*2}} {{y - button_h / 2}}" valign="center"
                size="{{button_w - button_pad*4}}"/>
 
-        {% if mode != MODE_DEFAULT %}
-            {% set x = x - button_pad %}
+        {% match variant %}
+        {% when PopupVariant::Default %}
+        {% else %}
+            {% let x3 = x2 - button_pad %}
             <label id="btn-confirm"
                    scriptevents="1" focusareacolor1="{{col_btn_danger}}" focusareacolor2="{{col_btn_danger_hover}}"
-                   pos="{{x}} {{y}}" size="{{button_w}} {{button_h}}" halign="right"/>
+                   pos="{{x3}} {{y}}" size="{{button_w}} {{button_h}}" halign="right"/>
 
-            {% set x = x - button_w %}
+            {% let x4 = x3 - button_w %}
             <label z-index="1" text="{{confirm_txt}}" textemboss="1" textfont="RajdhaniMono"
-                   pos="{{x + button_pad*2}} {{y - button_h / 2}}" valign="center"
+                   pos="{{x4 + button_pad*2}} {{y - button_h / 2}}" valign="center"
                    size="{{button_w - button_pad*4}}"/>
-        {% endif %}
+        {% endmatch %}
     </frame>
 </frame>
 
-{% endblock manialink %}
+{% endblock %}
 {# ============================= SCRIPT DECLARATIONS ============================= #}
 {% block decl %}
-{{ super() }}
+{% call super() %}
 
 declare CMlTextEdit UI_PopupText;
 
@@ -100,18 +93,20 @@ Void OnClose() {
 }
 
 Void OnClickConfirm() {
-    assert({{mode}} != {{MODE_DEFAULT}});
-
     OnClose();
 
-    {% if mode == MODE_CONFIG_EDITOR %}
-        TriggerPageAction("""{ "action": "SetConfig" }""");
-    {% elif mode == MODE_CONFIRM %}
-        TriggerPageAction("""{ "action": "ConfirmCommand", "cmd": {{ cmd }} }""");
-    {% endif %}
+    {% match variant %}
+        {% when PopupVariant::Default %}
+
+        {% when PopupVariant::Confirm with { cmd } %}
+            TriggerPageAction("""{ "action": "ConfirmCommand", "cmd": {{ cmd|json_ugly|safe }} }""");
+
+        {% when PopupVariant::ConfigEditor %}
+            TriggerPageAction("""{ "action": "SetConfig", "entry_name": "config_input" }""");
+    {% endmatch %}
 }
 
-{% endblock decl %}
+{% endblock %}
 {# ============================= SCRIPT MAIN ============================= #}
 {% block main %}
 
@@ -119,7 +114,7 @@ EnableMenuNavigationInputs = True;
 UI_PopupText = (Page.GetFirstChild("textedit") as CMlTextEdit);
 UI_PopupText.Value = """{{ output }}""";
 
-{% endblock main %}
+{% endblock %}
 {# ============================= SCRIPT EVENTS ============================= #}
 {% block ml_events %}
 
@@ -135,4 +130,4 @@ if (Event.Type == CMlScriptEvent::Type::MouseClick) {
     }
 }
 
-{% endblock ml_events %}
+{% endblock %}

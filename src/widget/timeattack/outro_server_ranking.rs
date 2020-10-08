@@ -1,6 +1,6 @@
-use serde::Serialize;
+use askama::Template;
 
-use crate::widget::ServerRanking;
+use crate::widget::timeattack::ServerRanking;
 
 /// Summarize the changes to a player's server rank after a race,
 /// and display a number of top ranks.
@@ -8,7 +8,8 @@ use crate::widget::ServerRanking;
 /// # Sending
 /// - Send this widget after a race has ended, and the new ranking was calculated.
 /// - Remove this widget when the next map starts.
-#[derive(Serialize, Debug)]
+#[derive(Template, Debug)]
+#[template(path = "timeattack/outro_server_ranking.xml")]
 pub struct OutroServerRankingWidget<'a> {
     /// The player's server rank.
     pub pos: usize,

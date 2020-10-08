@@ -1,8 +1,10 @@
-use serde::Serialize;
+use askama::Template;
 
-use crate::widget::{ActivePreferenceValue, MapRanking};
+use crate::widget::timeattack::MapRanking;
+use crate::widget::ActivePreferenceValue;
 
-#[derive(Serialize, Debug)]
+#[derive(Template, Debug)]
+#[template(path = "timeattack/outro.xml")]
 pub struct OutroWidget<'a> {
     /// A selection of the top records on the map that was just played.
     /// If the player's own record is not part of that list, add it to the end.

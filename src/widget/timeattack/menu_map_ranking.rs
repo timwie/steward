@@ -1,8 +1,8 @@
+use askama::Template;
 use chrono::NaiveDateTime;
-use serde::Serialize;
 
 use crate::server::DisplayString;
-use crate::widget::formatters::{format_narrow, format_record_age};
+use crate::widget::filters;
 
 /// A widget that displays the top map records.
 ///
@@ -10,13 +10,13 @@ use crate::widget::formatters::{format_narrow, format_record_age};
 /// - Send this widget to a player after the intro.
 /// - Does not have to be re-sent when there are new records,
 ///   since they can be added in the script.
-#[derive(Serialize, Debug)]
+#[derive(Template, Debug)]
+#[template(path = "timeattack/menu_map_ranking.xml")]
 pub struct MapRankingWidget<'a> {
-    #[serde(flatten)]
     pub ranking: MapRanking<'a>,
 }
 
-#[derive(Serialize, Debug)]
+#[derive(Debug)]
 pub struct MapRanking<'a> {
     /// A selection of top map ranks.
     pub entries: Vec<MapRankingEntry<'a>>,
@@ -29,20 +29,18 @@ pub struct MapRanking<'a> {
     pub max_pos: usize,
 }
 
-#[derive(Serialize, Debug)]
+#[derive(Debug)]
 pub struct MapRankingEntry<'a> {
     /// The map rank.
     pub pos: usize,
 
     /// The player's formatted display name.
-    #[serde(serialize_with = "format_narrow")]
     pub display_name: &'a DisplayString,
 
     /// The player's personal best.
     pub millis: usize,
 
     /// The moment this record was set.
-    #[serde(serialize_with = "format_record_age")]
     pub timestamp: NaiveDateTime,
 
     /// `True` if this is the player's own record.
