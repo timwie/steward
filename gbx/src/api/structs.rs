@@ -774,17 +774,9 @@ pub struct PlayerScore {
     #[serde(rename = "bestlapcheckpoints")]
     pub best_lap_time_cp_millis: Vec<i32>,
 
-    /// Points collected in the current round.
-    #[serde(rename = "roundpoints")]
-    pub points_round: i32,
-
-    /// Points collected on the current map.
-    #[serde(rename = "mappoints")]
-    pub points_map: i32,
-
-    /// Points collected in the current match.
-    #[serde(rename = "matchpoints")]
-    pub points_match: i32,
+    /// Points collected by this team.
+    #[serde(flatten)]
+    pub points: Points,
 }
 
 /// A team's score in the current match.
@@ -795,17 +787,34 @@ pub struct TeamScore {
     /// The team's formatted display name.
     pub name: DisplayString,
 
+    /// Points collected by this team.
+    #[serde(flatten)]
+    pub points: Points,
+}
+
+/// Point scores of a player or team.
+///
+/// Different game modes will use different types of points:
+///  - Champion: TODO what are the point scores in the Champion mode?
+///  - Cup: round, map, match
+///  - Knockout: TODO what are the point scores in the Knockout mode?
+///  - Laps: none
+///  - Rounds: round, map, match
+///  - Teams: round, map, match
+///  - TimeAttack: none
+#[derive(Deserialize, Debug, PartialEq, Clone)]
+pub struct Points {
     /// Points collected in the current round.
     #[serde(rename = "roundpoints")]
-    pub points_round: i32,
+    pub round: Option<i32>,
 
     /// Points collected on the current map.
     #[serde(rename = "mappoints")]
-    pub points_map: i32,
+    pub map: Option<i32>,
 
     /// Points collected in the current match.
     #[serde(rename = "matchpoints")]
-    pub points_match: i32,
+    pub match_: Option<i32>,
 }
 
 /// A string with in-game formatting.

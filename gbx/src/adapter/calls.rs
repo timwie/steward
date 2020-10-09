@@ -14,7 +14,7 @@ use crate::RpcClient;
 
 // Simple macro used to reduce 'Value::from' boilerplate.
 macro_rules! args {
-    ( $( $args:expr ),* ) => {
+    ( $( $args:expr ),* $(,)?) => {
         vec![$( Value::from($args) ),*]
     };
 }
@@ -93,6 +93,31 @@ impl Calls for RpcClient {
             return scores;
         }
         panic!("unexpected callback {:?}", cb);
+    }
+
+    async fn set_player_score(&self, login: &str, points: Points) -> Scores {
+        let args = args!(
+            login.to_string(),
+            points.round.map_or("".to_string(), |i| i.to_string()),
+            points.map.map_or("".to_string(), |i| i.to_string()),
+            points.match_.map_or("".to_string(), |i| i.to_string()),
+        );
+        self.call_script("Trackmania.SetPlayerPoints", args).await;
+        self.scores().await
+    }
+
+    async fn set_team_score(&self, team: TeamId, points: Points) -> Scores {
+        let args = args!(
+            match team {
+                TeamId::Blue => "0".to_string(),
+                TeamId::Red => "1".to_string(),
+            },
+            points.round.map_or("".to_string(), |i| i.to_string()),
+            points.map.map_or("".to_string(), |i| i.to_string()),
+            points.match_.map_or("".to_string(), |i| i.to_string()),
+        );
+        self.call_script("Trackmania.SetTeamPoints", args).await;
+        self.scores().await
     }
 
     async fn pause_status(&self) -> PauseStatus {

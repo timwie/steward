@@ -85,6 +85,38 @@ pub trait Calls {
     ///     Trackmania.Scores
     async fn scores(&self) -> Scores;
 
+    /// Set the score of a player, and return the new scores.
+    ///
+    /// Every `Points` field that is `Some` will override the respective number of points.
+    /// Different game modes will use different types of points.
+    ///
+    /// This call never faults. It also does not trigger any callbacks, so in order to
+    /// check whether the call was successful, you would want to compare check the player's
+    /// new score in the returned scores.
+    ///
+    /// Calls script method:
+    ///     Trackmania.SetPlayerPoints
+    ///
+    /// Triggers script callback:
+    ///     Trackmania.Scores
+    async fn set_player_score(&self, login: &str, points: Points) -> Scores;
+
+    /// Set the score of a team, and return the new scores.
+    ///
+    /// Every `Points` field that is `Some` will override the respective number of points.
+    /// Different game modes will use different types of points.
+    ///
+    /// This call never faults. It also does not trigger any callbacks, so in order to
+    /// check whether the call was successful, you would want to compare check the team's
+    /// new score in the returned scores.
+    ///
+    /// Calls script method:
+    ///     Trackmania.SetTeamPoints
+    ///
+    /// Triggers script callback:
+    ///     Trackmania.Scores
+    async fn set_team_score(&self, team: TeamId, points: Points) -> Scores;
+
     /// Check whether pauses are supported by the game mode, and if so,
     /// whether there is currently a pause.
     ///

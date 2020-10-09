@@ -419,8 +419,8 @@ As of script API version `3.1.0`:
 [/] XmlRpc.GetApiVersion
 [x] XmlRpc.GetAllApiVersions
 
-[ ] Trackmania.SetPlayerPoints
-[ ] Trackmania.SetTeamPoints
+[x] Trackmania.SetPlayerPoints
+[x] Trackmania.SetTeamPoints
 
 [x] Trackmania.WarmUp.ForceStop
 [/] Trackmania.WarmUp.ForceStopRound
