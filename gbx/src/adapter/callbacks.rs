@@ -5,7 +5,7 @@ use serde::Deserialize;
 use crate::api::structs::*;
 use crate::api::Callback;
 use crate::xml::{Call, Value};
-use crate::SCRIPT_API_VERSION;
+use crate::{ModeScriptSectionCallback, PlayloopCallback, SCRIPT_API_VERSION};
 
 /// Matches calls by their method name to their respective `Callback` variant.
 ///
@@ -61,6 +61,7 @@ pub enum ReceivedCallback {
 
 fn to_regular_callback(call: &Call) -> Option<Callback> {
     use Callback::*;
+    use PlayloopCallback::*;
     use Value::*;
 
     match call.name.as_ref() {
@@ -125,9 +126,9 @@ fn to_regular_callback(call: &Call) -> Option<Callback> {
 
         "TrackMania.PlayerIncoherence" => {
             if let [Int(_uid), String(login)] = &call.args[..] {
-                return Some(PlayerIncoherence {
+                return Some(Playloop(Incoherence {
                     login: login.clone(),
-                });
+                }));
             }
         }
 
@@ -160,8 +161,9 @@ where
 }
 
 fn forward_script_callback(call: &Call) -> Option<Callback> {
-    use crate::structs::ModeScriptSection::*;
     use Callback::*;
+    use ModeScriptSectionCallback::*;
+    use PlayloopCallback::*;
 
     match script_callback_name(call) {
         "Maniaplanet.StartServer_Start" => {
@@ -171,55 +173,129 @@ fn forward_script_callback(call: &Call) -> Option<Callback> {
                 changed_script: data.mode.updated,
             }))
         }
+
         "Maniaplanet.StartServer_End" => Some(ModeScriptSection(PostStartServer)),
+
         "Maniaplanet.StartMatch_Start" => Some(ModeScriptSection(PreStartMatch)),
+
         "Maniaplanet.StartMatch_End" => Some(ModeScriptSection(PostStartMatch)),
+
         "Maniaplanet.LoadingMap_Start" => {
             let data: LoadingMapEvent = from_script_callback(call);
             Some(ModeScriptSection(PreLoadMap {
                 is_restart: data.restarted,
             }))
         }
+
         "Maniaplanet.LoadingMap_End" => Some(ModeScriptSection(PostLoadMap)),
-        "Maniaplanet.StartMap_Start" => Some(ModeScriptSection(PreStartMap)),
-        "Maniaplanet.StartMap_End" => Some(ModeScriptSection(PostStartMap)),
-        "Maniaplanet.StartRound_Start" => Some(ModeScriptSection(PreStartRound)),
-        "Maniaplanet.StartRound_End" => Some(ModeScriptSection(PostStartRound)),
-        "Maniaplanet.StartPlayLoop" => Some(ModeScriptSection(PrePlayloop)),
-        "Maniaplanet.EndPlayLoop" => Some(ModeScriptSection(PostPlayloop)),
-        "Maniaplanet.EndRound_Start" => Some(ModeScriptSection(PreEndRound)),
-        "Maniaplanet.EndRound_End" => Some(ModeScriptSection(PostEndRound)),
-        "Maniaplanet.EndMap_Start" => Some(ModeScriptSection(PreEndMap)),
-        "Maniaplanet.EndMap_End" => Some(ModeScriptSection(PostEndMap)),
+
+        "Maniaplanet.StartMap_Start" => {
+            let data: CountedSectionEvent = from_script_callback(call);
+            Some(ModeScriptSection(PreStartMap {
+                nth_map_in_match: data.count,
+            }))
+        }
+
+        "Trackmania.WarmUp.StartRound" => {
+            let status: WarmupRoundStatus = from_script_callback(call);
+            Some(ModeScriptSection(StartWarmupRound(status)))
+        }
+
+        "Trackmania.WarmUp.EndRound" => {
+            let status: WarmupRoundStatus = from_script_callback(call);
+            Some(ModeScriptSection(EndWarmupRound(status)))
+        }
+
+        "Maniaplanet.StartMap_End" => {
+            let data: CountedSectionEvent = from_script_callback(call);
+            Some(ModeScriptSection(PostStartMap {
+                nth_map_in_match: data.count,
+            }))
+        }
+
+        "Maniaplanet.StartRound_Start" => {
+            let data: CountedSectionEvent = from_script_callback(call);
+            Some(ModeScriptSection(PreStartRound {
+                nth_round_on_map: data.count,
+            }))
+        }
+        "Maniaplanet.StartRound_End" => {
+            let data: CountedSectionEvent = from_script_callback(call);
+            Some(ModeScriptSection(PostStartRound {
+                nth_round_on_map: data.count,
+            }))
+        }
+
+        "Maniaplanet.StartPlayLoop" => Some(ModeScriptSection(StartPlayloop)),
+
+        "Maniaplanet.EndPlayLoop" => Some(ModeScriptSection(EndPlayloop)),
+
+        "Maniaplanet.EndRound_Start" => {
+            let data: CountedSectionEvent = from_script_callback(call);
+            Some(ModeScriptSection(PreEndRound {
+                nth_round_on_map: data.count,
+            }))
+        }
+
+        "Maniaplanet.EndRound_End" => {
+            let data: CountedSectionEvent = from_script_callback(call);
+            Some(ModeScriptSection(PostEndRound {
+                nth_round_on_map: data.count,
+            }))
+        }
+
+        "Maniaplanet.EndMap_Start" => {
+            let data: CountedSectionEvent = from_script_callback(call);
+            Some(ModeScriptSection(PreEndMap {
+                nth_map_in_match: data.count,
+            }))
+        }
+
+        "Maniaplanet.EndMap_End" => {
+            let data: CountedSectionEvent = from_script_callback(call);
+            Some(ModeScriptSection(PostEndMap {
+                nth_map_in_match: data.count,
+            }))
+        }
+
         "Maniaplanet.UnloadingMap_Start" => Some(ModeScriptSection(PreUnloadMap)),
+
         "Maniaplanet.UnloadingMap_End" => Some(ModeScriptSection(PostUnloadMap)),
+
         "Maniaplanet.EndMatch_Start" => Some(ModeScriptSection(PreEndMatch)),
+
         "Maniaplanet.EndMatch_End" => Some(ModeScriptSection(PostEndMatch)),
+
         "Maniaplanet.EndServer_Start" => Some(ModeScriptSection(PreEndServer)),
+
         "Maniaplanet.EndServer_End" => Some(ModeScriptSection(PostEndServer)),
 
-        "Maniaplanet.Pause.Status" => {
-            let status: crate::structs::PauseStatus = from_script_callback(call);
-            Some(PauseStatus(status))
+        "Trackmania.Scores" => {
+            let scores: crate::api::structs::Scores = from_script_callback(call);
+            match scores.section {
+                None => Some(Scores(scores)),
+                Some(ScoresSection::PreEndRound) => {
+                    Some(ModeScriptSection(PreEndRoundScores(scores)))
+                }
+                Some(ScoresSection::EndRound) => Some(ModeScriptSection(EndRoundScores(scores))),
+                Some(ScoresSection::EndMap) => Some(ModeScriptSection(EndMapScores(scores))),
+                Some(ScoresSection::EndMatch) => Some(ModeScriptSection(EndMatchScores(scores))),
+            }
         }
 
         "Trackmania.Champion.Scores" => {
             let scores: ChampionEndRoundEvent = from_script_callback(call);
-            Some(ChampionRoundEnd(scores))
+            Some(ModeScriptSection(EndRoundChampionScores(scores)))
         }
 
-        "Trackmania.Event.GiveUp" | "Trackmania.Event.SkipOutro" => {
-            // Since TMNext, "Trackmania.Event.StartCountdown" is never triggered,
-            // but we know that the countdown will appear for players directly following
-            // these two events. "Trackmania.Event.StartLine" will *not* be triggered after
-            // either of these events.
-            let ev: GenericScriptEvent = from_script_callback(call);
-            Some(PlayerCountdown { login: ev.login })
+        "Trackmania.Knockout.Elimination" => {
+            let elims: KnockoutEndRoundEvent = from_script_callback(call);
+            Some(ModeScriptSection(EndRoundKnockoutEliminations(elims)))
         }
 
-        "Trackmania.Event.Respawn" => {
-            let ev: CheckpointRespawnEvent = from_script_callback(call);
-            Some(PlayerCheckpointRespawn(ev))
+        "Maniaplanet.Pause.Status" => {
+            let status: crate::structs::PauseStatus = from_script_callback(call);
+            Some(PauseStatus(status))
         }
 
         "Trackmania.Event.StartLine" => {
@@ -227,39 +303,38 @@ fn forward_script_callback(call: &Call) -> Option<Callback> {
             // but only when prior to spawning, the run outro was not skipped (this includes
             // the very first spawn for instance)
             let ev: GenericScriptEvent = from_script_callback(call);
-            Some(PlayerStartline { login: ev.login })
+            Some(Playloop(StartLine { login: ev.login }))
+        }
+
+        "Trackmania.Event.SkipOutro" => {
+            // Since TMNext, "Trackmania.Event.StartCountdown" is never triggered,
+            // but we know that the countdown will appear for players directly following
+            // this event. "Trackmania.Event.StartLine" will *not* be triggered after
+            // this event.
+            let ev: GenericScriptEvent = from_script_callback(call);
+            Some(Playloop(SkipOutro { login: ev.login }))
+        }
+
+        "Trackmania.Event.Respawn" => {
+            let ev: CheckpointRespawnEvent = from_script_callback(call);
+            Some(Playloop(CheckpointRespawn(ev)))
+        }
+
+        "Trackmania.Event.GiveUp" => {
+            let ev: GenericScriptEvent = from_script_callback(call);
+            Some(Playloop(GiveUp { login: ev.login }))
         }
 
         "Trackmania.Event.WayPoint" => {
             let event: CheckpointEvent = from_script_callback(call);
             let cb = if event.race_time_millis > 0 {
-                PlayerCheckpoint(event)
+                Playloop(Checkpoint(event))
             } else {
-                PlayerIncoherence {
+                Playloop(Incoherence {
                     login: event.player_login,
-                }
+                })
             };
             Some(cb)
-        }
-
-        "Trackmania.Knockout.Elimination" => {
-            let elims: KnockoutEndRoundEvent = from_script_callback(call);
-            Some(KnockoutRoundEnd(elims))
-        }
-
-        "Trackmania.Scores" => {
-            let scores: crate::api::structs::Scores = from_script_callback(call);
-            Some(Scores(scores))
-        }
-
-        "Trackmania.WarmUp.EndRound" => {
-            let status: WarmupRoundStatus = from_script_callback(call);
-            Some(WarmupEnd(status))
-        }
-
-        "Trackmania.WarmUp.StartRound" => {
-            let status: WarmupRoundStatus = from_script_callback(call);
-            Some(WarmupBegin(status))
         }
 
         "Trackmania.WarmUp.Status" => {
@@ -357,4 +432,9 @@ struct StartServerEventMode {
 #[derive(Deserialize, Debug, PartialEq, Clone)]
 struct LoadingMapEvent {
     pub restarted: bool,
+}
+
+#[derive(Deserialize, Debug, PartialEq, Clone)]
+struct CountedSectionEvent {
+    pub count: i32,
 }

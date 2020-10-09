@@ -310,14 +310,14 @@ impl RpcClient {
 
         // We always get a Unit response, which doesn't tell us
         // whether the requested callback actually exists...
-        let _response = self.call_response(call).await;
+        let _response = self.call_response(call.clone()).await;
 
         // ... Instead, we will add a timeout when waiting for the callback,
         // and assume it doesn't exist once that timeout was exceeded.
         let eventual_callback = async { cb_in.await.expect("callback result sender was dropped") };
         tokio::time::timeout(callback_timeout(), eventual_callback)
             .await
-            .expect("callback was never triggered")
+            .unwrap_or_else(|_| panic!("callback was never triggered for {:#?}", call))
     }
 
     async fn next_handle(&self) -> u32 {

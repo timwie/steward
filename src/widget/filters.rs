@@ -25,6 +25,7 @@ pub(super) fn neg(u: &usize) -> Result<i64> {
     }
 }
 
+/// For when you don't want to use `serde_json::to_string_pretty`.
 pub(super) fn json_ugly<T>(s: &T) -> Result<String>
 where
     T: Serialize,
@@ -35,10 +36,12 @@ where
     }
 }
 
+/// Remove `$o` and `$w` formatting.
 pub(super) fn narrow(s: &DisplayString) -> Result<String> {
     Ok(s.formatted.replace("$o", "").replace("$w", ""))
 }
 
+/// Format a past date as "New" or "x ago".
 pub(super) fn age(x: &NaiveDateTime) -> Result<String> {
     let now = Utc::now().naive_utc();
     assert!(now > *x, "tried to format future date");
@@ -63,6 +66,7 @@ pub(super) fn age(x: &NaiveDateTime) -> Result<String> {
     Ok(format!("{} months ago", months_since)) // "2..11 months ago"
 }
 
+/// Format an optional, past date as "Never", "Today", "Yesterday", or "x ago".
 pub(super) fn when(x: &Option<NaiveDateTime>) -> Result<String> {
     let x = match x {
         Some(x) => x,
@@ -94,6 +98,7 @@ pub(super) fn when(x: &Option<NaiveDateTime>) -> Result<String> {
     Ok(format!("{} months ago", months_since)) // "2..11 months ago"
 }
 
+// TODO might just wanna use `impl Display` for this
 #[allow(dead_code)]
 pub(super) fn queue_annotation(p: &QueueEntryAnnotation) -> Result<&str> {
     use QueueEntryAnnotation::*;

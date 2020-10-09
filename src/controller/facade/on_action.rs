@@ -29,7 +29,7 @@ impl Controller {
                 Err(de_err) => {
                     let err_msg = format!("{:#?}", de_err);
                     let msg = CommandResponse::Output(CommandOutputResponse::InvalidConfig {
-                        tried_repr: &repr,
+                        tried_repr: &toml_config,
                         error_msg: &err_msg,
                     });
                     self.widget.show_popup(msg, &player.login).await;

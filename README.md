@@ -55,7 +55,8 @@ TBD
 - Maps that have been recently played by connected players
   are less likely to be queued by the controller. <br><br>
 - [x] **Schedule**
-- See a preview of the next maps that will be played on the server. <br><br>
+- Maps' time limits are adjusted to author or top record times. 
+- The next maps that will be played on the server are displayed in a timetable. <br><br>
 - [x] **Match Summary**
 - During the outro, you can see how your map and server rank changed over the last race.
 - Vote for a restart at the end of every map.

@@ -319,69 +319,6 @@ impl<'de> Deserialize<'de> for ModeScript {
     }
 }
 
-/// Sections for matches of all default game modes.
-///
-/// All game modes build on a template (`Libs/Nadeo/TMxSM/Race/ModeTrackmania.Script.txt`)
-/// using a structure with several nested loops representing the progression of the game mode.
-///
-/// Server -> Match -> Map -> Round -> Turn -> PlayLoop
-///
-/// The server can launch a match.
-/// This match can be played on several maps.
-/// Each map can be divided into several rounds.
-/// Each round can be further divided into several turns.
-///
-/// The playloop is executed repeatedly until an upper level section
-/// (turn, round, map, match or server) is requested to stop.
-///
-/// The template has several plugs for each loop at the beginning and the end, which
-/// allow game modes to implement their logic.
-///
-/// The template also triggers callbacks when entering or leaving one of the loops;
-/// these callbacks are represented by this enum. Note that the callbacks will also be
-/// triggered if they are irrelevant for a mode: the TimeAttack will trigger `_Round`
-/// sections f.e., even though there are no rounds in this mode.
-#[derive(Debug, Clone)]
-pub enum ModeScriptSection {
-    PreStartServer {
-        restarted_script: bool,
-        changed_script: bool,
-    },
-    PostStartServer,
-
-    PreStartMatch,
-    PostStartMatch,
-
-    PreLoadMap {
-        is_restart: bool,
-    },
-    PostLoadMap,
-
-    PreStartMap,
-    PostStartMap,
-
-    PreStartRound,
-    PostStartRound,
-
-    PrePlayloop,
-    PostPlayloop,
-
-    PreEndRound,
-    PostEndRound,
-
-    PreEndMap,
-    PostEndMap,
-
-    PreUnloadMap,
-    PostUnloadMap,
-
-    PreEndMatch,
-    PostEndMatch,
-
-    PreEndServer,
-    PostEndServer,
-}
-
 /// Game mode settings.
 ///
 /// Every mode script has a different set of possible settings.
@@ -774,20 +711,19 @@ pub struct Scores {
 
     /// The mode script section at which this event was triggered.
     #[serde(deserialize_with = "deserialize_section")]
-    pub section: ScoresSection,
+    pub(in crate) section: Option<ScoresSection>,
 }
 
 /// Mode script sections that can trigger the `Trackmania.Scores` callback.
 #[derive(Debug, PartialEq, Clone)]
 pub enum ScoresSection {
-    None,
     PreEndRound,
     EndRound,
     EndMap,
     EndMatch,
 }
 
-fn deserialize_section<'de, D>(deserializer: D) -> Result<ScoresSection, D::Error>
+fn deserialize_section<'de, D>(deserializer: D) -> Result<Option<ScoresSection>, D::Error>
 where
     D: serde::de::Deserializer<'de>,
 {
@@ -796,10 +732,10 @@ where
     let s = String::deserialize(deserializer)?;
     Ok(match s.as_ref() {
         "" => None,
-        "PreEndRound" => PreEndRound,
-        "EndRound" => EndRound,
-        "EndMap" => EndMap,
-        "EndMatch" => EndMatch,
+        "PreEndRound" => Some(PreEndRound),
+        "EndRound" => Some(EndRound),
+        "EndMap" => Some(EndMap),
+        "EndMatch" => Some(EndMatch),
         _ => panic!("unexpected scores section {}", s),
     })
 }

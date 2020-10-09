@@ -1,14 +1,15 @@
 use crate::chat::{Command, CommandContext, CommandErrorResponse, CommandResponse};
 use crate::controller::{Controller, LiveConfig, LivePlayers};
 use crate::event::ControllerEvent;
-use crate::server::{Calls, ModeScriptSection, ServerEvent};
+use crate::server::{Calls, ModeScriptSectionCallback, PlayloopCallback, ServerEvent};
 use crate::widget::Action;
 
 impl Controller {
     /// Server events are converted to controller events with the
     /// help of one or more controllers.
     pub async fn on_server_event(&self, event: ServerEvent) {
-        use ModeScriptSection::*;
+        use ModeScriptSectionCallback::*;
+        use PlayloopCallback::*;
 
         log::debug!("{:#?}", &event);
         match event {
@@ -26,7 +27,8 @@ impl Controller {
                 }
             }
 
-            ServerEvent::PlayerCountdown { login } => {
+            ServerEvent::Playloop(GiveUp { login })
+            | ServerEvent::Playloop(SkipOutro { login }) => {
                 const COUNTDOWN_SECS: u64 = 2;
 
                 let controller = self.clone(); // 'self' with 'static lifetime
@@ -39,19 +41,21 @@ impl Controller {
                 });
             }
 
-            ServerEvent::PlayerStartline { login } => {
+            ServerEvent::Playloop(StartLine { login }) => {
                 let ev = ControllerEvent::BeginRun {
                     player_login: &login,
                 };
                 self.on_controller_event(ev).await;
             }
 
-            ServerEvent::PlayerCheckpoint(event) => {
+            ServerEvent::Playloop(Checkpoint(event)) => {
                 let ev = ControllerEvent::ContinueRun(event);
                 self.on_controller_event(ev).await;
             }
 
-            ServerEvent::PlayerIncoherence { login } => {
+            ServerEvent::Playloop(CheckpointRespawn(_)) => {}
+
+            ServerEvent::Playloop(Incoherence { login }) => {
                 let ev = ControllerEvent::DesyncRun {
                     player_login: &login,
                 };
@@ -147,18 +151,6 @@ impl Controller {
                 }
             }
 
-            ServerEvent::WarmupBegin(_) => {
-                let ev = ControllerEvent::BeginWarmup;
-                self.on_controller_event(ev).await;
-            }
-
-            ServerEvent::WarmupEnd(status) => {
-                if status.current_round == status.nb_total_rounds {
-                    let ev = ControllerEvent::EndWarmup;
-                    self.on_controller_event(ev).await;
-                }
-            }
-
             ServerEvent::ModeScriptSection(PreStartServer {
                 restarted_script,
                 changed_script,
@@ -191,20 +183,43 @@ impl Controller {
 
             ServerEvent::ModeScriptSection(PostLoadMap) => {}
 
-            ServerEvent::ModeScriptSection(PreStartMap) => {}
-            ServerEvent::ModeScriptSection(PostStartMap) => {}
+            ServerEvent::ModeScriptSection(PreStartMap { .. }) => {}
+            ServerEvent::ModeScriptSection(StartWarmupRound(_)) => {
+                let ev = ControllerEvent::BeginWarmup;
+                self.on_controller_event(ev).await;
+            }
+            ServerEvent::ModeScriptSection(EndWarmupRound(status)) => {
+                if status.current_round == status.nb_total_rounds {
+                    let ev = ControllerEvent::EndWarmup;
+                    self.on_controller_event(ev).await;
+                }
+            }
+            ServerEvent::ModeScriptSection(PostStartMap { .. }) => {}
 
-            ServerEvent::ModeScriptSection(PreStartRound) => {}
-            ServerEvent::ModeScriptSection(PostStartRound) => {}
+            ServerEvent::ModeScriptSection(PreStartRound { .. }) => {}
+            ServerEvent::ModeScriptSection(PostStartRound { .. }) => {}
 
-            ServerEvent::ModeScriptSection(PrePlayloop) => {}
-            ServerEvent::ModeScriptSection(PostPlayloop) => {}
+            ServerEvent::ModeScriptSection(StartPlayloop) => {}
+            ServerEvent::ModeScriptSection(EndPlayloop) => {}
 
-            ServerEvent::ModeScriptSection(PreEndRound) => {}
-            ServerEvent::ModeScriptSection(PostEndRound) => {}
+            ServerEvent::ModeScriptSection(PreEndRound { .. }) => {}
+            ServerEvent::ModeScriptSection(PreEndRoundScores(_)) => {}
+            ServerEvent::ModeScriptSection(EndRoundChampionScores(_)) => {}
+            ServerEvent::ModeScriptSection(EndRoundKnockoutEliminations(_)) => {
+                // TODO knockout elimination event
+                //  => for some reason, eliminated players are listed with their account id only
+                //  => that id is not part of PlayerInfo
+                //  => instead, the best course of action is probably to request Scores
+                //     at the start of a round, since that includes the account id for players
+            }
+            ServerEvent::ModeScriptSection(EndRoundScores(_)) => {}
+            ServerEvent::ModeScriptSection(PostEndRound { .. }) => {}
 
-            ServerEvent::ModeScriptSection(PreEndMap) => {}
-            ServerEvent::ModeScriptSection(PostEndMap) => {}
+            ServerEvent::ModeScriptSection(PreEndMap { .. }) => {}
+            ServerEvent::ModeScriptSection(EndMapScores(scores)) => {
+                self.race.set_scores(&scores).await;
+            }
+            ServerEvent::ModeScriptSection(PostEndMap { .. }) => {}
 
             ServerEvent::ModeScriptSection(PreUnloadMap) => {
                 let ev = ControllerEvent::ChangeMap;
@@ -217,7 +232,7 @@ impl Controller {
             ServerEvent::ModeScriptSection(PostUnloadMap) => {}
 
             ServerEvent::ModeScriptSection(PreEndMatch) => {}
-
+            ServerEvent::ModeScriptSection(EndMatchScores(_)) => {}
             ServerEvent::ModeScriptSection(PostEndMatch) => {
                 let outro_ev = ControllerEvent::BeginOutro;
                 self.on_controller_event(outro_ev).await;
@@ -239,17 +254,6 @@ impl Controller {
                 if playlist_modified {
                     self.config.save_match_settings().await;
                 }
-            }
-
-            ServerEvent::PlayerCheckpointRespawn(_) => {}
-            ServerEvent::ChampionRoundEnd(_) => {}
-
-            ServerEvent::KnockoutRoundEnd(_) => {
-                // TODO knockout elimination event
-                //  => for some reason, eliminated players are listed with their account id only
-                //  => that id is not part of PlayerInfo
-                //  => instead, the best course of action is probably to request Scores
-                //     at the start of a round, since that includes the account id for players
             }
         }
     }
