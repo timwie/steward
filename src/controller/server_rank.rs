@@ -49,7 +49,7 @@ impl ServerRankingState {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct ServerRank {
     pub pos: usize,
     pub player_login: String,

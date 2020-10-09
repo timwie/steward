@@ -5,7 +5,7 @@ use regex::Regex;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 /// Dedicated server version information.
-#[derive(Deserialize, Debug, PartialEq)]
+#[derive(Deserialize, Debug)]
 #[serde(rename_all = "PascalCase")]
 pub struct ServerBuildInfo {
     /// This should be "Trackmania".
@@ -24,7 +24,7 @@ pub struct ServerBuildInfo {
 /// These options default to the values of the `<dedicated>` config in `.../UserData/Config/*.txt`
 ///
 /// Any `next_*` option will become active as the `current_*` option on map change.
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "PascalCase")]
 pub struct ServerOptions {
     /// The server name, as displayed in the server browser.
@@ -188,7 +188,7 @@ pub struct ServerOptions {
 }
 
 /// Dedicated server network stats.
-#[derive(Deserialize, Debug, PartialEq)]
+#[derive(Deserialize, Debug)]
 #[serde(rename_all = "PascalCase")]
 pub struct ServerNetStats {
     /// This value might be useful to check that a server has not been online
@@ -199,7 +199,7 @@ pub struct ServerNetStats {
 }
 
 /// Game mode information.
-#[derive(Deserialize, Debug, PartialEq)]
+#[derive(Deserialize, Debug)]
 #[serde(rename_all = "PascalCase")]
 pub struct ModeInfo {
     /// The script that implements this mode.
@@ -252,12 +252,12 @@ where
 /// Game modes that the server can play.
 #[derive(Debug, PartialEq, Eq, Hash, Clone, PartialOrd, Ord)]
 pub enum ModeScript {
-    Champion, // round-based
-    Cup,      // round-based
-    Knockout, // round-based
+    Champion,
+    Cup,
+    Knockout,
     Laps,
-    Rounds, // round-based
-    Teams,  // round-based
+    Rounds,
+    Teams,
     TimeAttack,
     Custom {
         /// The relative script file name in `/UserData/Scripts/Modes`.
@@ -293,7 +293,9 @@ impl ModeScript {
         }
     }
 
-    /// All game modes that come with the dedicated server, and do not have to be
+    /// The game's default game modes.
+    ///
+    /// These game modes that come with the dedicated server, and do not have to be
     /// added to the `/UserData/Scripts/Modes` directory.
     pub fn default_modes() -> Vec<ModeScript> {
         use ModeScript::*;
@@ -446,7 +448,7 @@ pub struct TeamsOptions {
 }
 
 /// Information for a connected player.
-#[derive(Deserialize, PartialEq, Clone)]
+#[derive(Deserialize, Clone)]
 #[serde(rename_all = "PascalCase")]
 pub struct PlayerInfo {
     /// Player UID that is tied to this player while they are connected.
@@ -475,7 +477,7 @@ pub struct PlayerInfo {
 }
 
 /// An identifier for teams in team-based game modes.
-#[derive(Debug, Eq, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum TeamId {
     Blue,
     Red,
@@ -563,7 +565,7 @@ impl PlayerInfo {
 }
 
 /// Signals what slot a player occupies, and whether they are spectating or not.
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum PlayerSlot {
     /// This player has disconnected, or is the "player" that represents
     /// the server.
@@ -592,7 +594,7 @@ impl std::fmt::Debug for PlayerInfo {
 }
 
 /// A map that is currently in the server's playlist.
-#[derive(Deserialize, Debug, PartialEq)]
+#[derive(Deserialize, Debug)]
 #[serde(rename_all = "PascalCase")]
 pub struct PlaylistMap {
     /// A unique identifier.
@@ -614,7 +616,7 @@ impl PlaylistMap {
 }
 
 /// Information of a map in `.../UserData/Maps`.
-#[derive(Deserialize, Debug, PartialEq)]
+#[derive(Deserialize, Debug)]
 #[serde(rename_all = "PascalCase")]
 pub struct MapInfo {
     /// A unique identifier.
@@ -638,7 +640,7 @@ pub struct MapInfo {
 }
 
 /// Event data produced when players cross a checkpoint or finish line.
-#[derive(Deserialize, Debug, PartialEq, Clone)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct CheckpointEvent {
     /// The driving player's login.
     #[serde(rename = "login")]
@@ -676,7 +678,7 @@ pub struct CheckpointEvent {
 }
 
 /// Event data produced when a player respawns at the previous checkpoint.
-#[derive(Deserialize, Debug, PartialEq, Clone)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct CheckpointRespawnEvent {
     /// The driving player's login.
     #[serde(rename = "login")]
@@ -698,7 +700,7 @@ pub struct CheckpointRespawnEvent {
 }
 
 /// Scores of the current match.
-#[derive(Deserialize, Debug, PartialEq, Clone)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct Scores {
     #[serde(rename = "responseid", deserialize_with = "deserialize_response_id")]
     pub(in crate) response_id: Option<String>,
@@ -715,7 +717,7 @@ pub struct Scores {
 }
 
 /// Mode script sections that can trigger the `Trackmania.Scores` callback.
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, Clone)]
 pub enum ScoresSection {
     PreEndRound,
     EndRound,
@@ -741,7 +743,7 @@ where
 }
 
 /// A player's score in the current match.
-#[derive(Deserialize, Debug, PartialEq, Clone)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct PlayerScore {
     /// The player's login.
     pub login: String,
@@ -780,7 +782,7 @@ pub struct PlayerScore {
 }
 
 /// A team's score in the current match.
-#[derive(Deserialize, Debug, PartialEq, Clone)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct TeamScore {
     pub id: TeamId,
 
@@ -802,7 +804,7 @@ pub struct TeamScore {
 ///  - Rounds: round, map, match
 ///  - Teams: round, map, match
 ///  - TimeAttack: none
-#[derive(Deserialize, Debug, PartialEq, Clone)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct Points {
     /// Points collected in the current round.
     #[serde(rename = "roundpoints")]
@@ -882,7 +884,7 @@ pub struct PlayerManialinkEvent {
 }
 
 /// Current status of a warmup.
-#[derive(Deserialize, Debug, PartialEq, Clone)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct WarmupStatus {
     #[serde(rename = "responseid", deserialize_with = "deserialize_response_id")]
     pub(in crate) response_id: Option<String>,
@@ -897,7 +899,7 @@ pub struct WarmupStatus {
 }
 
 /// Current status of a pause.
-#[derive(Deserialize, Debug, PartialEq, Clone)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct PauseStatus {
     #[serde(rename = "responseid", deserialize_with = "deserialize_response_id")]
     pub(in crate) response_id: Option<String>,
@@ -921,7 +923,7 @@ pub struct PauseStatus {
 }
 
 /// Event data produced when a warmup round starts or ends.
-#[derive(Deserialize, Debug, PartialEq, Clone)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct WarmupRoundStatus {
     /// The number of the current warmup round.
     #[serde(rename = "current")]

@@ -214,18 +214,18 @@ mod test {
 
     use super::*;
 
-    #[derive(Deserialize, Debug, PartialEq)]
+    #[derive(Deserialize, Debug, PartialEq, Eq)]
     struct StringStruct {
         hello: String,
     }
 
-    #[derive(Deserialize, Debug, PartialEq)]
+    #[derive(Deserialize, Debug, PartialEq, Eq)]
     struct ByteStruct {
         #[serde(with = "serde_bytes")]
         data: Vec<u8>,
     }
 
-    #[derive(Deserialize, Debug, PartialEq)]
+    #[derive(Deserialize, Debug, PartialEq, Eq)]
     struct NumberStruct {
         number: u32,
     }

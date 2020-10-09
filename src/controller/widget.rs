@@ -39,7 +39,7 @@ pub struct WidgetController {
 
 /// May be used to select the widgets that will be sent to a player
 /// when joining the server.
-#[derive(PartialEq)]
+#[derive(PartialEq, Eq)]
 enum WidgetState {
     Race,
     Outro { voting: bool, has_ranking: bool },

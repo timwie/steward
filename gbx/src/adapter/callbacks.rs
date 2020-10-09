@@ -93,6 +93,13 @@ fn to_regular_callback(call: &Call) -> Option<Callback> {
 
         "ManiaPlanet.PlayerManialinkPageAnswer" => {
             if let [Int(uid), String(login), String(answer), Array(entries)] = &call.args[..] {
+                #[derive(Deserialize)]
+                #[serde(rename_all = "PascalCase")]
+                struct ManialinkEntry {
+                    pub name: std::string::String,
+                    pub value: std::string::String,
+                }
+
                 let entries: HashMap<std::string::String, std::string::String> = entries
                     .iter()
                     .map(|val| {
@@ -165,8 +172,30 @@ fn forward_script_callback(call: &Call) -> Option<Callback> {
     use ModeScriptSectionCallback::*;
     use PlayloopCallback::*;
 
+    #[derive(Deserialize)]
+    struct GenericScriptEvent {
+        pub login: String,
+    }
+
+    #[derive(Deserialize)]
+    struct CountedSectionEvent {
+        pub count: i32,
+    }
+
     match script_callback_name(call) {
         "Maniaplanet.StartServer_Start" => {
+            #[derive(Deserialize)]
+            struct StartServerEvent {
+                pub restarted: bool,
+                pub mode: StartServerEventMode,
+            }
+
+            #[derive(Deserialize)]
+            struct StartServerEventMode {
+                pub updated: bool,
+                pub name: String,
+            }
+
             let data: StartServerEvent = from_script_callback(call);
             Some(ModeScriptSection(PreStartServer {
                 restarted_script: data.restarted,
@@ -181,6 +210,11 @@ fn forward_script_callback(call: &Call) -> Option<Callback> {
         "Maniaplanet.StartMatch_End" => Some(ModeScriptSection(PostStartMatch)),
 
         "Maniaplanet.LoadingMap_Start" => {
+            #[derive(Deserialize)]
+            struct LoadingMapEvent {
+                pub restarted: bool,
+            }
+
             let data: LoadingMapEvent = from_script_callback(call);
             Some(ModeScriptSection(PreLoadMap {
                 is_restart: data.restarted,
@@ -403,38 +437,4 @@ fn script_callback_name(call: &Call) -> &str {
         Some(Value::String(name)) => name,
         _ => panic!("unexpected signature for {:#?}", call),
     }
-}
-
-#[derive(Deserialize)]
-#[serde(rename_all = "PascalCase")]
-struct ManialinkEntry {
-    pub name: String,
-    pub value: String,
-}
-
-#[derive(Deserialize, Debug, PartialEq, Clone)]
-struct GenericScriptEvent {
-    pub login: String,
-}
-
-#[derive(Deserialize, Debug, PartialEq, Clone)]
-struct StartServerEvent {
-    pub restarted: bool,
-    pub mode: StartServerEventMode,
-}
-
-#[derive(Deserialize, Debug, PartialEq, Clone)]
-struct StartServerEventMode {
-    pub updated: bool,
-    pub name: String,
-}
-
-#[derive(Deserialize, Debug, PartialEq, Clone)]
-struct LoadingMapEvent {
-    pub restarted: bool,
-}
-
-#[derive(Deserialize, Debug, PartialEq, Clone)]
-struct CountedSectionEvent {
-    pub count: i32,
 }

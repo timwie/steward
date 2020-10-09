@@ -25,7 +25,7 @@ pub enum PreferenceValue {
 }
 
 /// Stores the most recent time a player has played a specific map.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct History {
     pub player_login: String,
     pub map_uid: String,

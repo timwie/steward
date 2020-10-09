@@ -126,7 +126,7 @@ impl PreferencesState {
     }
 }
 
-#[derive(Hash, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PlayerMapKey<'a> {
     pub player_uid: i32,
     pub map_uid: Cow<'a, str>, // can build with either &str or String

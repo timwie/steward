@@ -421,7 +421,7 @@ mod test {
 
     use super::ValueSerializer;
 
-    #[derive(Serialize, Debug, PartialEq)]
+    #[derive(Serialize, Debug, PartialEq, Eq)]
     struct StringStruct {
         hello: String,
     }

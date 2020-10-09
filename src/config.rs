@@ -111,7 +111,7 @@ impl Config {
 }
 
 /// Player permission level.
-#[derive(Debug, PartialEq, Eq, Copy, Clone, PartialOrd)]
+#[derive(Debug, PartialEq, Eq, Copy, Clone, PartialOrd, Ord)]
 pub enum PlayerRole {
     Player,
     Admin,

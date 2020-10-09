@@ -28,7 +28,7 @@ pub enum ExchangeError {
 /// Map information from Trackmania Exchange.
 ///
 /// Reference: https://api.mania-exchange.com/documents/reference
-#[derive(Deserialize, Debug, PartialEq)]
+#[derive(Deserialize, Debug, PartialEq, Eq)]
 #[serde(rename_all = "PascalCase")]
 pub struct ExchangeMetadata {
     /// The map's UID stored in its file.

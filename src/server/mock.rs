@@ -48,11 +48,11 @@ impl Calls for Server {
         unimplemented!()
     }
 
-    async fn set_player_score(&self, _login: &str, _points: Points) {
+    async fn set_player_score(&self, _login: &str, _points: Points) -> Scores {
         unimplemented!()
     }
 
-    async fn set_team_score(&self, _team: TeamId, _points: Points) {
+    async fn set_team_score(&self, _team: TeamId, _points: Points) -> Scores {
         unimplemented!()
     }
 

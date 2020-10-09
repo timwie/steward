@@ -112,7 +112,7 @@ pub struct PlayerDiff {
 
 /// Transitions convey whether a player is joining, leaving, or
 /// transitioning between playing and spectating.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum PlayerTransition {
     /// Player joined into a player slot.
     AddPlayer,

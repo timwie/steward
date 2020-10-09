@@ -4,7 +4,7 @@ use crate::database::Result;
 use crate::server::{DisplayString, PlayerInfo};
 
 /// Database player that has joined the server at least once.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct Player {
     /// Player login.
     pub login: String,

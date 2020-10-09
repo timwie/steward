@@ -16,7 +16,7 @@ pub struct RecordEvidence {
 
 /// Detailed record data, that is only missing speed & distance
 /// for each checkpoint.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Record {
     /// The UID of the map this record was set on.
     pub map_uid: String,
