@@ -496,10 +496,10 @@ impl WidgetController {
             })
             .collect();
 
-        let is_restart = match queued_next.first().map(|e| e.priority) {
-            Some(QueuePriority::VoteRestart) => true,
-            _ => false,
-        };
+        let is_restart = matches!(
+            queued_next.first().map(|e| e.priority),
+            Some(QueuePriority::VoteRestart)
+        );
 
         let players_state = self.live_players.lock().await;
         let records_state = self.live_records.lock().await;

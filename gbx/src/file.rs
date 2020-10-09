@@ -199,10 +199,7 @@ pub fn parse_map_file<P: AsRef<Path>>(path: P) -> anyhow::Result<MapFileHeader> 
     let millis_gold = read_i32!();
     let millis_author = read_i32!();
     let _cost = read_i32!();
-    let is_multi_lap = match read_i32!() {
-        0 => false,
-        _ => true,
-    };
+    let is_multi_lap = !matches!(read_i32!(), 0);
     let _type = read_i32!();
 
     let _ = read_bytes!(4); // skip int32 0
