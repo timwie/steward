@@ -1,9 +1,14 @@
-# Steward &emsp; ![version][badge-version] ![date][badge-date] ![new commits][badge-commits] ![build][badge-build]
 
-[badge-version]: https://img.shields.io/github/v/release/timwie/steward?include_prereleases&style=flat-square
-[badge-date]: https://img.shields.io/github/release-date-pre/timwie/steward?style=flat-square
-[badge-commits]: https://img.shields.io/github/commits-since/timwie/steward/latest?include_prereleases&label=commits%20since&style=flat-square
-[badge-build]: https://img.shields.io/github/workflow/status/timwie/steward/CI?style=flat-square
+<h1 align="center"><img width="256" src="src/res/img/logo-black-padded.png" alt="Steward"/></h1>
+<p align="center">A server controller for <b><a href="https://trackmania.com/">Trackmania</a></b> written in Rust</p>
+<p align="center">
+  <img src="https://img.shields.io/github/v/release/timwie/steward?include_prereleases&style=flat-square"/>
+  <img src="https://img.shields.io/github/release-date-pre/timwie/steward?style=flat-square"/>
+  <img src="https://img.shields.io/github/commits-since/timwie/steward/latest?include_prereleases&label=commits%20since&style=flat-square"/>
+  <img src="https://img.shields.io/github/workflow/status/timwie/steward/CI?style=flat-square"/>
+</p>
+
+---
 
 Steward is a controller for [Trackmania]'s community servers.
 Server controllers can interface with the dedicated servers and game clients
