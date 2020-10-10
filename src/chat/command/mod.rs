@@ -150,7 +150,7 @@ impl CommandContext<'_> {
 
         let mut table = Table::new();
         table.set_format(*format::consts::FORMAT_NO_BORDER_LINE_SEPARATOR);
-        table.set_titles(row!["Command", "Explanation"]);
+        table.set_titles(row!["Command", "Action"]);
 
         table.add_row(row!["/help", "Display this list"]);
         table.add_row(row!["", ""]);

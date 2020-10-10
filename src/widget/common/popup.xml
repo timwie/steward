@@ -112,7 +112,7 @@ Void OnClickConfirm() {
 
 EnableMenuNavigationInputs = True;
 UI_PopupText = (Page.GetFirstChild("textedit") as CMlTextEdit);
-UI_PopupText.Value = """{{ output }}""";
+UI_PopupText.Value = """{{ output|safe }}""";
 
 {% endblock %}
 {# ============================= SCRIPT EVENTS ============================= #}
