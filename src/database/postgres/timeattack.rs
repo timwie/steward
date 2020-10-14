@@ -4,7 +4,9 @@ use async_trait::async_trait;
 use chrono::NaiveDateTime;
 use tokio_postgres::Row;
 
-use crate::database::api::{History, MapRank, Preference, PreferenceValue, TimeAttackQueries};
+use crate::database::timeattack::{
+    History, MapRank, Preference, PreferenceValue, TimeAttackQueries,
+};
 use crate::database::{DatabaseClient, Result};
 use crate::server::DisplayString;
 

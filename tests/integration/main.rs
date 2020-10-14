@@ -4,6 +4,7 @@ use anyhow::Result;
 use chrono::{Duration, NaiveDateTime, SubsecRound, Utc};
 use testcontainers::*;
 
+use steward::database::timeattack::*;
 use steward::database::*;
 use steward::server::{DisplayString, PlayerInfo, TeamId};
 

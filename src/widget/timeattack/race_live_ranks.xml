@@ -3,8 +3,8 @@
 {# ============================= MANIALINK ============================= #}
 {% block manialink %}
 
-{% let textsize_big = 4 %}
-{% let textsize_small = 0.5 %}
+{% let textsize_big = 5 %}
+{% let textsize_small = 1 %}
 
 {% let map_rank_str %}
 {% let server_rank_str %}
@@ -23,25 +23,29 @@
         {% let server_rank_str = "-".to_string() %}
 {% endmatch %}
 
-<quad pos="160 -7.5" valign="bottom" halign="right" size="34 14" bgcolor="000" opacity="0.7" z-index="-100"/>
-<label halign="right" textfont="RajdhaniMono" textcolor="{{col_white}}" textemboss="1" pos="157 -4" text="Timelimit" textsize="{{textsize_small}}"/>
+<label halign="right" textfont="GameFontBlack" pos="158 88" text="$t$iSteward" textcolor="{{col_white}}" opacity="0.2"/>
 
-<quad pos="160 -7.5" halign="right" size="36 12" bgcolor="000"/>
+<quad pos="160 -7.5" valign="bottom" halign="right" size="34 14" bgcolor="000" opacity="0.7" z-index="-100"/>
+<label halign="right" textfont="GameFontSemiBold" textcolor="{{col_white}}" textemboss="1" pos="157 -4" text="Timelimit" textsize="{{textsize_small}}"/>
+
+<quad pos="143 -13.5" halign="center" valign="center" size="34 12" bgcolor="000"/>
+<quad pos="126 -13.5" halign="right" valign="center" size="2 12" bgcolor="{{col_success}}"/>
+<label pos="143 -13" halign="center" valign="center" size="34 12" z-index="1" textcolor="{{col_white}}" textfont="GameFontBlack" text="$i$t Menu" textsize="{{textsize_big}}"/>
 
 <quad pos="160 -19.5" halign="right" size="34 44" bgcolor="000" opacity="0.7" z-index="-100"/>
 
 <frame pos="157 -22">
-    <label id="top1"     halign="right" textfont="RajdhaniMono" textcolor="{{col_white}}" textemboss="1" pos="0 0" textsize="{{textsize_big}}"/>
-    <label               halign="right" textfont="RajdhaniMono" textcolor="{{col_white}}" textemboss="1" pos="0 -5" text="Server Top Record" textsize="{{textsize_small}}"/>
+    <label id="top1"     halign="right" textfont="OswaldMono" textcolor="{{col_white}}" textemboss="1" pos="0 0" textsize="{{textsize_big}}"/>
+    <label               halign="right" textfont="GameFontSemiBold" textcolor="{{col_white}}" textemboss="1" pos="0 -5.5" text="Server Record" textsize="{{textsize_small}}"/>
 
-    <label id="pb"       halign="right" textfont="RajdhaniMono" textcolor="{{col_white}}" textemboss="1" pos="0 -10" textsize="{{textsize_big}}"/>
-    <label               halign="right" textfont="RajdhaniMono" textcolor="{{col_white}}" textemboss="1" pos="0 -15" text="Server Personal Best" textsize="{{textsize_small}}"/>
+    <label id="pb"       halign="right" textfont="OswaldMono" textcolor="{{col_white}}" textemboss="1" pos="0 -10" textsize="{{textsize_big}}"/>
+    <label               halign="right" textfont="GameFontSemiBold" textcolor="{{col_white}}" textemboss="1" pos="0 -15.5" text="Server PB" textsize="{{textsize_small}}"/>
 
-    <label id="map-rank" halign="right" textfont="RajdhaniMono" textcolor="{{col_white}}" textemboss="1" pos="0 -20" text="{{map_rank_str}} / {{max_map_rank}}" textsize="{{textsize_big}}"/>
-    <label               halign="right" textfont="RajdhaniMono" textcolor="{{col_white}}" textemboss="1" pos="0 -25" text="Server Record" textsize="{{textsize_small}}"/>
+    <label id="map-rank" halign="right" textfont="OswaldMono" textcolor="{{col_white}}" textemboss="1" pos="0 -20" text="{{map_rank_str}} / {{max_map_rank}}" textsize="{{textsize_big}}"/>
+    <label               halign="right" textfont="GameFontSemiBold" textcolor="{{col_white}}" textemboss="1" pos="0 -25.5" text="Map Rank" textsize="{{textsize_small}}"/>
 
-    <label               halign="right" textfont="RajdhaniMono" textcolor="{{col_white}}" textemboss="1"  pos="0 -30}" text="{{server_rank_str}} / {{max_server_rank}}" textsize="{{textsize_big}}"/>
-    <label               halign="right" textfont="RajdhaniMono" textcolor="{{col_white}}" textemboss="1" pos="0 -35" text="Server Rank" textsize="{{textsize_small}}"/>
+    <label               halign="right" textfont="OswaldMono" textcolor="{{col_white}}" textemboss="1"  pos="0 -30}" text="{{server_rank_str}} / {{max_server_rank}}" textsize="{{textsize_big}}"/>
+    <label               halign="right" textfont="GameFontSemiBold" textcolor="{{col_white}}" textemboss="1" pos="0 -35.5" text="Server Rank" textsize="{{textsize_small}}"/>
 
 </frame>
 

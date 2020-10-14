@@ -11,9 +11,8 @@ use crate::constants::{
     cdn_prefix, MAX_DISPLAYED_IN_QUEUE, MAX_DISPLAYED_RACE_RANKS, START_HIDE_WIDGET_DELAY_MILLIS,
 };
 use crate::controller::*;
-use crate::database::{
-    DatabaseClient, PlayerQueries, PreferenceValue, RecordQueries, TimeAttackQueries,
-};
+use crate::database::timeattack::{PreferenceValue, TimeAttackQueries};
+use crate::database::{DatabaseClient, PlayerQueries, RecordQueries};
 use crate::event::*;
 use crate::server::{Calls, Fault, PlayerInfo, Server};
 use crate::widget::timeattack::*;
@@ -87,14 +86,11 @@ impl WidgetController {
         // nothing to do here, we simply continue to display the outro widgets
     }
 
-    /// For the specified player, remove widgets that are displayed during the intro,
+    /// Remove widgets that are displayed during the intro,
     /// and add widgets that are displayed during the race.
-    pub async fn end_intro_for(&self, player_login: &str) {
-        let players_state = self.live_players.lock().await;
-        if let Some(info) = players_state.info(player_login) {
-            self.hide_outro_widgets_for(info.uid).await;
-            self.show_race_widgets_for(info).await;
-        }
+    pub async fn end_intro(&self) {
+        self.hide_outro_widgets().await;
+        self.show_race_widgets().await;
     }
 
     /// Add widgets displayed in between player runs.
@@ -298,7 +294,18 @@ impl WidgetController {
         self.show_for(&ml, for_uid).await;
     }
 
-    async fn hide_for_delayed<T>(&self, for_uid: i32, delay: Duration)
+    async fn delay_hide<T>(&self, delay: Duration)
+    where
+        T: SingletonWidget,
+    {
+        let controller = self.clone();
+        let _ = tokio::spawn(async move {
+            tokio::time::delay_for(delay.to_std().expect("failed to hide widget with delay")).await;
+            controller.hide_singleton::<T>().await;
+        });
+    }
+
+    async fn delay_hide_singleton_for<T>(&self, for_uid: i32, delay: Duration)
     where
         T: SingletonWidget,
     {
@@ -307,6 +314,13 @@ impl WidgetController {
             tokio::time::delay_for(delay.to_std().expect("failed to hide widget with delay")).await;
             controller.hide_singleton_for::<T>(for_uid).await;
         });
+    }
+
+    async fn show_race_widgets(&self) {
+        let players_state = self.live_players.lock().await;
+        for player in players_state.info_all() {
+            self.show_race_widgets_for(player).await;
+        }
     }
 
     async fn show_race_widgets_for(&self, player: &PlayerInfo) {
@@ -344,12 +358,11 @@ impl WidgetController {
         }
     }
 
-    async fn hide_outro_widgets_for(&self, for_uid: i32) {
+    async fn hide_outro_widgets(&self) {
         macro_rules! hide_after_delay {
             () => {};
             ($typ:tt, $($tail:tt)*) => {
-                self.hide_for_delayed::<$typ>(
-                    for_uid,
+                self.delay_hide::<$typ>(
                     Duration::milliseconds(START_HIDE_WIDGET_DELAY_MILLIS),
                 ).await;
                 hide_after_delay!($($tail)*);
@@ -420,7 +433,7 @@ impl WidgetController {
 
     async fn hide_run_outro_for(&self, player_login: &str) {
         if let Some(uid) = self.live_players.uid(player_login).await {
-            self.hide_for_delayed::<RunOutroWidget>(
+            self.delay_hide_singleton_for::<RunOutroWidget>(
                 uid,
                 Duration::milliseconds(START_HIDE_WIDGET_DELAY_MILLIS),
             )

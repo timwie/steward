@@ -102,8 +102,9 @@ impl Command<'_> {
     /// Returns an error variant if the command is unknown, was provided
     /// wrong arguments, or when it cannot be executed in this context.
     pub fn try_from(ctxt: CommandContext) -> Result<Command, CommandDeniedError> {
-        if ctxt.cmd.trim() == "/help" {
-            return Ok(Command::Help);
+        match ctxt.cmd.trim() {
+            "/" | "/h" | "/help" => return Ok(Command::Help),
+            _ => {}
         }
 
         macro_rules! try_command_set {

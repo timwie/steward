@@ -1,7 +1,7 @@
 use askama::Template;
 use chrono::NaiveDateTime;
 
-use crate::database::PreferenceValue;
+use crate::database::timeattack::PreferenceValue;
 use crate::server::DisplayString;
 use crate::widget::ActivePreferenceValue;
 

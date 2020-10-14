@@ -63,9 +63,7 @@ impl Controller {
                 self.widget.begin_intro().await;
             }
 
-            EndIntro { player_login } => {
-                self.widget.end_intro_for(&player_login).await;
-            }
+            EndIntro { .. } => {}
 
             FinishRun(pb_diff) => {
                 self.widget.begin_run_outro_for(&pb_diff).await;

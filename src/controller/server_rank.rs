@@ -10,7 +10,8 @@ use tokio::sync::{RwLock, RwLockReadGuard};
 
 use crate::constants::MAX_DISPLAYED_SERVER_RANKS;
 use crate::controller::LivePlayers;
-use crate::database::{DatabaseClient, RecordQueries, TimeAttackQueries};
+use crate::database::timeattack::TimeAttackQueries;
+use crate::database::{DatabaseClient, RecordQueries};
 use crate::event::{ServerRankDiff, ServerRankingDiff};
 use crate::server::{Calls, DisplayString, Server};
 

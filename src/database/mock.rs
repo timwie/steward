@@ -4,10 +4,8 @@ use async_trait::async_trait;
 use chrono::NaiveDateTime;
 use chrono::Utc;
 
-use crate::database::{
-    History, Map, MapQueries, MapRank, Player, PlayerQueries, Preference, PreferenceValue, Record,
-    RecordEvidence, RecordQueries, TimeAttackQueries,
-};
+use crate::database::timeattack::*;
+use crate::database::*;
 use crate::server::DisplayString;
 use crate::server::PlayerInfo;
 

@@ -199,8 +199,13 @@ impl Controller {
             ServerEvent::ModeScriptSection(PreStartRound { .. }) => {}
             ServerEvent::ModeScriptSection(PostStartRound { .. }) => {}
 
-            ServerEvent::ModeScriptSection(StartPlayloop) => {}
-            ServerEvent::ModeScriptSection(EndPlayloop) => {}
+            ServerEvent::ModeScriptSection(StartPlayloop) => {
+                self.widget.end_intro().await;
+            }
+            ServerEvent::ModeScriptSection(EndPlayloop) => {
+                let outro_ev = ControllerEvent::BeginOutro;
+                self.on_controller_event(outro_ev).await;
+            }
 
             ServerEvent::ModeScriptSection(PreEndRound { .. }) => {}
             ServerEvent::ModeScriptSection(PreEndRoundScores(_)) => {}
@@ -233,10 +238,7 @@ impl Controller {
 
             ServerEvent::ModeScriptSection(PreEndMatch) => {}
             ServerEvent::ModeScriptSection(EndMatchScores(_)) => {}
-            ServerEvent::ModeScriptSection(PostEndMatch) => {
-                let outro_ev = ControllerEvent::BeginOutro;
-                self.on_controller_event(outro_ev).await;
-            }
+            ServerEvent::ModeScriptSection(PostEndMatch) => {}
 
             ServerEvent::ModeScriptSection(PreEndServer) => {}
             ServerEvent::ModeScriptSection(PostEndServer) => {}

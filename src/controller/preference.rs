@@ -10,9 +10,8 @@ use tokio::sync::{RwLock, RwLockReadGuard};
 
 use crate::chat::PlayerMessage;
 use crate::controller::{tell, LivePlayers, LivePlaylist, PlayersState};
-use crate::database::{
-    DatabaseClient, History, Map, Preference, PreferenceValue, RecordQueries, TimeAttackQueries,
-};
+use crate::database::timeattack::{History, Preference, PreferenceValue, TimeAttackQueries};
+use crate::database::{DatabaseClient, Map, RecordQueries};
 use crate::event::{PlayerDiff, PlayerTransition, PlaylistDiff};
 use crate::server::{Calls, PlayerInfo, Server};
 use crate::widget::ActivePreferenceValue;
