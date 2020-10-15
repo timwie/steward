@@ -95,6 +95,16 @@ pub enum AdminCommand<'a> {
     ///
     /// Usage: `/warmup skip`
     SkipWarmup,
+
+    /// Kick a player from the server.
+    ///
+    /// Usage: `/kick <login/nick>`
+    KickPlayer { login_or_display_name: &'a str },
+
+    /// Move a player to a spectator slot.
+    ///
+    /// Usage: `/bounce <login/nick>`
+    MovePlayerToSpectator { login_or_display_name: &'a str },
 }
 
 lazy_static! {
@@ -130,6 +140,12 @@ lazy_static! {
                 secs: Default::default(),
             },
             SkipWarmup,
+            KickPlayer {
+                login_or_display_name: Default::default(),
+            },
+            MovePlayerToSpectator {
+                login_or_display_name: Default::default(),
+            },
         ]
     };
 }
@@ -148,8 +164,14 @@ impl<'a> CommandEnum<'a> for AdminCommand<'a> {
             ["/blacklist", "add", login] => Some(BlacklistAdd { login: *login }),
             ["/blacklist", "remove", login] => Some(BlacklistRemove { login: *login }),
             ["/blacklist", "clear"] => Some(BlacklistClear),
+            ["/bounce", name] => Some(MovePlayerToSpectator {
+                login_or_display_name: *name,
+            }),
             ["/config"] => Some(EditConfig),
             ["/import", "map", id] => Some(ImportMap { id: *id }),
+            ["/kick", name] => Some(KickPlayer {
+                login_or_display_name: *name,
+            }),
             ["/maps"] => Some(ListMaps),
             ["/pause"] => Some(TogglePause),
             ["/players"] => Some(ListPlayers),
@@ -221,6 +243,10 @@ impl<'a> CommandEnum<'a> for AdminCommand<'a> {
                 ("/warmup add <seconds>", "Extend the current warmup round").into()
             }
             SkipWarmup => ("/warmup skip", "End the current warmup section").into(),
+            KickPlayer { .. } => ("/kick <login/nick>", "Kick a player from the server").into(),
+            MovePlayerToSpectator { .. } => {
+                ("/bounce <login/nick>", "Force a player to spectate").into()
+            }
         }
     }
 }

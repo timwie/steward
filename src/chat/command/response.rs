@@ -80,7 +80,7 @@ pub enum CommandErrorResponse<'a> {
 
     /// The specified login does not match any player.
     ///
-    /// Output for `/delete player`
+    /// Output for `/delete player`, `/kick`, `/bounce`
     UnknownPlayer,
 
     /// The specified login does not match any blacklisted player.

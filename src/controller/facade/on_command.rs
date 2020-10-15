@@ -299,6 +299,54 @@ impl Controller {
                     self.widget.show_popup(msg, &from.login).await;
                 }
             }
+
+            KickPlayer {
+                login_or_display_name,
+            } => {
+                let players_state = self.players.lock().await;
+
+                let maybe_player = players_state
+                    .info(&login_or_display_name)
+                    .or_else(|| players_state.display_name_info(&login_or_display_name));
+
+                let player = match maybe_player {
+                    Some(player) => player,
+                    None => {
+                        let msg = CommandResponse::Error(CommandErrorResponse::UnknownPlayer);
+                        self.widget.show_popup(msg, &from.login).await;
+                        return;
+                    }
+                };
+
+                if self.server.kick_player(&player.login, None).await.is_err() {
+                    let msg = CommandResponse::Error(CommandErrorResponse::UnknownPlayer);
+                    self.widget.show_popup(msg, &from.login).await;
+                }
+            }
+
+            MovePlayerToSpectator {
+                login_or_display_name,
+            } => {
+                let players_state = self.players.lock().await;
+
+                let maybe_player = players_state
+                    .info(&login_or_display_name)
+                    .or_else(|| players_state.display_name_info(&login_or_display_name));
+
+                let player = match maybe_player {
+                    Some(player) => player,
+                    None => {
+                        let msg = CommandResponse::Error(CommandErrorResponse::UnknownPlayer);
+                        self.widget.show_popup(msg, &from.login).await;
+                        return;
+                    }
+                };
+
+                if self.server.force_pure_spectator(player.uid).await.is_err() {
+                    let msg = CommandResponse::Error(CommandErrorResponse::UnknownPlayer);
+                    self.widget.show_popup(msg, &from.login).await;
+                }
+            }
         };
     }
 

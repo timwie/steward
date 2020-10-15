@@ -112,9 +112,16 @@ impl PlayersState {
             .and_then(|u| self.uid_to_info.get(u))
     }
 
-    /// Return detailed information for the given login.
+    /// Return detailed information for the given ID.
     pub fn uid_info(&self, player_uid: i32) -> Option<&PlayerInfo> {
         self.uid_to_info.get(&player_uid)
+    }
+
+    /// Return detailed information for the given display name.
+    pub fn display_name_info(&self, plain_display_name: &str) -> Option<&PlayerInfo> {
+        self.uid_to_info
+            .values()
+            .find(|info| info.display_name.plain() == plain_display_name)
     }
 
     /// Return information for all connected players and spectators.
