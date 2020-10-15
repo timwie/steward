@@ -136,77 +136,6 @@ async fn test_player_update() -> Result<()> {
 }
 
 #[tokio::test]
-async fn test_nb_records_zero() -> Result<()> {
-    let db = clean_db().await?;
-    assert_eq!(0, db.nb_records("uid1", 0).await?);
-
-    let map = map("uid1", "file1");
-    db.upsert_map(&map, vec![]).await?;
-    assert_eq!(0, db.nb_records("uid1", 0).await?);
-
-    Ok(())
-}
-
-#[tokio::test]
-async fn test_nb_records_one() -> Result<()> {
-    let db = clean_db().await?;
-
-    let player = player_info("login", "nickname");
-    let map = map("uid1", "file1");
-    let rec = record_evidence("login", "uid1", 10000);
-    db.upsert_player(&player).await?;
-    db.upsert_map(&map, vec![]).await?;
-    db.upsert_record(&rec).await?;
-
-    assert_eq!(1, db.nb_records("uid1", 0).await?);
-
-    Ok(())
-}
-
-#[tokio::test]
-async fn test_nb_records_multiple_maps() -> Result<()> {
-    let db = clean_db().await?;
-
-    let player1 = player_info("login1", "nickname1");
-    let player2 = player_info("login2", "nickname2");
-    let map1 = map("uid1", "file1");
-    let map2 = map("uid2", "file2");
-    let rec11 = record_evidence("login1", "uid1", 10000);
-    let rec12 = record_evidence("login2", "uid1", 10000);
-    let rec21 = record_evidence("login1", "uid2", 10000);
-    db.upsert_player(&player1).await?;
-    db.upsert_player(&player2).await?;
-    db.upsert_map(&map1, vec![]).await?;
-    db.upsert_map(&map2, vec![]).await?;
-    db.upsert_record(&rec11).await?;
-    db.upsert_record(&rec12).await?;
-    db.upsert_record(&rec21).await?;
-
-    assert_eq!(2, db.nb_records("uid1", 0).await?);
-    assert_eq!(1, db.nb_records("uid2", 0).await?);
-
-    Ok(())
-}
-
-#[tokio::test]
-async fn test_nb_records_one_per_player() -> Result<()> {
-    let db = clean_db().await?;
-
-    let player = player_info("login", "nickname");
-    let map = map("uid1", "file1");
-    let rec1 = record_evidence("login", "uid1", 10000);
-    let rec2 = record_evidence("login", "uid1", 9000);
-    db.upsert_player(&player).await?;
-    db.upsert_map(&map, vec![]).await?;
-    db.upsert_record(&rec1).await?;
-    db.upsert_record(&rec2).await?;
-
-    assert_eq!(1, db.nb_records("uid1", 0).await?);
-
-    Ok(())
-}
-
-#[tokio::test]
 async fn test_player_record_some() -> Result<()> {
     let db = clean_db().await?;
 
@@ -217,7 +146,7 @@ async fn test_player_record_some() -> Result<()> {
     db.upsert_map(&map, vec![]).await?;
     db.upsert_record(&rec).await?;
 
-    let expected = record(1, "nickname", rec);
+    let expected = record(1, 1, "nickname", rec);
     let expected = Some(expected);
 
     let actual = db.player_record("uid1", "login", 0).await?;
@@ -237,7 +166,7 @@ async fn test_records_single() -> Result<()> {
     db.upsert_map(&map, vec![]).await?;
     db.upsert_record(&rec).await?;
 
-    let expected = record(1, "nickname", rec);
+    let expected = record(1, 1, "nickname", rec);
     let expected = vec![expected];
 
     let actual = db.records(vec!["uid1"], vec!["login"], 0, None).await?;
@@ -261,8 +190,8 @@ async fn test_records_multiple_players() -> Result<()> {
     db.upsert_record(&rec1).await?;
     db.upsert_record(&rec2).await?;
 
-    let expected1 = record(1, "nickname1", rec1);
-    let expected2 = record(2, "nickname2", rec2);
+    let expected1 = record(1, 2, "nickname1", rec1);
+    let expected2 = record(2, 2, "nickname2", rec2);
     let expected = vec![expected1, expected2];
 
     let actual = db
@@ -290,7 +219,7 @@ async fn test_records_multiple_maps() -> Result<()> {
     db.upsert_record(&rec1).await?;
     db.upsert_record(&rec2).await?;
 
-    let expected = record(1, "nickname1", rec1);
+    let expected = record(1, 1, "nickname1", rec1);
     let expected = vec![expected];
 
     let actual = db
@@ -602,10 +531,11 @@ fn record_evidence(login: &str, map_uid: &str, millis: i32) -> RecordEvidence {
     }
 }
 
-fn record(pos: i64, display_name: &str, ev: RecordEvidence) -> Record {
+fn record(pos: i64, max_pos: i64, display_name: &str, ev: RecordEvidence) -> Record {
     Record {
         map_uid: ev.map_uid,
         map_rank: pos,
+        max_map_rank: max_pos,
         player_login: ev.player_login,
         player_display_name: DisplayString::from(display_name.to_string()),
         millis: ev.millis,

@@ -17,6 +17,7 @@ use crate::event::*;
 use crate::server::{Calls, Fault, PlayerInfo, Server};
 use crate::widget::timeattack::*;
 use crate::widget::*;
+use std::ops::Deref;
 
 /// This controller collects cached & event data,
 /// to build and send widgets to connected players.
@@ -206,9 +207,7 @@ impl WidgetController {
     /// Update any widget that displays the server's playlist.
     pub async fn refresh_playlist(&self) {
         let players_state = self.live_players.lock().await;
-        for info in players_state.info_all() {
-            self.show_playlist_for(&info).await;
-        }
+        self.show_playlists(&players_state.info_all()).await;
     }
 
     /// Update any widget that displays the server's map queue or schedule.
@@ -227,9 +226,7 @@ impl WidgetController {
     /// Update any widget that displays the server's map schedule.
     pub async fn refresh_schedule(&self) {
         let players_state = self.live_players.lock().await;
-        for info in players_state.info_all() {
-            self.show_schedule_for(&info).await;
-        }
+        self.show_schedules(&players_state.info_all()).await;
     }
 
     /// Display a popup message to the specified player.
@@ -397,24 +394,40 @@ impl WidgetController {
         self.show_singleton_for(&map_ranking_widget, player.uid)
             .await;
 
-        self.show_playlist_for(&player).await;
-        self.show_schedule_for(&player).await;
+        self.show_playlists(&[&player]).await;
+
+        self.show_schedules(&[&player]).await;
     }
 
-    async fn show_playlist_for(&self, player: &PlayerInfo) {
+    async fn show_playlists(&self, for_players: &[&PlayerInfo]) {
         let playlist_state = self.live_playlist.lock().await;
         let preferences_state = self.live_prefs.lock().await;
+        let queue_state = self.live_queue.lock().await;
 
-        let playlist_widget = self
-            .curr_map_list(&*playlist_state, &*preferences_state, &player)
+        let playlist_widgets = self
+            .playlists(
+                &*playlist_state,
+                &*queue_state,
+                &*preferences_state,
+                for_players,
+            )
             .await;
 
-        self.show_singleton_for(&playlist_widget, player.uid).await;
+        join_all(for_players.iter().zip(playlist_widgets.into_iter()).map(
+            |(player, playlist)| async move {
+                let ml = playlist.manialink();
+                self.show_for(&ml, player.uid).await;
+            },
+        ))
+        .await;
     }
 
-    async fn show_schedule_for(&self, player: &PlayerInfo) {
-        let schedule_widget = ScheduleWidget {};
-        self.show_singleton_for(&schedule_widget, player.uid).await;
+    async fn show_schedules(&self, for_players: &[&PlayerInfo]) {
+        join_all(for_players.iter().map(|player| async move {
+            let schedule_widget = ScheduleWidget {};
+            self.show_singleton_for(&schedule_widget, player.uid).await;
+        }))
+        .await;
     }
 
     async fn show_run_outro_for(&self, diff: &PbDiff) {
@@ -648,50 +661,80 @@ impl WidgetController {
         }
     }
 
-    async fn curr_map_list<'a>(
+    async fn playlists<'a>(
         &self,
         playlist_state: &'a PlaylistState,
-        prefs: &'a PreferencesState,
-        for_player: &'a PlayerInfo,
-    ) -> PlaylistWidget<'a> {
+        queue_state: &'a QueueState,
+        pref_state: &'a PreferencesState,
+        for_players: &[&'a PlayerInfo],
+    ) -> Vec<PlaylistWidget<'a>> {
+        let map_uids = playlist_state
+            .maps
+            .iter()
+            .map(|map| map.uid.deref())
+            .collect();
+        let player_logins = for_players.iter().map(|p| p.login.deref()).collect();
+        let nb_laps = 0; // this is only for TimeAttack
+        let limit_per_map = None;
+
+        let records = self
+            .db
+            .records(map_uids, player_logins, nb_laps, limit_per_map)
+            .await
+            .expect("failed to load records");
+
         let curr_map_uid = playlist_state.current_map().map(|m| &m.uid);
-        let mut maps = join_all(playlist_state.maps.iter().map(|map| async move {
-            let preference = prefs.pref(for_player.uid, &map.uid);
-            let history = prefs.history(for_player.uid, &map.uid);
-            let nb_records = self
-                .db
-                .nb_records(&map.uid, 0)
-                .await
-                .expect("failed to load number of records") as usize;
-            let map_rank = self
-                .db
-                .player_record(&map.uid, &for_player.login, 0)
-                .await
-                .expect("failed to load player PB")
-                .map(|rec| rec.map_rank as usize);
-            PlaylistWidgetEntry {
-                map_uid: &map.uid,
-                map_name: &map.name,
-                map_author_display_name: &map.author_display_name,
-                preference,
-                nb_records,
-                map_rank,
-                added_since: map.added_since,
-                is_current_map: Some(&map.uid) == curr_map_uid,
-                last_played: history.and_then(|h| h.last_played),
-                queue_pos: self
-                    .live_queue
-                    .pos(&map.uid)
-                    .await
-                    .expect("failed to get queue priority"),
-            }
-        }))
-        .await;
-        maps.sort();
-        PlaylistWidget {
-            cdn: cdn_prefix(),
-            entries: maps,
-        }
+
+        for_players
+            .iter()
+            .map(|player| {
+                let entries = playlist_state
+                    .maps
+                    .iter()
+                    .map(|map| {
+                        let playlist_idx = playlist_state.index_of(&map.uid).unwrap();
+                        let queue_pos = queue_state
+                            .entries
+                            .iter()
+                            .find_map(|entry| {
+                                if entry.playlist_idx == playlist_idx {
+                                    Some(entry.pos)
+                                } else {
+                                    None
+                                }
+                            })
+                            .unwrap();
+
+                        let preference = pref_state.pref(player.uid, &map.uid);
+                        let history = pref_state.history(player.uid, &map.uid);
+
+                        let record = records
+                            .iter()
+                            .find(|rec| rec.player_login == player.login && rec.map_uid == map.uid);
+                        let nb_records = record.map(|rec| rec.max_map_rank).unwrap_or(0) as usize;
+                        let map_rank = record.map(|rec| rec.map_rank as usize);
+
+                        PlaylistWidgetEntry {
+                            map_uid: &map.uid,
+                            map_name: &map.name,
+                            map_author_display_name: &map.author_display_name,
+                            preference,
+                            nb_records,
+                            map_rank,
+                            added_since: map.added_since,
+                            is_current_map: Some(&map.uid) == curr_map_uid,
+                            last_played: history.and_then(|h| h.last_played),
+                            queue_pos,
+                        }
+                    })
+                    .collect();
+
+                PlaylistWidget {
+                    cdn: cdn_prefix(),
+                    entries,
+                }
+            })
+            .collect()
     }
 }
 

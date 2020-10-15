@@ -200,17 +200,16 @@ impl RecordController {
         //  => check if there are multiple laps in the current mode,
         //     and if so, fetch all records matching that lap count as well
 
-        let nb_records = self
-            .db
-            .nb_records(&loaded_map.uid, 0)
-            .await
-            .expect("failed to load number of map records") as usize;
-
         let top1 = self
             .db
             .top_record(&loaded_map.uid, 0)
             .await
             .expect("failed to load map's top1 record");
+
+        let nb_records = match &top1 {
+            Some(rec) => rec.max_map_rank,
+            None => 0,
+        };
 
         let top_records = self
             .db
@@ -221,7 +220,7 @@ impl RecordController {
         let mut records_state = self.state.write().await;
         records_state.top_record = top1;
         records_state.top_records = top_records;
-        records_state.nb_records = nb_records;
+        records_state.nb_records = nb_records as usize;
         records_state.pbs.clear();
 
         let players_state = self.live_players.lock().await;
@@ -274,7 +273,9 @@ impl RecordController {
         let prev_pb_pos = prev_pb.map(|rec| rec.map_rank as usize);
         let prev_pb_diff = prev_pb.map(|rec| finish_ev.race_time_millis - rec.millis);
 
+        let is_first_pb = prev_pb_diff.is_none();
         let is_new_pb = prev_pb_diff.map(|millis| millis < 0).unwrap_or(true);
+
         if !is_new_pb {
             return Some(PbDiff {
                 player_uid: player.uid,
@@ -284,6 +285,11 @@ impl RecordController {
                 new_record: None,
                 pos_gained: 0,
             });
+        }
+
+        if is_first_pb {
+            records_state.nb_records += 1;
+            // FIXME update all records' max_map_rank
         }
 
         let evidence = RecordEvidence {
@@ -315,6 +321,7 @@ impl RecordController {
         let record = Record {
             map_uid: evidence.map_uid,
             map_rank: new_pos as i64,
+            max_map_rank: records_state.nb_records as i64,
             player_login: player.login.clone(),
             player_display_name: player.display_name.clone(),
             timestamp: evidence.timestamp,

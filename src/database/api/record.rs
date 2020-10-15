@@ -33,6 +33,9 @@ pub struct Record {
     /// in the ranking of all records with the same lap count on this map.
     pub map_rank: i64,
 
+    /// The number of players that have set a record on the map this record was set on.
+    pub max_map_rank: i64,
+
     /// The formatted display name of the player that has set this record.
     pub player_display_name: DisplayString,
 
@@ -45,12 +48,6 @@ pub struct Record {
 
 #[async_trait]
 pub trait RecordQueries {
-    /// Return the number of players that have set a record on the specified map,
-    /// with the specified lap count.
-    ///
-    /// Use `nb_laps = 0` if the map is not multi-lap, or to count flying lap records.
-    async fn nb_records(&self, map_uid: &str, nb_laps: i32) -> Result<i64>;
-
     /// Return records on the specified maps, set by the specified players, with the specified
     /// amount of laps.
     ///

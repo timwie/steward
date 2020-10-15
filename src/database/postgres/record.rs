@@ -6,17 +6,6 @@ use crate::server::DisplayString;
 
 #[async_trait]
 impl RecordQueries for DatabaseClient {
-    async fn nb_records(&self, map_uid: &str, nb_laps: i32) -> Result<i64> {
-        let conn = self.pool.get().await?;
-        let stmt = r#"
-            SELECT COUNT(*) AS INTEGER
-            FROM steward.record
-            WHERE map_uid = $1 AND nb_laps = $2;
-        "#;
-        let row = conn.query_one(stmt, &[&map_uid, &nb_laps]).await?;
-        Ok(row.get(0))
-    }
-
     async fn records(
         &self,
         map_uids: Vec<&str>,
@@ -27,7 +16,7 @@ impl RecordQueries for DatabaseClient {
         let conn = self.pool.get().await?;
         let stmt = r#"
             SELECT
-                r.map_uid, r.pos, r.millis, r.timestamp,
+                r.map_uid, r.pos, r.max_pos, r.millis, r.timestamp,
                 p.login, p.display_name
             FROM (
                 SELECT
@@ -37,15 +26,16 @@ impl RecordQueries for DatabaseClient {
                    timestamp,
                    RANK () OVER (
                       ORDER BY millis ASC
-                   ) pos
+                   ) pos,
+                   COUNT(*) OVER (PARTITION BY map_uid) max_pos
                 FROM steward.record
-                WHERE
-                    nb_laps = $3
-                    AND (CARDINALITY($1::text[]) = 0 OR map_uid = ANY($1::text[]))
-                    AND (CARDINALITY($2::text[]) = 0 OR player_login = ANY($2::text[]))
+                WHERE nb_laps = $3
                 LIMIT $4
             ) r
             INNER JOIN steward.player p ON r.player_login = p.login
+            WHERE
+                (CARDINALITY($1::text[]) = 0 OR r.map_uid = ANY($1::text[]))
+                AND (CARDINALITY($2::text[]) = 0 OR r.player_login = ANY($2::text[]))
         "#;
         let rows = conn
             .query(stmt, &[&map_uids, &player_logins, &nb_laps, &limit_per_map])
@@ -57,6 +47,7 @@ impl RecordQueries for DatabaseClient {
                 player_login: row.get("login"),
                 nb_laps,
                 map_rank: row.get("pos"),
+                max_map_rank: row.get("max_pos"),
                 player_display_name: DisplayString::from(row.get("display_name")),
                 timestamp: row.get("timestamp"),
                 millis: row.get("millis"),

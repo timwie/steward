@@ -17,21 +17,16 @@ pub const USER_AGENT: &str = concat!(
     ")"
 );
 
-/// Images used by widgets are located in the `src/res/img`, but need
-/// to be hosted somewhere. Using jsDelivr, we can serve files from the GitHub
-/// repository via their CDN.
-///
+/// Images used by widgets are located in the `src/res/img`, but need to be hosted somewhere.
+/// We'll serve the images from the GitHub repository of this project.
 /// The master branch is used during development, while the files at the specific version tag
 /// are used in production.
-///
-/// Reference: https://www.jsdelivr.com/features#gh
-// use @<branch>, @<tag>, or @latest (most recent tag)
 pub const fn cdn_prefix() -> &'static str {
     if cfg!(debug_assertions) {
-        "https://cdn.jsdelivr.net/gh/timwie/steward@master/src/res/img"
+        "https://raw.githubusercontent.com/timwie/steward/master/src/res/img/"
     } else {
         concat!(
-            "https://cdn.jsdelivr.net/gh/timwie/steward@v",
+            "https://raw.githubusercontent.com/timwie/steward/",
             env!("CARGO_PKG_VERSION"),
             "/src/res/img"
         )

@@ -79,10 +79,6 @@ impl MapQueries for DatabaseClient {
 
 #[async_trait]
 impl RecordQueries for DatabaseClient {
-    async fn nb_records(&self, _map_uid: &str, _nb_laps: i32) -> Result<i64> {
-        unimplemented!()
-    }
-
     async fn records(
         &self,
         _map_uids: Vec<&str>,
