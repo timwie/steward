@@ -13,7 +13,7 @@ use crate::controller::{Controller, LiveConfig, LivePlayers, LivePlaylist};
 use crate::database::{MapQueries, PlayerQueries};
 use crate::event::{ControllerEvent, PlaylistDiff};
 use crate::network::most_recent_controller_version;
-use crate::server::{Calls, ModeCalls, PlayerInfo, RoundBasedModeCalls};
+use crate::server::{Calls, ModeCalls, ModeScript, PlayerInfo, RoundBasedModeCalls};
 
 impl Controller {
     pub(super) async fn on_cmd(&self, from: &PlayerInfo, cmd: PlayerCommand) {
@@ -345,6 +345,107 @@ impl Controller {
                 if self.server.force_pure_spectator(player.uid).await.is_err() {
                     let msg = CommandResponse::Error(CommandErrorResponse::UnknownPlayer);
                     self.widget.show_popup(msg, &from.login).await;
+                }
+            }
+
+            ChangeMode { script_name } => {
+                let maybe_default_mode = ModeScript::default_modes()
+                    .into_iter()
+                    .find(|mode| mode.name().to_lowercase() == script_name.to_lowercase());
+
+                match maybe_default_mode {
+                    None => {
+                        let msg = CommandResponse::Error(CommandErrorResponse::UnknownMode {
+                            tried: script_name,
+                            options: ModeScript::default_modes(),
+                        });
+                        self.widget.show_popup(msg, &from.login).await;
+                    }
+                    Some(mode) => match self.server.set_mode(mode.clone()).await {
+                        Ok(_) => {
+                            announce(
+                                &self.server,
+                                ServerMessage::ModeChanging { admin_name, mode },
+                            )
+                            .await;
+                        }
+                        Err(fault) => {
+                            let msg =
+                                CommandResponse::Error(CommandErrorResponse::CannotChangeMode {
+                                    msg: &fault.msg,
+                                });
+                            self.widget.show_popup(msg, &from.login).await;
+                        }
+                    },
+                }
+            }
+
+            LoadSettings { file_name } => {
+                let file_name = format!("{}.txt", file_name.trim_end_matches(".txt"));
+
+                match self.server.load_match_settings(&file_name).await {
+                    Ok(_) => {
+                        announce(
+                            &self.server,
+                            ServerMessage::LoadedMatchSettings {
+                                admin_name,
+                                settings_name: &file_name.trim_end_matches(".txt"),
+                            },
+                        )
+                        .await;
+                    }
+                    Err(_) => {
+                        let dir = self
+                            .server
+                            .user_data_dir()
+                            .await
+                            .join("Maps")
+                            .join("MatchSettings");
+                        let paths =
+                            std::fs::read_dir(dir).expect("failed to list match settings files");
+
+                        let mut options: Vec<String> = paths
+                            .filter_map(|entry| {
+                                let entry = entry.expect("failed to list match settings files");
+                                match entry.file_name().to_str() {
+                                    Some(name) if name.ends_with(".txt") => Some(name.to_string()),
+                                    _ => None,
+                                }
+                            })
+                            .collect();
+                        options.sort();
+
+                        let msg =
+                            CommandResponse::Error(CommandErrorResponse::UnknownMatchSettings {
+                                tried: &file_name,
+                                options,
+                            });
+                        self.widget.show_popup(msg, &from.login).await;
+                    }
+                }
+            }
+
+            SaveSettings { file_name } => {
+                let file_name = format!("{}.txt", file_name.trim_end_matches(".txt"));
+
+                match self.server.save_match_settings(&file_name).await {
+                    Ok(_) => {
+                        announce(
+                            &self.server,
+                            ServerMessage::SavedMatchSettings {
+                                admin_name,
+                                settings_name: &file_name.trim_end_matches(".txt"),
+                            },
+                        )
+                        .await;
+                    }
+                    Err(fault) => {
+                        let msg =
+                            CommandResponse::Error(CommandErrorResponse::CannotSaveMatchSettings {
+                                msg: &fault.msg,
+                            });
+                        self.widget.show_popup(msg, &from.login).await;
+                    }
                 }
             }
         };

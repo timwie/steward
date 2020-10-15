@@ -5,7 +5,7 @@ use semver::Version;
 use crate::chat::{BadCommandContext, CommandContext, CommandDeniedError, DangerousCommand};
 use crate::config::TimeAttackConfig;
 use crate::database::{Map, Player};
-use crate::server::{PlayerInfo, ServerBuildInfo, ServerNetStats};
+use crate::server::{ModeScript, PlayerInfo, ServerBuildInfo, ServerNetStats};
 use prettytable::format::consts::FORMAT_NO_BORDER_LINE_SEPARATOR;
 use prettytable::{cell, row, Table};
 
@@ -114,6 +114,32 @@ pub enum CommandErrorResponse<'a> {
     ///
     /// Output for any `/warmup *` command
     NotInWarmup,
+
+    /// Tell an admin that the given name did not match any available game mode.
+    ///
+    /// Output for `/mode` command
+    UnknownMode {
+        tried: &'a str,
+        options: Vec<ModeScript>,
+    },
+
+    /// Tell an admin that the mode could not be changed.
+    ///
+    /// Output for `/mode` command
+    CannotChangeMode { msg: &'a str },
+
+    /// Tell an admin that the given name did not match any available match settings.
+    ///
+    /// Output for `/settings load` command
+    UnknownMatchSettings {
+        tried: &'a str,
+        options: Vec<String>,
+    },
+
+    /// Tell an admin that the current match settings could not be saved to a file.
+    ///
+    /// Output for `/settings save` command
+    CannotSaveMatchSettings { msg: &'a str },
 }
 
 pub enum CommandConfirmResponse<'a> {
@@ -347,6 +373,36 @@ impl Display for CommandResponse<'_> {
             ),
 
             Confirm(_, ConfirmShutdown) => writeln!(f, "Warning: this will stop the server."),
+
+            Error(UnknownMode { tried, options }) => {
+                writeln!(f, "'{}' is not a known game mode.", tried)?;
+                writeln!(f)?;
+                writeln!(f, "The available game modes are:")?;
+
+                for option in options {
+                    writeln!(f, " - {}", option.name())?;
+                }
+
+                Ok(())
+            }
+
+            Error(CannotChangeMode { msg }) => writeln!(f, "Failed to change game mode: {}", msg),
+
+            Error(UnknownMatchSettings { tried, options }) => {
+                writeln!(f, "'{}' is not a known match settings file.", tried)?;
+                writeln!(f)?;
+                writeln!(f, "The available match settings are:")?;
+
+                for option in options {
+                    writeln!(f, " - {}", option)?;
+                }
+
+                Ok(())
+            }
+
+            Error(CannotSaveMatchSettings { msg }) => {
+                writeln!(f, "Failed to save match settings: {}", msg)
+            }
         }
     }
 }

@@ -93,7 +93,7 @@ impl<'a> CommandEnum<'a> for SuperAdminCommand<'a> {
                 "Delete a player from the database",
             )
                 .into(),
-            Prepare(Shutdown) => ("/shutdown", "Shutdown the server.").into(),
+            Prepare(Shutdown) => ("/shutdown", "Shutdown the server").into(),
         }
     }
 }

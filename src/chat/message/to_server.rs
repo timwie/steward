@@ -4,6 +4,7 @@ use chrono::Duration;
 use serde::export::Formatter;
 
 use crate::chat::message::{fmt_time, write_and_reset, write_highlighted, write_start_message};
+use crate::server::ModeScript;
 
 /// Chat announcements from the controller to all players.
 ///
@@ -93,6 +94,24 @@ pub enum ServerMessage<'a> {
 
     /// Tell players that an admin has skipped the remaining warmup.
     WarmupSkipped { admin_name: &'a str },
+
+    /// Tell players that an admin changed the game mode for the next map.
+    ModeChanging {
+        admin_name: &'a str,
+        mode: ModeScript,
+    },
+
+    /// Tell players that an admin loaded match settings from a file.
+    LoadedMatchSettings {
+        admin_name: &'a str,
+        settings_name: &'a str,
+    },
+
+    /// Tell players that an admin saved the current match settings to a file.
+    SavedMatchSettings {
+        admin_name: &'a str,
+        settings_name: &'a str,
+    },
 }
 
 /// A player improved their rank, and took one of the top spots.
@@ -277,6 +296,36 @@ impl Display for ServerMessage<'_> {
                 write!(f, "Admin ")?;
                 write_and_reset(f, admin_name)?;
                 write!(f, " skipped the warmup!")
+            }
+
+            ModeChanging { admin_name, mode } => {
+                write!(f, "Admin ")?;
+                write_and_reset(f, admin_name)?;
+                write!(f, " changed the game mode to ")?;
+                write_highlighted(f, mode.name())?;
+                write!(f, "!")
+            }
+
+            LoadedMatchSettings {
+                admin_name,
+                settings_name,
+            } => {
+                write!(f, "Admin ")?;
+                write_and_reset(f, admin_name)?;
+                write!(f, " loaded the ")?;
+                write_highlighted(f, settings_name)?;
+                write!(f, " match settings!")
+            }
+
+            SavedMatchSettings {
+                admin_name,
+                settings_name,
+            } => {
+                write!(f, "Admin ")?;
+                write_and_reset(f, admin_name)?;
+                write!(f, " saved the current match settings in ")?;
+                write_highlighted(f, settings_name)?;
+                write!(f, "!")
             }
         }
     }

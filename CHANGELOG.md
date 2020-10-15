@@ -23,6 +23,9 @@ All `0.1.0-alpha` releases are unstable, and have missing widgets.
   - `/blacklist clear` removes all players from the blacklist.
   - `/kick <login/nick>` kicks a player from the server.
   - `/bounce <login/nick>` moves a player to spectator mode.
+  - `/mode <name>` changes the game mode for the next map.
+  - `/settings load <name>` load a match settings file.
+  - `/settings save <name>` saves the current match settings to a file.
   
 ### Changed
 - **Admin**: Playlist Management

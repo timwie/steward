@@ -105,6 +105,32 @@ pub enum AdminCommand<'a> {
     ///
     /// Usage: `/bounce <login/nick>`
     MovePlayerToSpectator { login_or_display_name: &'a str },
+
+    /// Change the game mode for the next map.
+    ///
+    /// The argument must be the file name of the mode script relative to `/UserData/Scripts/Modes`.
+    /// The `.Script.txt` suffix may be omitted.
+    ///
+    /// Usage: `/mode <name>`
+    ChangeMode { script_name: &'a str },
+
+    /// Change the current match settings.
+    ///
+    /// A mode change will only take place on the next map.
+    ///
+    /// The argument must be a file name relative to `UserData/Maps/MatchSettings/`.
+    /// The `.txt` suffix may be omitted.
+    ///
+    /// Usage: `/settings load <name>`
+    LoadSettings { file_name: &'a str },
+
+    /// Save the current match settings.
+    ///
+    /// The argument must be a file name relative to `UserData/Maps/MatchSettings/`.
+    /// The `.txt` suffix may be omitted.
+    ///
+    /// Usage: `/settings save <name>`
+    SaveSettings { file_name: &'a str },
 }
 
 lazy_static! {
@@ -146,6 +172,15 @@ lazy_static! {
             MovePlayerToSpectator {
                 login_or_display_name: Default::default(),
             },
+            ChangeMode {
+                script_name: Default::default(),
+            },
+            LoadSettings {
+                file_name: Default::default(),
+            },
+            SaveSettings {
+                file_name: Default::default(),
+            },
         ]
     };
 }
@@ -173,12 +208,15 @@ impl<'a> CommandEnum<'a> for AdminCommand<'a> {
                 login_or_display_name: *name,
             }),
             ["/maps"] => Some(ListMaps),
+            ["/mode", name] => Some(ChangeMode { script_name: *name }),
             ["/pause"] => Some(TogglePause),
             ["/players"] => Some(ListPlayers),
             ["/playlist", "add", uid] => Some(PlaylistAdd { uid: *uid }),
             ["/playlist", "remove", uid] => Some(PlaylistRemove { uid: *uid }),
             ["/queue", uid] => Some(ForceQueue { uid: *uid }),
             ["/restart"] => Some(RestartCurrentMap),
+            ["/settings", "load", name] => Some(LoadSettings { file_name: *name }),
+            ["/settings", "save", name] => Some(SaveSettings { file_name: *name }),
             ["/skip"] => Some(SkipCurrentMap),
             ["/warmup", "add", secs] => match u64::from_str(secs) {
                 Ok(secs) => Some(ExtendWarmup { secs }),
@@ -247,6 +285,13 @@ impl<'a> CommandEnum<'a> for AdminCommand<'a> {
             MovePlayerToSpectator { .. } => {
                 ("/bounce <login/nick>", "Force a player to spectate").into()
             }
+            ChangeMode { .. } => ("/mode <name>", "Change the game mode for the next map").into(),
+            LoadSettings { .. } => ("/settings load <name>", "Load a match settings file").into(),
+            SaveSettings { .. } => (
+                "/settings save <name>",
+                "Save the current match settings to a file",
+            )
+                .into(),
         }
     }
 }
