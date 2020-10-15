@@ -309,14 +309,19 @@ impl Calls for RpcClient {
         players.into_iter().map(|p| p.login).collect()
     }
 
-    async fn load_blacklist(&self, file_name: &str) -> Result<()> {
+    async fn blacklist_load(&self, file_name: &str) -> Result<()> {
         self.call_method_unit("LoadBlackList", args!(file_name))
             .await
     }
 
-    async fn save_blacklist(&self, file_name: &str) -> Result<()> {
+    async fn blacklist_save(&self, file_name: &str) -> Result<()> {
         self.call_method_unit("SaveBlackList", args!(file_name))
             .await
+    }
+
+    async fn blacklist_clear(&self, file_name: &str) -> Result<()> {
+        self.call_method_unit("CleanBlackList", args!()).await?;
+        self.blacklist_save(file_name).await
     }
 
     async fn kick_player(&self, login: &str, reason: Option<&str>) -> Result<()> {

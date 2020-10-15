@@ -118,13 +118,13 @@ async fn load_blacklist(server: &Server) {
         "#;
         std::fs::write(blacklist_file, empty_list).expect("failed to create blacklist file");
         server
-            .save_blacklist(BLACKLIST_FILE)
+            .blacklist_save(BLACKLIST_FILE)
             .await
             .expect("failed to write empty blacklist file");
     }
 
     server
-        .load_blacklist(BLACKLIST_FILE)
+        .blacklist_load(BLACKLIST_FILE)
         .await
         .expect("failed to load blacklist file");
 }

@@ -68,13 +68,18 @@ pub enum AdminCommand<'a> {
     /// Add a player to the server's blacklist, and kick them if they are
     /// currently connected.
     ///
-    /// Usage: `/blacklist <login>`
+    /// Usage: `/blacklist add <login>`
     BlacklistAdd { login: &'a str },
 
     /// Remove a player from the server's blacklist.
     ///
-    /// Usage: `/unblacklist <login>`
+    /// Usage: `/blacklist remove <login>`
     BlacklistRemove { login: &'a str },
+
+    /// Remove all players from the blacklist.
+    ///
+    /// Usage: `/blacklist clear`
+    BlacklistClear,
 
     /// Pause or unpause the match.
     ///
@@ -119,6 +124,7 @@ lazy_static! {
             BlacklistRemove {
                 login: Default::default(),
             },
+            BlacklistClear,
             TogglePause,
             ExtendWarmup {
                 secs: Default::default(),
@@ -139,7 +145,9 @@ impl<'a> CommandEnum<'a> for AdminCommand<'a> {
         let parts: Vec<&str> = chat_message.split_whitespace().collect();
 
         match &parts[..] {
-            ["/blacklist", login] => Some(BlacklistAdd { login: *login }),
+            ["/blacklist", "add", login] => Some(BlacklistAdd { login: *login }),
+            ["/blacklist", "remove", login] => Some(BlacklistRemove { login: *login }),
+            ["/blacklist", "clear"] => Some(BlacklistClear),
             ["/config"] => Some(EditConfig),
             ["/map_import", id] => Some(ImportMap { id: *id }),
             ["/maps"] => Some(ListMaps),
@@ -150,7 +158,6 @@ impl<'a> CommandEnum<'a> for AdminCommand<'a> {
             ["/queue", uid] => Some(ForceQueue { uid: *uid }),
             ["/restart"] => Some(RestartCurrentMap),
             ["/skip"] => Some(SkipCurrentMap),
-            ["/unblacklist", login] => Some(BlacklistRemove { login: *login }),
             ["/warmup", "add", secs] => match u64::from_str(secs) {
                 Ok(secs) => Some(ExtendWarmup { secs }),
                 Err(_) => None,
@@ -200,10 +207,15 @@ impl<'a> CommandEnum<'a> for AdminCommand<'a> {
             SkipCurrentMap => ("/skip", "Start the next map immediately").into(),
             RestartCurrentMap => ("/restart", "Restart the current map after this race").into(),
             ForceQueue { .. } => ("/queue <uid>", "Select the next map").into(),
-            BlacklistAdd { .. } => ("/blacklist <login>", "Add a player to the blacklist").into(),
-            BlacklistRemove { .. } => {
-                ("/unblacklist <login>", "Remove a player from the blacklist").into()
+            BlacklistAdd { .. } => {
+                ("/blacklist add <login>", "Add a player to the blacklist").into()
             }
+            BlacklistRemove { .. } => (
+                "/blacklist remove <login>",
+                "Remove a player from the blacklist",
+            )
+                .into(),
+            BlacklistClear => ("/blacklist clear", "Remove all players from the blacklist").into(),
             TogglePause => ("/pause", "Pause or unpause the current match").into(),
             ExtendWarmup { .. } => {
                 ("/warmup add <seconds>", "Extend the current warmup round").into()

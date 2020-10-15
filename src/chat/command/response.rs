@@ -85,7 +85,7 @@ pub enum CommandErrorResponse<'a> {
 
     /// The specified login does not match any blacklisted player.
     ///
-    /// Output for `/blacklist`
+    /// Output for `/blacklist remove`
     UnknownBlacklistPlayer,
 
     /// Tell a super admin that prior to deleting a player,

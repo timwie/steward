@@ -152,11 +152,15 @@ impl Calls for Server {
         unimplemented!()
     }
 
-    async fn load_blacklist(&self, _file_name: &str) -> Result<()> {
+    async fn blacklist_load(&self, _file_name: &str) -> Result<()> {
         unimplemented!()
     }
 
-    async fn save_blacklist(&self, _file_name: &str) -> Result<()> {
+    async fn blacklist_save(&self, _file_name: &str) -> Result<()> {
+        unimplemented!()
+    }
+
+    async fn blacklist_clear(&self, _file_name: &str) -> Result<()> {
         unimplemented!()
     }
 

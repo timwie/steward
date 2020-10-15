@@ -327,7 +327,7 @@ pub trait Calls {
     ///
     /// Calls method:
     ///     LoadBlackList
-    async fn load_blacklist(&self, file_name: &str) -> Result<()>;
+    async fn blacklist_load(&self, file_name: &str) -> Result<()>;
 
     /// Save the blacklist in the file with specified file name in
     /// the `/UserData/Config/` directory.
@@ -337,7 +337,17 @@ pub trait Calls {
     ///
     /// Calls method:
     ///     SaveBlackList
-    async fn save_blacklist(&self, file_name: &str) -> Result<()>;
+    async fn blacklist_save(&self, file_name: &str) -> Result<()>;
+
+    /// Clear the blacklist at the server and in the given file.
+    ///
+    /// Faults if the specified path is not valid or the file
+    /// could not be written.
+    ///
+    /// Calls methods:
+    /// - CleanBlackList
+    /// - SaveBlackList
+    async fn blacklist_clear(&self, file_name: &str) -> Result<()>;
 
     /// Kick the player with the specified login, with an optional message.
     ///

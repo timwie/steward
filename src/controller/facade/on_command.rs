@@ -199,7 +199,7 @@ impl Controller {
                 let _ = self.server.kick_player(&login, Some("Blacklisted")).await;
                 let _ = self.server.blacklist_add(&login).await;
                 self.server
-                    .save_blacklist(BLACKLIST_FILE)
+                    .blacklist_save(BLACKLIST_FILE)
                     .await
                     .expect("failed to save blacklist file");
 
@@ -223,7 +223,7 @@ impl Controller {
 
                 let _ = self.server.blacklist_remove(&login).await;
                 self.server
-                    .save_blacklist(BLACKLIST_FILE)
+                    .blacklist_save(BLACKLIST_FILE)
                     .await
                     .expect("failed to save blacklist file");
 
@@ -235,6 +235,26 @@ impl Controller {
                     },
                 )
                 .await;
+            }
+
+            BlacklistClear => {
+                let blacklist = self.server.blacklist().await;
+
+                self.server
+                    .blacklist_clear(BLACKLIST_FILE)
+                    .await
+                    .expect("failed to clear blacklist");
+
+                for login in blacklist {
+                    announce(
+                        &self.server,
+                        ServerMessage::PlayerUnblacklisted {
+                            admin_name,
+                            player_name: &try_display_name(login.to_string()).await,
+                        },
+                    )
+                    .await;
+                }
             }
 
             TogglePause => {

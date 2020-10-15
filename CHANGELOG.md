@@ -38,7 +38,10 @@ All `0.1.0-alpha` releases are unstable, and have missing widgets.
   - Players will get useful error messages when trying to execute
     commands that are not available to them.
   - `/info` now lists admins with their display name, rather than their login
-
+  - `/blacklist <login>` was renamed to `/blacklist add <login>`
+  - `/unblacklist <login>` was renamed to `/blacklist remove <login>`
+  - Added `/blacklist clear` which removes all players from the blacklist.
+  
 ### [Commits](https://github.com/timwie/steward/compare/v0.1.0-alpha5...v0.1.0-alpha6)
 
 <br>
