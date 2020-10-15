@@ -20,6 +20,9 @@ All `0.1.0-alpha` releases are unstable, and have missing widgets.
   - `/pause` toggles a match pause, if supported by the game mode.
   - `/warmup add <seconds>` extends an active warmup round.
   - `/warmup skip` ends the remaining warmup.
+  - `/blacklist clear` removes all players from the blacklist.
+  - `/kick <login/nick>` kicks a player from the server.
+  - `/bounce <login/nick>` moves a player to spectator mode.
   
 ### Changed
 - **Admin**: Playlist Management
@@ -32,7 +35,7 @@ All `0.1.0-alpha` releases are unstable, and have missing widgets.
     settings to use the configuration that was used before
     the server was shutdown.
 
-- **Commands**:
+- **Admin Commands**:
   - The command reference is now displayed in a table, and categorized
     to show which commands cannot be executed by the player, and why. 
   - Players will get useful error messages when trying to execute
@@ -40,10 +43,7 @@ All `0.1.0-alpha` releases are unstable, and have missing widgets.
   - `/info` now lists admins with their display name, rather than their login
   - `/blacklist <login>` was renamed to `/blacklist add <login>`
   - `/unblacklist <login>` was renamed to `/blacklist remove <login>`
-  - Added `/blacklist clear` which removes all players from the blacklist.
   - `/map_import <id/uid>` was renamed to `/import map <id/uid>`
-  - Added `/kick <login/nick>` which kicks a player from the server.
-  - Added `/bounce <login/nick>` which moves a player to spectator mode.
 
 ### [Commits](https://github.com/timwie/steward/compare/v0.1.0-alpha5...v0.1.0-alpha6)
 
