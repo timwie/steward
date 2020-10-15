@@ -45,7 +45,7 @@ pub enum AdminCommand<'a> {
     /// - Add it to the database & playlist.
     /// - Queue it as the next map.
     ///
-    /// Usage: `/map_import <id/uid>`
+    /// Usage: `/import map <id/uid>`
     ImportMap { id: &'a str },
 
     /// End the current race immediately.
@@ -149,7 +149,7 @@ impl<'a> CommandEnum<'a> for AdminCommand<'a> {
             ["/blacklist", "remove", login] => Some(BlacklistRemove { login: *login }),
             ["/blacklist", "clear"] => Some(BlacklistClear),
             ["/config"] => Some(EditConfig),
-            ["/map_import", id] => Some(ImportMap { id: *id }),
+            ["/import", "map", id] => Some(ImportMap { id: *id }),
             ["/maps"] => Some(ListMaps),
             ["/pause"] => Some(TogglePause),
             ["/players"] => Some(ListPlayers),
@@ -200,7 +200,7 @@ impl<'a> CommandEnum<'a> for AdminCommand<'a> {
                 ("/playlist remove <uid>", "Remove a map from the playlist").into()
             }
             ImportMap { .. } => (
-                "/map_import <id/uid>",
+                "/import map <id/uid>",
                 "Import the TMX map with the given id",
             )
                 .into(),

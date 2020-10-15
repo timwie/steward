@@ -75,7 +75,7 @@ pub enum CommandErrorResponse<'a> {
 
     /// Feedback for commands that affect the playlist.
     ///
-    /// Output for `/playlist add`, `/playlist remove`, `/map_import`
+    /// Output for `/playlist add`, `/playlist remove`, `/import map`
     InvalidPlaylistCommand(PlaylistCommandError),
 
     /// The specified login does not match any player.
