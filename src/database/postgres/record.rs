@@ -16,13 +16,14 @@ impl RecordQueries for DatabaseClient {
         let conn = self.pool.get().await?;
         let stmt = r#"
             SELECT
-                r.map_uid, r.pos, r.max_pos, r.millis, r.timestamp,
+                r.map_uid, r.pos, r.max_pos, r.millis, r.timestamp, r.cp_millis,
                 p.login, p.display_name
             FROM (
                 SELECT
                    map_uid,
                    player_login,
                    millis,
+                   cp_millis,
                    timestamp,
                    RANK () OVER (
                       ORDER BY millis ASC
@@ -51,6 +52,7 @@ impl RecordQueries for DatabaseClient {
                 player_display_name: DisplayString::from(row.get("display_name")),
                 timestamp: row.get("timestamp"),
                 millis: row.get("millis"),
+                cp_millis: row.get("cp_millis"),
             })
             .collect();
         Ok(records)
@@ -139,12 +141,13 @@ impl RecordQueries for DatabaseClient {
 
         let stmt = r#"
             INSERT INTO steward.record
-                (player_login, map_uid, nb_laps, millis, timestamp)
+                (player_login, map_uid, nb_laps, millis, timestamp, cp_millis)
             VALUES
-                ($1, $2, $3, $4, $5)
+                ($1, $2, $3, $4, $5, $6)
             ON CONFLICT (player_login, map_uid, nb_laps)
             DO UPDATE SET
                 millis = excluded.millis,
+                cp_millis = excluded.cp_millis,
                 timestamp = excluded.timestamp
         "#;
 
@@ -157,6 +160,7 @@ impl RecordQueries for DatabaseClient {
                     &rec.nb_laps,
                     &rec.millis,
                     &rec.timestamp,
+                    &rec.cp_millis,
                 ],
             )
             .await?;

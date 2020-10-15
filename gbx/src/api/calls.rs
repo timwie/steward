@@ -398,6 +398,16 @@ pub trait SetupCalls {
     ///     XmlRpc.SetApiVersion
     async fn set_api_version(&self);
 
+    /// Instructs the game server when to send checkpoint times for races and laps.
+    ///
+    /// The checkpoint times in the `Trackmania.Event.WayPoint` data will now be included
+    /// at the end of races and laps.
+    ///
+    /// Calls script methods:
+    /// - Trackmania.Event.SetCurRaceCheckpointsMode
+    /// - Trackmania.Event.SetCurLapCheckpointsMode
+    async fn set_checkpoint_event_mode(&self);
+
     /// Chat messages are no longer dispatched to the players, but are instead
     /// routed to `Callback::PlayerChat`. Player messages have to be manually
     /// forwarded with `chat_send_from_to()` for them to appear in the chat.

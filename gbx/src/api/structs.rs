@@ -664,6 +664,28 @@ pub struct CheckpointEvent {
     #[serde(rename = "checkpointinlap")]
     pub lap_cp_index: i32,
 
+    /// The total durations of this run at the time of passing each checkpoint.
+    ///
+    /// This array is not filled by default - to change the behavior, call the
+    /// script method `Trackmania.Event.SetCurRaceCheckpointsMode`:
+    ///  - `always` will fill the array at each waypoint
+    ///  - `never` (default) will never fill the array
+    ///  - `endlap` will fill the array only if the player finished a lap
+    ///  - `endrace` will fill the array only if the player finished the race
+    #[serde(rename = "curracecheckpoints")]
+    pub race_cp_millis: Vec<i32>,
+
+    /// The total durations of this lap at the time of passing each checkpoint.
+    ///
+    /// This array is not filled by default - to change the behavior, call the
+    /// script method `Trackmania.Event.SetCurLapCheckpointsMode`:
+    ///  - `always` will fill the array at each waypoint
+    ///  - `never` (default) will never fill the array
+    ///  - `endlap` will fill the array only if the player finished a lap
+    ///  - `endrace` will fill the array only if the player finished the race
+    #[serde(rename = "curlapcheckpoints")]
+    pub lap_cp_millis: Vec<i32>,
+
     /// `True` if the player has crossed the finish line.
     #[serde(rename = "isendrace")]
     pub is_finish: bool,

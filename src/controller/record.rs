@@ -298,6 +298,7 @@ impl RecordController {
             millis: finish_ev.race_time_millis,
             timestamp: Utc::now().naive_utc(),
             nb_laps: 0,
+            cp_millis: finish_ev.race_cp_millis.iter().copied().collect(),
         };
 
         // We already know the rank of the new record if it is better
@@ -326,6 +327,7 @@ impl RecordController {
             player_display_name: player.display_name.clone(),
             timestamp: evidence.timestamp,
             millis: evidence.millis,
+            cp_millis: evidence.cp_millis,
             nb_laps: evidence.nb_laps,
         };
 

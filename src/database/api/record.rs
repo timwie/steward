@@ -12,6 +12,7 @@ pub struct RecordEvidence {
     pub nb_laps: i32,
     pub millis: i32,
     pub timestamp: NaiveDateTime,
+    pub cp_millis: Vec<i32>,
 }
 
 /// Detailed record data, that is only missing speed & distance
@@ -41,6 +42,9 @@ pub struct Record {
 
     /// The duration of this record run in milliseconds.
     pub millis: i32,
+
+    /// The times at each checkpoint of this run in milliseconds.
+    pub cp_millis: Vec<i32>,
 
     /// The moment this record was set.
     pub timestamp: NaiveDateTime,

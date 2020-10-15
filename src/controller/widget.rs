@@ -1,4 +1,5 @@
 use std::fmt::{Debug, Display};
+use std::ops::Deref;
 use std::sync::Arc;
 
 use askama::Template;
@@ -17,7 +18,6 @@ use crate::event::*;
 use crate::server::{Calls, Fault, PlayerInfo, Server};
 use crate::widget::timeattack::*;
 use crate::widget::*;
-use std::ops::Deref;
 
 /// This controller collects cached & event data,
 /// to build and send widgets to connected players.

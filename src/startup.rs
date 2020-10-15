@@ -62,6 +62,7 @@ async fn prepare_rpc(server: &Server, config: &Config) {
         .await;
     server.enable_callbacks().await;
     server.set_api_version().await;
+    server.set_checkpoint_event_mode().await;
     server
         .enable_manual_chat_routing()
         .await

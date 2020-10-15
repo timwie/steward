@@ -227,6 +227,7 @@ impl DatabaseClient {
             player_login: login.to_string(),
             map_uid: uid.to_string(),
             millis,
+            cp_millis: vec![millis],
             timestamp: Utc::now().naive_utc(),
             nb_laps: 0,
         });

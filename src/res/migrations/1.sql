@@ -35,6 +35,7 @@ CREATE TABLE steward.record (
     millis        INTEGER   NOT NULL,
     timestamp     TIMESTAMP NOT NULL,
     nb_laps       INTEGER   NOT NULL, -- use '0' if not multi-lap or for flying laps
+    cp_millis     INTEGER[] NOT NULL, -- last in array is equal to 'millis'
 
     PRIMARY KEY (player_login, map_uid, nb_laps),
     FOREIGN KEY (player_login) REFERENCES steward.player (login),

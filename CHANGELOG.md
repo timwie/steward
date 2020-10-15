@@ -39,8 +39,6 @@ All `0.1.0-alpha` releases are unstable, and have missing widgets.
     commands that are not available to them.
   - `/info` now lists admins with their display name, rather than their login
 
-- Records will no longer have their checkpoint times stored in the database.
-
 ### [Commits](https://github.com/timwie/steward/compare/v0.1.0-alpha5...v0.1.0-alpha6)
 
 <br>

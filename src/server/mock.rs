@@ -183,6 +183,10 @@ impl SetupCalls for Server {
         unimplemented!()
     }
 
+    async fn set_checkpoint_event_mode(&self) {
+        unimplemented!()
+    }
+
     async fn enable_manual_chat_routing(&self) -> Result<()> {
         unimplemented!()
     }

@@ -357,6 +357,22 @@ impl SetupCalls for RpcClient {
         self.call_script("XmlRpc.GetAllApiVersions", args!()).await;
     }
 
+    async fn set_checkpoint_event_mode(&self) {
+        // If there are multiple controllers with requests, the server
+        // will send the most requested amount of data.
+        let requester_id = "steward";
+        self.call_script(
+            "Trackmania.Event.SetCurRaceCheckpointsMode",
+            args!("endrace", requester_id),
+        )
+        .await;
+        self.call_script(
+            "Trackmania.Event.SetCurLapCheckpointsMode",
+            args!("endlap", requester_id),
+        )
+        .await;
+    }
+
     async fn enable_manual_chat_routing(&self) -> Result<()> {
         self.call_method_unit(
             "ChatEnableManualRouting",

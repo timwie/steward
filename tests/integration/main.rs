@@ -526,6 +526,7 @@ fn record_evidence(login: &str, map_uid: &str, millis: i32) -> RecordEvidence {
         player_login: login.to_string(),
         map_uid: map_uid.to_string(),
         millis,
+        cp_millis: vec![millis],
         timestamp: now(),
         nb_laps: 0,
     }
@@ -539,6 +540,7 @@ fn record(pos: i64, max_pos: i64, display_name: &str, ev: RecordEvidence) -> Rec
         player_login: ev.player_login,
         player_display_name: DisplayString::from(display_name.to_string()),
         millis: ev.millis,
+        cp_millis: vec![ev.millis],
         timestamp: ev.timestamp,
         nb_laps: 0,
     }
