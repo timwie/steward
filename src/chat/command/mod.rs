@@ -7,6 +7,8 @@ pub use response::*;
 
 use crate::config::PlayerRole;
 use crate::server::{ModeScript, PauseStatus, PlayerInfo, WarmupStatus};
+use prettytable::format::consts::FORMAT_NO_BORDER_LINE_SEPARATOR;
+use prettytable::{cell, row, Table};
 
 mod from_admin;
 mod from_player;
@@ -127,7 +129,6 @@ impl Command<'_> {
 impl CommandContext<'_> {
     /// The command reference for the given context, in tabular form.
     pub(in crate::chat) fn reference(&self) -> String {
-        use prettytable::*;
         use BadCommandContext::*;
 
         let mut cmds = HashMap::<Option<BadCommandContext>, Vec<CommandReference>>::new();
@@ -150,7 +151,7 @@ impl CommandContext<'_> {
         sections.sort();
 
         let mut table = Table::new();
-        table.set_format(*format::consts::FORMAT_NO_BORDER_LINE_SEPARATOR);
+        table.set_format(*FORMAT_NO_BORDER_LINE_SEPARATOR);
         table.set_titles(row!["Command", "Action"]);
 
         table.add_row(row!["/help", "Display this list"]);

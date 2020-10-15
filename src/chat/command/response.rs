@@ -6,6 +6,8 @@ use crate::chat::{BadCommandContext, CommandContext, CommandDeniedError, Dangero
 use crate::config::TimeAttackConfig;
 use crate::database::{Map, Player};
 use crate::server::{PlayerInfo, ServerBuildInfo, ServerNetStats};
+use prettytable::format::consts::FORMAT_NO_BORDER_LINE_SEPARATOR;
+use prettytable::{cell, row, Table};
 
 /// Possible responses for chat commands.
 pub enum CommandResponse<'a> {
@@ -216,42 +218,44 @@ impl Display for CommandResponse<'_> {
                 in_playlist,
                 not_in_playlist,
             }) => {
-                writeln!(f, "In playlist:")?;
-                writeln!(f, "============")?;
+                let mut table = Table::new();
+                table.set_format(*FORMAT_NO_BORDER_LINE_SEPARATOR);
+                table.set_titles(row!["Name", "UID", "Link"]);
+
+                let add_row = move |table: &mut Table, map: &Map| {
+                    table.add_row(row![
+                        fill(&map.name.plain(), 20),
+                        &map.uid,
+                        map.exchange_id
+                            .map(|id| format!("trackmania.exchange/maps/{}", id))
+                            .unwrap_or_default(),
+                    ]);
+                };
+
                 for map in in_playlist.iter() {
-                    writeln!(
-                        f,
-                        "{} | {} | https://trackmania.exchange/maps/{}",
-                        fill(&map.name.plain(), 20),
-                        &map.uid,
-                        map.exchange_id.map(|id| id.to_string()).unwrap_or_default()
-                    )?;
+                    add_row(&mut table, map);
                 }
-                writeln!(f)?;
-                writeln!(f, "Not in playlist:")?;
-                writeln!(f, "================")?;
+
+                table.add_row(row!["", "", ""]);
+                table.add_row(row!["not in playlist".to_uppercase(), "", ""]);
+
                 for map in not_in_playlist.iter() {
-                    writeln!(
-                        f,
-                        "{} | {} | https://trackmania.exchange/maps/{}",
-                        fill(&map.name.plain(), 20),
-                        &map.uid,
-                        map.exchange_id.map(|id| id.to_string()).unwrap_or_default()
-                    )?;
+                    add_row(&mut table, map);
                 }
-                Ok(())
+
+                write!(f, "{}", table.to_string())
             }
 
             Output(PlayerList(players)) => {
+                let mut table = Table::new();
+                table.set_format(*FORMAT_NO_BORDER_LINE_SEPARATOR);
+                table.set_titles(row!["Nickname", "Login"]);
+
                 for player in players {
-                    writeln!(
-                        f,
-                        "{} | {}",
-                        fill(&player.display_name.plain(), 30),
-                        &player.login
-                    )?;
+                    table.add_row(row![fill(&player.display_name.plain(), 30), &player.login]);
                 }
-                Ok(())
+
+                write!(f, "{}", table.to_string())
             }
 
             Output(Info(info)) => {
