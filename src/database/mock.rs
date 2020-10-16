@@ -72,7 +72,11 @@ impl MapQueries for DatabaseClient {
         unimplemented!()
     }
 
-    async fn delete_map(&self, _map_uid: &str) -> Result<Option<Map>> {
+    async fn delete_map(&self, _map_uid: &str) -> Result<Option<RemovedMap>> {
+        unimplemented!()
+    }
+
+    async fn removed_maps(&self) -> Result<Vec<RemovedMap>> {
         unimplemented!()
     }
 }

@@ -24,6 +24,8 @@ use steward::server::{DisplayString, PlayerInfo, TeamId};
 //     - update filename, exchangeid
 //     - update does not set NULL exchangeid
 //     => assert with .map, .maps, .map_files
+//     - insert with exisiting file_name will set the file_name of the older map to NULL
+// [ ] removed_maps
 // [ ] nb_records
 //     - test with different numbers of laps
 // [ ] top_record

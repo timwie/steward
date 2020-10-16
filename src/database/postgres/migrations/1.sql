@@ -9,7 +9,7 @@ CREATE TABLE steward.player (
 
 CREATE TABLE steward.map (
     uid                 TEXT,
-    file_name           TEXT      NOT NULL,     -- relative path in /UserData/Maps/
+    file_name           TEXT,  -- relative path in /UserData/Maps/, or NULL if the file was replaced
     name                TEXT      NOT NULL,
     author_login        TEXT      NOT NULL,     -- in TMNext this is an ID
     author_display_name TEXT      NOT NULL,     -- in TMNext this is the UPlay username

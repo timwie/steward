@@ -526,9 +526,11 @@ impl Controller {
 
                 // Delete file, otherwise the map will be scanned back into the
                 // database at the next launch.
-                let map_path = self.config.maps_dir().await.join(map.file_name);
-                if map_path.is_file() {
-                    std::fs::remove_file(map_path).expect("failed to delete map file");
+                if let Some(file_name) = map.file_name {
+                    let map_path = self.config.maps_dir().await.join(file_name);
+                    if map_path.is_file() {
+                        std::fs::remove_file(map_path).expect("failed to delete map file");
+                    }
                 }
 
                 announce(

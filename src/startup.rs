@@ -232,8 +232,6 @@ async fn upsert_map(db: &DatabaseClient, map_file: &PathBuf, map_file_name: &str
         }
     }
 
-    // FIXME if a new map has the same file name as a deleted map, this will violate the unique constraint
-    //  => this is likely if a map was updated, but still has the same name
     db.upsert_map(&new_db_map, fs_map_data)
         .await
         .expect("failed to upsert map");
@@ -249,21 +247,23 @@ async fn upsert_map(db: &DatabaseClient, map_file: &PathBuf, map_file_name: &str
 async fn check_deleted_maps(server: &Server, db: &DatabaseClient) {
     let maps_dir = server.user_data_dir().await.join("Maps");
 
-    let restorable_maps = db.maps(vec![]).await.expect("failed to fetch db maps");
+    let restorable_maps = db.removed_maps().await.expect("failed to fetch db maps");
 
     // Restore map files that have been removed from the file system.
     for map in restorable_maps.iter() {
-        let map_path = maps_dir.join(&map.file_name);
+        let new_file_name = format!("{}.{}.Map.Gbx", map.name.plain(), &map.uid);
+        let new_file_path = maps_dir.join(&new_file_name);
 
-        if !map_path.is_file() {
+        log::info!("restore {:#?} to {:?}", &map, new_file_path);
+
+        if !new_file_path.is_file() {
             let map_data = db
                 .map_file(&map.uid)
                 .await
                 .expect("failed to restore map file")
                 .expect("failed to restore map file");
 
-            log::info!("restore deleted map file: {:#?}", map_path);
-            fs::write(&map_path, &map_data).expect("failed to restore map file");
+            fs::write(&new_file_path, &map_data).expect("failed to restore map file");
         }
     }
 }

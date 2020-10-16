@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use tokio_postgres::Row;
 
-use crate::database::api::{Map, MapQueries};
+use crate::database::api::{Map, MapQueries, RemovedMap};
 use crate::database::{DatabaseClient, Result};
 use crate::server::DisplayString;
 
@@ -23,7 +23,9 @@ impl MapQueries for DatabaseClient {
         let stmt = r#"
             SELECT *
             FROM steward.map
-            WHERE CARDINALITY($1::text[]) = 0 OR uid = ANY($1::text[])
+            WHERE
+                file_name IS NOT NULL
+                AND CARDINALITY($1::text[]) = 0 OR uid = ANY($1::text[])
         "#;
         let rows = conn.query(stmt, &[&map_uids]).await?;
         let maps = rows.into_iter().map(Map::from).collect();
@@ -35,7 +37,9 @@ impl MapQueries for DatabaseClient {
         let stmt = r#"
             SELECT *
             FROM steward.map
-            WHERE uid = $1
+            WHERE
+                uid = $1
+                AND file_name IS NOT NULL
         "#;
         let row = conn.query_opt(stmt, &[&map_uid]).await?;
         Ok(row.map(Map::from))
@@ -44,7 +48,24 @@ impl MapQueries for DatabaseClient {
     async fn upsert_map(&self, metadata: &Map, data: Vec<u8>) -> Result<()> {
         let mut conn = self.pool.get().await?;
 
+        let stmt = r#"
+            SELECT *
+            FROM steward.map
+            WHERE file_name = $1
+        "#;
+        let row = conn.query_opt(stmt, &[&metadata.file_name]).await?;
+        let overwritten_map = row.map(Map::from);
+
         let txn = conn.transaction().await?;
+
+        if overwritten_map.is_some() {
+            let stmt = r#"
+                UPDATE steward.map
+                SET file_name = NULL
+                WHERE file_name = $1
+            "#;
+            let _ = txn.execute(stmt, &[&metadata.file_name]).await?;
+        }
 
         let stmt = r#"
             INSERT INTO steward.map
@@ -88,7 +109,7 @@ impl MapQueries for DatabaseClient {
         Ok(())
     }
 
-    async fn delete_map(&self, map_uid: &str) -> Result<Option<Map>> {
+    async fn delete_map(&self, map_uid: &str) -> Result<Option<RemovedMap>> {
         let mut conn = self.pool.get().await?;
         let transaction = conn.transaction().await?;
 
@@ -100,10 +121,22 @@ impl MapQueries for DatabaseClient {
 
         let stmt = "DELETE FROM steward.map WHERE uid = $1 RETURNING *";
         let maybe_row = transaction.query_opt(stmt, &[&map_uid]).await?;
-        let maybe_map = maybe_row.map(Map::from);
+        let maybe_map = maybe_row.map(RemovedMap::from);
 
         transaction.commit().await?;
         Ok(maybe_map)
+    }
+
+    async fn removed_maps(&self) -> Result<Vec<RemovedMap>> {
+        let conn = self.pool.get().await?;
+        let stmt = r#"
+            SELECT *
+            FROM steward.map
+            WHERE file_name IS NULL
+        "#;
+        let rows = conn.query(stmt, &[]).await?;
+        let maps = rows.into_iter().map(RemovedMap::from).collect();
+        Ok(maps)
     }
 }
 
@@ -117,6 +150,19 @@ impl From<Row> for Map {
             author_display_name: DisplayString::from(row.get("author_display_name")),
             author_millis: row.get("author_millis"),
             added_since: row.get("added_since"),
+            exchange_id: row.get("exchange_id"),
+        }
+    }
+}
+
+impl From<Row> for RemovedMap {
+    fn from(row: Row) -> Self {
+        RemovedMap {
+            uid: row.get("uid"),
+            file_name: row.get("file_name"),
+            name: DisplayString::from(row.get("name")),
+            author_login: row.get("author_login"),
+            author_display_name: DisplayString::from(row.get("author_display_name")),
             exchange_id: row.get("exchange_id"),
         }
     }
