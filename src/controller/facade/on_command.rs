@@ -2,9 +2,8 @@ use semver::Version;
 use tokio::time::Duration;
 
 use crate::chat::{
-    AdminCommand, CommandConfirmResponse, CommandErrorResponse, CommandOutputResponse,
-    CommandResponse, DangerousCommand, InfoResponse, PlayerCommand, PlaylistCommandError,
-    ServerMessage, SuperAdminCommand,
+    AdminCommand, CommandConfirmOutput, CommandErrorOutput, CommandOutput, CommandResultOutput,
+    DangerousCommand, PlayerCommand, PlaylistCommandError, ServerMessage, SuperAdminCommand,
 };
 use crate::constants::BLACKLIST_FILE;
 use crate::constants::VERSION;
@@ -17,6 +16,9 @@ use crate::server::{Calls, ModeCalls, ModeScript, PlayerInfo, RoundBasedModeCall
 
 impl Controller {
     pub(super) async fn on_cmd(&self, from: &PlayerInfo, cmd: PlayerCommand) {
+        use CommandOutput::*;
+        use CommandResultOutput::*;
+
         use PlayerCommand::*;
 
         match cmd {
@@ -46,7 +48,7 @@ impl Controller {
                         .await
                         .expect("failed to load players");
 
-                    let info = InfoResponse {
+                    let info = crate::chat::ControllerInfo {
                         controller_version: VERSION.clone(),
                         most_recent_controller_version,
                         mode_config,
@@ -55,7 +57,7 @@ impl Controller {
                         admins,
                     };
 
-                    let msg = CommandResponse::Output(CommandOutputResponse::Info(Box::new(info)));
+                    let msg = Result(ControllerInfo(Box::new(info)));
                     controller.widget.show_popup(msg, &from_login).await;
                 });
             }
@@ -63,6 +65,10 @@ impl Controller {
     }
 
     pub(super) async fn on_admin_cmd(&self, from: &PlayerInfo, cmd: AdminCommand<'_>) {
+        use CommandErrorOutput::*;
+        use CommandOutput::*;
+        use CommandResultOutput::*;
+
         use AdminCommand::*;
 
         let admin_name = match self.players.display_name(&from.login).await {
@@ -84,9 +90,7 @@ impl Controller {
             EditConfig => {
                 let curr_cfg = self.config.mode_config().await;
                 let curr_cfg = curr_cfg.to_string();
-                let msg = CommandResponse::Output(CommandOutputResponse::CurrentConfig {
-                    repr: &curr_cfg,
-                });
+                let msg = Result(CurrentConfig { repr: &curr_cfg });
                 self.widget.show_popup(msg, &from.login).await;
             }
 
@@ -104,7 +108,7 @@ impl Controller {
                     .filter(|m1| !playlist.iter().any(|m2| m1.uid == m2.uid))
                     .collect();
 
-                let msg = CommandResponse::Output(CommandOutputResponse::MapList {
+                let msg = Result(MapList {
                     in_playlist,
                     not_in_playlist,
                 });
@@ -114,9 +118,7 @@ impl Controller {
 
             ListPlayers => {
                 let players_state = self.players.lock().await;
-                let msg = CommandResponse::Output(CommandOutputResponse::PlayerList(
-                    players_state.info_all(),
-                ));
+                let msg = Result(PlayerList(players_state.info_all()));
                 self.widget.show_popup(msg, &from.login).await;
             }
 
@@ -165,7 +167,7 @@ impl Controller {
                 let playlist_index = match playlist_state.index_of(uid) {
                     Some(idx) => idx,
                     None => {
-                        let msg = CommandResponse::Error(CommandErrorResponse::UnknownMap);
+                        let msg = Error(UnknownMap);
                         self.widget.show_popup(msg, &from.login).await;
                         return;
                     }
@@ -216,7 +218,7 @@ impl Controller {
             BlacklistRemove { login } => {
                 let blacklist = self.server.blacklist().await;
                 if !blacklist.contains(&login.to_string()) {
-                    let msg = CommandResponse::Error(CommandErrorResponse::UnknownBlacklistPlayer);
+                    let msg = Error(UnknownBlacklistPlayer);
                     self.widget.show_popup(msg, &from.login).await;
                     return;
                 }
@@ -261,7 +263,7 @@ impl Controller {
                 let status = self.server.pause_status().await;
                 if !status.available {
                     // case 1: cannot pause
-                    let msg = CommandResponse::Error(CommandErrorResponse::CannotPause);
+                    let msg = Error(CannotPause);
                     self.widget.show_popup(msg, &from.login).await;
                 } else if status.active {
                     // case 2: unpause now
@@ -283,7 +285,7 @@ impl Controller {
                     let msg = ServerMessage::WarmupRoundExtended { admin_name, secs };
                     announce(&self.server, msg).await;
                 } else {
-                    let msg = CommandResponse::Error(CommandErrorResponse::NotInWarmup);
+                    let msg = Error(NotInWarmup);
                     self.widget.show_popup(msg, &from.login).await;
                 }
             }
@@ -295,7 +297,7 @@ impl Controller {
                     let msg = ServerMessage::WarmupSkipped { admin_name };
                     announce(&self.server, msg).await;
                 } else {
-                    let msg = CommandResponse::Error(CommandErrorResponse::NotInWarmup);
+                    let msg = Error(NotInWarmup);
                     self.widget.show_popup(msg, &from.login).await;
                 }
             }
@@ -312,14 +314,14 @@ impl Controller {
                 let player = match maybe_player {
                     Some(player) => player,
                     None => {
-                        let msg = CommandResponse::Error(CommandErrorResponse::UnknownPlayer);
+                        let msg = Error(UnknownPlayer);
                         self.widget.show_popup(msg, &from.login).await;
                         return;
                     }
                 };
 
                 if self.server.kick_player(&player.login, None).await.is_err() {
-                    let msg = CommandResponse::Error(CommandErrorResponse::UnknownPlayer);
+                    let msg = Error(UnknownPlayer);
                     self.widget.show_popup(msg, &from.login).await;
                 }
             }
@@ -336,14 +338,14 @@ impl Controller {
                 let player = match maybe_player {
                     Some(player) => player,
                     None => {
-                        let msg = CommandResponse::Error(CommandErrorResponse::UnknownPlayer);
+                        let msg = Error(UnknownPlayer);
                         self.widget.show_popup(msg, &from.login).await;
                         return;
                     }
                 };
 
                 if self.server.force_pure_spectator(player.uid).await.is_err() {
-                    let msg = CommandResponse::Error(CommandErrorResponse::UnknownPlayer);
+                    let msg = Error(UnknownPlayer);
                     self.widget.show_popup(msg, &from.login).await;
                 }
             }
@@ -355,7 +357,7 @@ impl Controller {
 
                 match maybe_default_mode {
                     None => {
-                        let msg = CommandResponse::Error(CommandErrorResponse::UnknownMode {
+                        let msg = Error(UnknownMode {
                             tried: script_name,
                             options: ModeScript::default_modes(),
                         });
@@ -370,10 +372,7 @@ impl Controller {
                             .await;
                         }
                         Err(fault) => {
-                            let msg =
-                                CommandResponse::Error(CommandErrorResponse::CannotChangeMode {
-                                    msg: &fault.msg,
-                                });
+                            let msg = Error(CannotChangeMode { msg: &fault.msg });
                             self.widget.show_popup(msg, &from.login).await;
                         }
                     },
@@ -415,11 +414,10 @@ impl Controller {
                             .collect();
                         options.sort();
 
-                        let msg =
-                            CommandResponse::Error(CommandErrorResponse::UnknownMatchSettings {
-                                tried: &file_name,
-                                options,
-                            });
+                        let msg = Error(UnknownMatchSettings {
+                            tried: &file_name,
+                            options,
+                        });
                         self.widget.show_popup(msg, &from.login).await;
                     }
                 }
@@ -440,10 +438,7 @@ impl Controller {
                         .await;
                     }
                     Err(fault) => {
-                        let msg =
-                            CommandResponse::Error(CommandErrorResponse::CannotSaveMatchSettings {
-                                msg: &fault.msg,
-                            });
+                        let msg = Error(CannotSaveMatchSettings { msg: &fault.msg });
                         self.widget.show_popup(msg, &from.login).await;
                     }
                 }
@@ -452,6 +447,10 @@ impl Controller {
     }
 
     pub(super) async fn on_super_admin_cmd(&self, from: &PlayerInfo, cmd: SuperAdminCommand<'_>) {
+        use CommandConfirmOutput::*;
+        use CommandErrorOutput::*;
+        use CommandOutput::*;
+
         use DangerousCommand::*;
         use SuperAdminCommand::*;
 
@@ -459,9 +458,9 @@ impl Controller {
             Prepare(DeleteMap { uid }) => match self.playlist.map(&uid).await {
                 Some(map) => {
                     let dcmd = DeleteMap { uid };
-                    let msg = CommandResponse::Confirm(
+                    let msg = Confirm(
                         dcmd,
-                        CommandConfirmResponse::ConfirmMapDeletion {
+                        ConfirmMapDeletion {
                             file_name: &map.file_name,
                         },
                     );
@@ -474,11 +473,11 @@ impl Controller {
                     .expect("failed to load map")
                     .is_some() =>
                 {
-                    let msg = CommandResponse::Error(CommandErrorResponse::CannotDeletePlaylistMap);
+                    let msg = Error(CannotDeletePlaylistMap);
                     self.widget.show_popup(msg, &from.login).await;
                 }
                 None => {
-                    let msg = CommandResponse::Error(CommandErrorResponse::UnknownMap);
+                    let msg = Error(UnknownMap);
                     self.widget.show_popup(msg, &from.login).await;
                 }
             },
@@ -487,27 +486,25 @@ impl Controller {
                 let blacklist = self.server.blacklist().await;
                 if blacklist.contains(&login.to_string()) {
                     let dcmd = DeletePlayer { login };
-                    let msg = CommandResponse::Confirm(
-                        dcmd,
-                        CommandConfirmResponse::ConfirmPlayerDeletion { login: &login },
-                    );
+                    let msg = Confirm(dcmd, ConfirmPlayerDeletion { login: &login });
                     self.widget.show_popup(msg, &from.login).await;
                 } else {
-                    let msg =
-                        CommandResponse::Error(CommandErrorResponse::CannotDeleteWhitelistedPlayer);
+                    let msg = Error(CannotDeleteWhitelistedPlayer);
                     self.widget.show_popup(msg, &from.login).await;
                 }
             }
 
             Prepare(Shutdown) => {
-                let msg =
-                    CommandResponse::Confirm(Shutdown, CommandConfirmResponse::ConfirmShutdown);
+                let msg = Confirm(Shutdown, ConfirmShutdown);
                 self.widget.show_popup(msg, &from.login).await;
             }
         }
     }
 
     pub(super) async fn on_dangerous_cmd(&self, from: &PlayerInfo, cmd: DangerousCommand<'_>) {
+        use CommandErrorOutput::*;
+        use CommandOutput::*;
+
         use DangerousCommand::*;
 
         log::warn!("{}> {:#?}", &from.display_name.plain(), &cmd);
@@ -552,7 +549,7 @@ impl Controller {
                     .expect("failed to delete player");
 
                 if maybe_player.is_none() {
-                    let msg = CommandResponse::Error(CommandErrorResponse::UnknownPlayer);
+                    let msg = Error(UnknownPlayer);
                     self.widget.show_popup(msg, &from.login).await;
                 }
             }
@@ -568,13 +565,16 @@ impl Controller {
         from: &PlayerInfo,
         cmd_res: Result<PlaylistDiff, PlaylistCommandError>,
     ) {
+        use CommandErrorOutput::*;
+        use CommandOutput::*;
+
         match cmd_res {
             Ok(change) => {
                 let ev = ControllerEvent::NewPlaylist(change);
                 self.on_controller_event(ev).await;
             }
             Err(err) => {
-                let msg = CommandResponse::Error(CommandErrorResponse::InvalidPlaylistCommand(err));
+                let msg = Error(InvalidPlaylistCommand(err));
                 self.widget.show_popup(msg, &from.login).await;
             }
         }

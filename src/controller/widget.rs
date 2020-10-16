@@ -7,7 +7,7 @@ use chrono::Duration;
 use futures::future::join_all;
 use tokio::sync::RwLock;
 
-use crate::chat::CommandResponse;
+use crate::chat::CommandOutput;
 use crate::constants::{
     cdn_prefix, MAX_DISPLAYED_IN_QUEUE, MAX_DISPLAYED_RACE_RANKS, START_HIDE_WIDGET_DELAY_MILLIS,
 };
@@ -230,7 +230,7 @@ impl WidgetController {
     }
 
     /// Display a popup message to the specified player.
-    pub async fn show_popup(&self, resp: CommandResponse<'_>, for_login: &str) {
+    pub async fn show_popup(&self, resp: CommandOutput<'_>, for_login: &str) {
         if let Some(uid) = self.live_players.uid(for_login).await {
             let widget = PopupWidget::from(resp);
             self.show_singleton_for(&widget, uid).await;

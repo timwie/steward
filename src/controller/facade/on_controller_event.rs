@@ -1,6 +1,6 @@
 use async_recursion::async_recursion;
 
-use crate::chat::{Command, CommandOutputResponse, CommandResponse, ServerMessage, TopRankMessage};
+use crate::chat::{Command, CommandOutput, CommandResultOutput, ServerMessage, TopRankMessage};
 use crate::constants::{
     MAX_ANNOUNCED_RANK, MAX_ANNOUNCED_RECORD, MAX_ANNOUNCED_RECORD_IMPROVEMENT,
     MAX_NB_ANNOUNCED_RANKS,
@@ -187,7 +187,7 @@ impl Controller {
             }
 
             IssueCommand(ctxt, Command::Help) => {
-                let msg = CommandResponse::Output(CommandOutputResponse::CommandReference(ctxt));
+                let msg = CommandOutput::Result(CommandResultOutput::CommandReference(ctxt));
                 self.widget.show_popup(msg, &ctxt.player.login).await;
             }
 

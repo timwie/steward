@@ -1,6 +1,6 @@
 use askama::Template;
 
-use crate::chat::{CommandOutputResponse, CommandResponse, DangerousCommand};
+use crate::chat::{CommandOutput, CommandResultOutput, DangerousCommand};
 use crate::widget::filters;
 
 /// A widget that can be used for the outputs of chat commands.
@@ -14,15 +14,15 @@ pub struct PopupWidget<'a> {
 }
 
 impl PopupWidget<'_> {
-    pub fn from(response: CommandResponse) -> PopupWidget {
-        use CommandOutputResponse::*;
-        use CommandResponse::*;
+    pub fn from(response: CommandOutput) -> PopupWidget {
+        use CommandOutput::*;
+        use CommandResultOutput::*;
 
         let output = response.to_string();
         PopupWidget {
             output,
             variant: match response {
-                Output(CurrentConfig { .. }) | Output(InvalidConfig { .. }) => {
+                Result(CurrentConfig { .. }) | Result(InvalidConfig { .. }) => {
                     PopupVariant::ConfigEditor
                 }
                 Confirm(cmd, _) => PopupVariant::Confirm { cmd },

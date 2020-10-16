@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 use futures::future::join_all;
 
-use crate::chat::{CommandOutputResponse, CommandResponse};
+use crate::chat::{CommandOutput, CommandResultOutput};
 use crate::config::TimeAttackConfig;
 use crate::controller::{ActivePreference, Controller};
 use crate::event::ControllerEvent;
@@ -28,7 +28,7 @@ impl Controller {
                 }
                 Err(de_err) => {
                     let err_msg = format!("{:#?}", de_err);
-                    let msg = CommandResponse::Output(CommandOutputResponse::InvalidConfig {
+                    let msg = CommandOutput::Result(CommandResultOutput::InvalidConfig {
                         tried_repr: &toml_config,
                         error_msg: &err_msg,
                     });

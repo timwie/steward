@@ -1,4 +1,4 @@
-use crate::chat::{Command, CommandContext, CommandErrorResponse, CommandResponse};
+use crate::chat::{Command, CommandContext, CommandErrorOutput, CommandOutput};
 use crate::controller::{Controller, LiveConfig, LivePlayers};
 use crate::event::ControllerEvent;
 use crate::server::{Calls, ModeScriptSectionCallback, PlayloopCallback, ServerEvent};
@@ -115,8 +115,7 @@ impl Controller {
                         self.on_controller_event(ev).await;
                     }
                     Err(err) => {
-                        let msg =
-                            CommandResponse::Error(CommandErrorResponse::CommandError(ctxt, err));
+                        let msg = CommandOutput::Error(CommandErrorOutput::CommandError(ctxt, err));
                         self.widget.show_popup(msg, &player.login).await;
                     }
                 }

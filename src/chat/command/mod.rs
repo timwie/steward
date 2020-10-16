@@ -1,19 +1,20 @@
 use std::collections::HashMap;
 
+use prettytable::format::consts::FORMAT_NO_BORDER_LINE_SEPARATOR;
+use prettytable::{cell, row, Table};
+
 pub use from_admin::*;
 pub use from_player::*;
 pub use from_super_admin::*;
-pub use response::*;
+pub use output::*;
 
 use crate::config::PlayerRole;
 use crate::server::{ModeScript, PauseStatus, PlayerInfo, WarmupStatus};
-use prettytable::format::consts::FORMAT_NO_BORDER_LINE_SEPARATOR;
-use prettytable::{cell, row, Table};
 
 mod from_admin;
 mod from_player;
 mod from_super_admin;
-mod response;
+mod output;
 
 /// A parsed and validated command that should be executed.
 #[derive(Debug, Copy, Clone)]
