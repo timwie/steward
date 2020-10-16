@@ -48,6 +48,10 @@ All `0.1.0-alpha` releases are unstable, and have missing widgets.
   - `/unblacklist <login>` was renamed to `/blacklist remove <login>`
   - `/map_import <id/uid>` was renamed to `/import map <id/uid>`
 
+### Fixed
+- Replacing a map with another at the exact same file name will
+  no longer crash the controller at startup.
+
 ### [Commits](https://github.com/timwie/steward/compare/v0.1.0-alpha5...v0.1.0-alpha6)
 
 <br>

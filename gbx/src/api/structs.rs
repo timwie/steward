@@ -379,42 +379,7 @@ pub struct TimeAttackOptions {
 /// Settings for the Champion game mode.
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ChampionOptions {
-    /// Chat time at the end of a map or match in seconds.
-    #[serde(rename = "S_ChatTime")]
-    pub chat_time_secs: i32,
-
-    /// Forced number of laps.
-    ///
-    /// Set to -1 to use laps from map validation.
-    /// Set to 0 to use "independent" laps (default in TimeAttack).
-    #[serde(rename = "S_ForceLapsNb")]
-    pub forced_nb_laps: i32,
-
-    /// The number of rounds per warmup.
-    #[serde(rename = "S_WarmUpNb")]
-    pub nb_warmup_rounds: i32,
-
-    /// The duration of one warmup round in seconds.
-    #[serde(rename = "S_WarmUpDuration")]
-    pub warmup_duration_secs: i32,
     // TODO ChampionOptions
-    //  - S_PointsRepartition: "20,14,12,10,8,7,6,5,5,4,4,3,3,2,2,1"
-    //  - S_PointsLimit: -1
-    //  - S_RoundsLimit: 6
-    //  - S_PauseBeforeRoundNb: 0
-    //  - S_PauseDuration: 360
-    //  - S_WinnersRatio: 0.5
-    //  - S_ForceWinnersNb: 0
-    //  - S_TimeOutPlayersNumber: 0
-    //  - S_FinishTimeout: 5
-    //  - S_TimeLimit: -1
-    //  - S_DisableGiveUp: false
-    //  - S_UseTieBreak: false
-    //  - S_BestLapBonusPoints: 2
-    //  - S_RoundsWithAPhaseChange: "3,5"
-    //  - S_EarlyEndMatchCallback: true
-    //  - S_EndRoundPreScoreUpdateDuration: 5
-    //  - S_EndRoundPostScoreUpdateDuration: 5
 }
 
 /// Settings for the Cup game mode.
@@ -819,9 +784,9 @@ pub struct TeamScore {
 /// Point scores of a player or team.
 ///
 /// Different game modes will use different types of points:
-///  - Champion: TODO what are the point scores in the Champion mode?
+///  - Champion: round, map, match (but there is only one round per map)
 ///  - Cup: round, map, match
-///  - Knockout: TODO what are the point scores in the Knockout mode?
+///  - Knockout: match (players' final points are the number of total players minus their own rank)
 ///  - Laps: none
 ///  - Rounds: round, map, match
 ///  - Teams: round, map, match
