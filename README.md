@@ -1,5 +1,5 @@
 
-<h1 align="center"><img width="256" src="src/res/img/logo-black-padded.png" alt="Steward"/></h1>
+<h1 align="center"><img width="256" src="img/logo-black-padded.png" alt="Steward"/></h1>
 <p align="center">A server controller for <b><a href="https://trackmania.com/">Trackmania</a></b> written in Rust</p>
 <p align="center">
   <img src="https://img.shields.io/github/v/release/timwie/steward?include_prereleases&style=flat-square"/>

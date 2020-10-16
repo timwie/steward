@@ -58,7 +58,7 @@ impl DatabaseClient {
     /// Check for pending database migrations and execute them.
     pub async fn migrate(&self) -> Result<()> {
         // Include all migration statements at compile-time:
-        static MIGRATION_DIR: Dir = include_dir!("src/res/migrations/");
+        static MIGRATION_DIR: Dir = include_dir!("src/database/postgres/migrations");
 
         let stmts = |nb: usize| {
             MIGRATION_DIR

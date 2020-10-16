@@ -17,18 +17,18 @@ pub const USER_AGENT: &str = concat!(
     ")"
 );
 
-/// Images used by widgets are located in the `src/res/img`, but need to be hosted somewhere.
+/// Images used by widgets are located in the `../img` directory, but need to be hosted somewhere.
 /// We'll serve the images from the GitHub repository of this project.
 /// The master branch is used during development, while the files at the specific version tag
 /// are used in production.
 pub const fn cdn_prefix() -> &'static str {
     if cfg!(debug_assertions) {
-        "https://raw.githubusercontent.com/timwie/steward/master/src/res/img/"
+        "https://raw.githubusercontent.com/timwie/steward/master/img/"
     } else {
         concat!(
             "https://raw.githubusercontent.com/timwie/steward/",
             env!("CARGO_PKG_VERSION"),
-            "/src/res/img"
+            "/img"
         )
     }
 }
