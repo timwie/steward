@@ -402,7 +402,7 @@ As of server API version `2013-04-16`:
 <br>
 
 ### Script Methods
-As of script API version `3.1.0`:
+As of script API version `3.2.0`:
 
 ```
 [x] XmlRpc.EnableCallbacks
@@ -431,6 +431,10 @@ As of script API version `3.1.0`:
 [x] Maniaplanet.Pause.SetActive
 
 [x] Trackmania.GetScores
+
+[ ] Common.UIModules.GetProperties    // 'Race_Chrono' seems to be the single UI module so far,
+[ ] Common.UIModules.SetProperties    // which we don't really have to move or scale
+[ ] Common.UIModules.ResetProperties
 
 [/] Maniaplanet.Mode.GetUseTeams
 
@@ -510,6 +514,8 @@ As of script API version `3.1.0`:
 [x] Trackmania.Champion.Scores
 
 [x] Trackmania.Knockout.Elimination
+
+[ ] Common.UIModules.Properties
 
 [/] Maniaplanet.Mode.UseTeams
 

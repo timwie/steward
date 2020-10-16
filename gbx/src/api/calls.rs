@@ -281,8 +281,7 @@ pub trait Calls {
     ///
     /// Faults if the player is no longer connected.
     ///
-    /// To remove a single Manialink, send an empty one
-    /// with the same ID (`<manialink id="...">`).
+    /// To remove a single Manialink, send an empty one with the same ID (`<manialink id="...">`).
     ///
     /// Calls method:
     ///     SendDisplayManialinkPageToId
@@ -294,9 +293,21 @@ pub trait Calls {
     /// Faults if the player is no longer connected.
     ///
     /// Calls methods:
-    /// - ForceSpectatorId(*, 3)
-    /// - SpectatorReleasePlayerSlotId
-    async fn force_pure_spectator(&self, player_uid: i32) -> Result<()>;
+    ///     ForceSpectator(*, 3)
+    async fn force_spectator(&self, player_login: &str) -> Result<()>;
+
+    /// Remove the player slot from a spectating player.
+    ///
+    /// Depending on the server config, spectators may retain their player slot,
+    /// and prevent others from joining the race. This function will make sure
+    /// that their slot is freed up. The moved player might need to wait until
+    /// another slot frees up.
+    ///
+    /// Faults if the player is not a spectator.
+    ///
+    /// Calls method:
+    ///     SpectatorReleasePlayerSlot
+    async fn force_pure_spectator(&self, player_login: &str) -> Result<()>;
 
     /// Blacklist the player with the specified login.
     ///

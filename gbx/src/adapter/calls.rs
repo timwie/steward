@@ -271,14 +271,18 @@ impl Calls for RpcClient {
         .await
     }
 
-    async fn force_pure_spectator(&self, player_uid: i32) -> Result<()> {
+    async fn force_spectator(&self, player_login: &str) -> Result<()> {
         // This value is documented as "spectator but keep selectable",
-        // which probably means that you can switch back to a playing slot.
+        // which probably means that you can switch back to a playing slot,
+        // in case it is not retained.
         const SPECTATOR_MODE: i32 = 3;
 
-        self.call_method_unit("ForceSpectatorId", args!(player_uid, SPECTATOR_MODE))
-            .await?;
-        self.call_method_unit("SpectatorReleasePlayerSlotId", args!(player_uid))
+        self.call_method_unit("ForceSpectator", args!(player_login, SPECTATOR_MODE))
+            .await
+    }
+
+    async fn force_pure_spectator(&self, player_login: &str) -> Result<()> {
+        self.call_method_unit("SpectatorReleasePlayerSlot", args!(player_login))
             .await
     }
 

@@ -76,6 +76,7 @@ impl RecordsState {
         let is_first_record = !self.pbs.contains_key(&player_uid);
         if is_first_record {
             self.nb_records += 1;
+            // FIXME update all records' max_map_rank
         }
 
         let is_new_pb = is_first_record
@@ -273,7 +274,6 @@ impl RecordController {
         let prev_pb_pos = prev_pb.map(|rec| rec.map_rank as usize);
         let prev_pb_diff = prev_pb.map(|rec| finish_ev.race_time_millis - rec.millis);
 
-        let is_first_pb = prev_pb_diff.is_none();
         let is_new_pb = prev_pb_diff.map(|millis| millis < 0).unwrap_or(true);
 
         if !is_new_pb {
@@ -285,11 +285,6 @@ impl RecordController {
                 new_record: None,
                 pos_gained: 0,
             });
-        }
-
-        if is_first_pb {
-            records_state.nb_records += 1;
-            // FIXME update all records' max_map_rank
         }
 
         let evidence = RecordEvidence {

@@ -156,6 +156,11 @@ impl Controller {
             }
 
             NewPlayerList(diff) => {
+                if let PlayerTransition::MoveToSpectator = &diff.transition {
+                    // TODO we might not always want to free up their player slot!
+                    let _ = self.server.force_pure_spectator(&diff.info.login).await;
+                }
+
                 self.records.update_for_player(&diff).await;
                 self.prefs.update_for_player(&diff).await;
                 self.widget.refresh_for_player(&diff).await;

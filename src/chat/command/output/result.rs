@@ -102,6 +102,10 @@ impl Display for CommandResultOutput<'_> {
                     add_row(&mut table, map);
                 }
 
+                if not_in_playlist.is_empty() {
+                    return Ok(());
+                }
+
                 table.add_row(row!["", "", ""]);
                 table.add_row(row!["not in playlist".to_uppercase(), "", ""]);
 

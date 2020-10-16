@@ -13,4 +13,4 @@ pub const SERVER_API_VERSION: &str = "2013-04-16";
 /// The supported script API version.
 ///
 /// Script methods' and callbacks' signatures may differ across different versions.
-pub const SCRIPT_API_VERSION: &str = "3.1.0";
+pub const SCRIPT_API_VERSION: &str = "3.2.0";

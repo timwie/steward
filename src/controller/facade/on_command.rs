@@ -320,7 +320,13 @@ impl Controller {
                     }
                 };
 
-                if self.server.kick_player(&player.login, None).await.is_err() {
+                if self.server.kick_player(&player.login, None).await.is_ok() {
+                    let msg = ServerMessage::PlayerKicked {
+                        admin_name,
+                        player_name: &player.display_name.formatted,
+                    };
+                    announce(&self.server, msg).await;
+                } else {
                     let msg = Error(UnknownPlayer);
                     self.widget.show_popup(msg, &from.login).await;
                 }
@@ -344,7 +350,14 @@ impl Controller {
                     }
                 };
 
-                if self.server.force_pure_spectator(player.uid).await.is_err() {
+                // TODO this might not free up their player slot!
+                if self.server.force_spectator(&player.login).await.is_ok() {
+                    let msg = ServerMessage::PlayerMovedToSpectator {
+                        admin_name,
+                        player_name: &player.display_name.formatted,
+                    };
+                    announce(&self.server, msg).await;
+                } else {
                     let msg = Error(UnknownPlayer);
                     self.widget.show_popup(msg, &from.login).await;
                 }

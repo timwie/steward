@@ -95,6 +95,18 @@ pub enum ServerMessage<'a> {
     /// Tell players that an admin has skipped the remaining warmup.
     WarmupSkipped { admin_name: &'a str },
 
+    /// Tell players that an admin kicked a player.
+    PlayerKicked {
+        admin_name: &'a str,
+        player_name: &'a str,
+    },
+
+    /// Tell players that an admin move a player to spectator
+    PlayerMovedToSpectator {
+        admin_name: &'a str,
+        player_name: &'a str,
+    },
+
     /// Tell players that an admin changed the game mode for the next map.
     ModeChanging {
         admin_name: &'a str,
@@ -326,6 +338,28 @@ impl Display for ServerMessage<'_> {
                 write!(f, " saved the current match settings in ")?;
                 write_highlighted(f, settings_name)?;
                 write!(f, "!")
+            }
+
+            PlayerKicked {
+                admin_name,
+                player_name,
+            } => {
+                write!(f, "Admin ")?;
+                write_and_reset(f, admin_name)?;
+                write!(f, " kicked ")?;
+                write_and_reset(f, player_name)?;
+                write!(f, ".")
+            }
+
+            PlayerMovedToSpectator {
+                admin_name,
+                player_name,
+            } => {
+                write!(f, "Admin ")?;
+                write_and_reset(f, admin_name)?;
+                write!(f, " moved ")?;
+                write_and_reset(f, player_name)?;
+                write!(f, " to spectator.")
             }
         }
     }
