@@ -73,16 +73,20 @@ date back to the mid-2000s.
     is ideal for admin features that do not necessarily need a visual
     component.
 - There are a few concerns to keep in mind when designing UI widgets:
-  - It's not possible to send data back to widgets, which means
-    they cannot be updated, but only replaced.
-  - An exception are widgets that can be updated solely with in-game data:
+  - It's not possible to send data back to widgets *directly*, which means
+    that updating them often means replacing them entirely.
+  - One exception are widgets that can be updated solely with in-game data:
     a widget displaying the number of players f.e. can find that information
     using ManiaScript.
-  - The overhead of updating widgets makes splitting the UI
-    into smaller widgets a good idea, since we don't want to re-send
-    more data than we have to.
   - Widgets cannot share code, but they can indirectly communicate with each other
-    by sharing variables.
+    by setting ManiaScript variables within their shared context.
+  - That makes it possible to send ManiaScripts whose sole purpose is to pass new
+    data to widget ManiaScripts. The widgets can then be updated in-place.
+    The upside of this approach is that we need less bandwidth overall.
+    The downside is that this requires more logic than replacing widgets entirely.
+  - When opting to replace widgets when updating them, it's a good idea to split the
+    UI into smaller widgets, since we don't want to re-send more data than we have to.
+
 
 The Rust bindings for this API are implemented in the [`gbx` crate].
 
