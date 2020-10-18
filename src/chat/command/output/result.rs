@@ -86,11 +86,12 @@ impl Display for CommandResultOutput<'_> {
             } => {
                 let mut table = Table::new();
                 table.set_format(*FORMAT_NO_BORDER_LINE_SEPARATOR);
-                table.set_titles(row!["Name", "UID", "Link"]);
+                table.set_titles(row!["Name", "Author", "UID", "Link"]);
 
                 let add_row = move |table: &mut Table, map: &Map| {
                     table.add_row(row![
                         truncate(&map.name.plain(), 20),
+                        truncate(&map.author_display_name.plain(), 20),
                         &map.uid,
                         map.exchange_id
                             .map(|id| format!("trackmania.exchange/maps/{}", id))
@@ -106,8 +107,8 @@ impl Display for CommandResultOutput<'_> {
                     return Ok(());
                 }
 
-                table.add_row(row!["", "", ""]);
-                table.add_row(row!["not in playlist".to_uppercase(), "", ""]);
+                table.add_row(row!["", "", "", ""]);
+                table.add_row(row!["not in playlist".to_uppercase(), "", "", ""]);
 
                 for map in not_in_playlist.iter() {
                     add_row(&mut table, map);

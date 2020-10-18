@@ -29,7 +29,7 @@
         {% let cancel_txt = "Cancel" %}
 {% endmatch %}
 
-{% let width  = 200 %}
+{% let width  = 240 %}
 {% let height = 125 %}
 
 {% let button_w  = 40 %}

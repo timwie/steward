@@ -9,7 +9,7 @@ use crate::constants::BLACKLIST_FILE;
 use crate::constants::VERSION;
 use crate::controller::facade::announce;
 use crate::controller::{Controller, LiveConfig, LivePlayers, LivePlaylist};
-use crate::database::{MapQueries, PlayerQueries};
+use crate::database::{Map, MapQueries, PlayerQueries};
 use crate::event::{ControllerEvent, PlaylistDiff};
 use crate::network::most_recent_controller_version;
 use crate::server::{Calls, ModeCalls, ModeScript, PlayerInfo, RoundBasedModeCalls};
@@ -99,14 +99,17 @@ impl Controller {
 
                 let maps = self.db.maps(vec![]).await.expect("failed to load maps");
 
-                let in_playlist = maps
+                let mut in_playlist: Vec<&Map> = maps
                     .iter()
                     .filter(|m1| playlist.iter().any(|m2| m1.uid == m2.uid))
                     .collect();
-                let not_in_playlist = maps
+                let mut not_in_playlist: Vec<&Map> = maps
                     .iter()
                     .filter(|m1| !playlist.iter().any(|m2| m1.uid == m2.uid))
                     .collect();
+
+                in_playlist.sort_by_key(|map| map.name.plain());
+                not_in_playlist.sort_by_key(|map| map.name.plain());
 
                 let msg = Result(MapList {
                     in_playlist,
