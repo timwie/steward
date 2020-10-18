@@ -26,6 +26,7 @@ All `0.1.0-alpha` releases are unstable, and have missing widgets.
   - `/mode <name>` changes the game mode for the next map.
   - `/settings load <name>` load a match settings file.
   - `/settings save <name>` saves the current match settings to a file.
+  - `/playlist add all` adds all maps to the playlist.
   
 ### Changed
 - **Admin**: Playlist Management

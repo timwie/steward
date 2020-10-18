@@ -130,6 +130,19 @@ impl Controller {
                     .await
             }
 
+            PlaylistAddAll => {
+                let maps = self.db.maps(vec![]).await.expect("failed to load maps");
+
+                for map in maps {
+                    if self.playlist.index_of(&map.uid).await.is_some() {
+                        continue;
+                    }
+
+                    self.on_playlist_cmd(from, self.playlist.add(&map.uid).await)
+                        .await;
+                }
+            }
+
             PlaylistRemove { uid } => {
                 self.on_playlist_cmd(from, self.playlist.remove(&uid).await)
                     .await

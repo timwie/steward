@@ -197,7 +197,7 @@ impl Display for ServerMessage<'_> {
 
             AddedMap { name } => {
                 write_and_reset(f, name)?;
-                write!(f, " was added back into the playlist.")
+                write!(f, " was added to the playlist.")
             }
 
             RemovedMap { name } => {

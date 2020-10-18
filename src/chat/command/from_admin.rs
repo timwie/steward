@@ -31,6 +31,11 @@ pub enum AdminCommand<'a> {
     /// Usage: `/playlist add <uid>`
     PlaylistAdd { uid: &'a str },
 
+    /// Add all maps to the playlist.
+    ///
+    /// Usage: `/playlist add all`
+    PlaylistAddAll,
+
     /// Remove the map with the given UID from the playlist.
     ///
     /// Usage: `/playlist remove <uid>`
@@ -143,6 +148,7 @@ lazy_static! {
             PlaylistAdd {
                 uid: Default::default(),
             },
+            PlaylistAddAll,
             PlaylistRemove {
                 uid: Default::default(),
             },
@@ -211,6 +217,7 @@ impl<'a> CommandEnum<'a> for AdminCommand<'a> {
             ["/mode", name] => Some(ChangeMode { script_name: *name }),
             ["/pause"] => Some(TogglePause),
             ["/players"] => Some(ListPlayers),
+            ["/playlist", "add", "all"] => Some(PlaylistAddAll),
             ["/playlist", "add", uid] => Some(PlaylistAdd { uid: *uid }),
             ["/playlist", "remove", uid] => Some(PlaylistRemove { uid: *uid }),
             ["/queue", uid] => Some(ForceQueue { uid: *uid }),
@@ -241,7 +248,9 @@ impl<'a> CommandEnum<'a> for AdminCommand<'a> {
 
             TogglePause if !ctxt.pause.available => Err(InOtherModes),
 
-            ForceQueue { .. } | SkipCurrentMap | RestartCurrentMap if *ctxt.mode != TimeAttack => {
+            ForceQueue { .. } | SkipCurrentMap | RestartCurrentMap | PlaylistAddAll
+                if *ctxt.mode != TimeAttack =>
+            {
                 Err(InMode(TimeAttack))
             }
 
@@ -256,6 +265,7 @@ impl<'a> CommandEnum<'a> for AdminCommand<'a> {
             ListMaps => ("/maps", "List maps in- and outside of the playlist").into(),
             ListPlayers => ("/players", "List connected players' logins and names").into(),
             PlaylistAdd { .. } => ("/playlist add <uid>", "Add a map to the playlist").into(),
+            PlaylistAddAll => ("/playlist add all", "Add all maps to the playlist").into(),
             PlaylistRemove { .. } => {
                 ("/playlist remove <uid>", "Remove a map from the playlist").into()
             }

@@ -596,7 +596,7 @@ impl WidgetController {
             map_rank: maybe_pb.map(|rec| rec.map_rank as usize),
             max_map_rank: Some(records_state.nb_records).filter(|n| *n > 0),
             server_rank,
-            max_server_rank: server_ranking_state.max_pos(),
+            max_server_rank: Some(server_ranking_state.max_pos()).filter(|n| *n > 0),
         };
 
         self.show_singleton_for(&widget, player.uid).await;

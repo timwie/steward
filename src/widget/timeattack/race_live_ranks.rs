@@ -38,5 +38,5 @@ pub struct LiveRanksWidget {
     pub server_rank: Option<usize>,
 
     /// The number of players that have a server rank.
-    pub max_server_rank: usize,
+    pub max_server_rank: Option<usize>,
 }

@@ -9,6 +9,7 @@
 {% let map_rank_str %}
 {% let max_map_rank_str %}
 {% let server_rank_str %}
+{% let max_server_rank_str %}
 
 {% match map_rank %}
     {% when Some with (val) %}
@@ -29,6 +30,13 @@
         {% let server_rank_str = val.to_string() %}
     {% when None %}
         {% let server_rank_str = "-".to_string() %}
+{% endmatch %}
+
+{% match max_server_rank %}
+    {% when Some with (val) %}
+        {% let max_server_rank_str = val.to_string() %}
+        {% when None %}
+        {% let max_server_rank_str = "-".to_string() %}
 {% endmatch %}
 
 <label halign="right" textfont="GameFontBlack" pos="158 88" text="$t$iSteward" textcolor="{{col_white}}" opacity="0.2"/>
@@ -52,7 +60,7 @@
     <label id="map-rank" halign="right" textfont="OswaldMono" textcolor="{{col_white}}" textemboss="1" pos="0 -20" text="{{map_rank_str}} / {{max_map_rank_str}}" textsize="{{textsize_big}}"/>
     <label               halign="right" textfont="GameFontSemiBold" textcolor="{{col_white}}" textemboss="1" pos="0 -25.5" text="Map Rank" textsize="{{textsize_small}}"/>
 
-    <label               halign="right" textfont="OswaldMono" textcolor="{{col_white}}" textemboss="1"  pos="0 -30}" text="{{server_rank_str}} / {{max_server_rank}}" textsize="{{textsize_big}}"/>
+    <label               halign="right" textfont="OswaldMono" textcolor="{{col_white}}" textemboss="1"  pos="0 -30}" text="{{server_rank_str}} / {{max_server_rank_str}}" textsize="{{textsize_big}}"/>
     <label               halign="right" textfont="GameFontSemiBold" textcolor="{{col_white}}" textemboss="1" pos="0 -35.5" text="Server Rank" textsize="{{textsize_small}}"/>
 
 </frame>

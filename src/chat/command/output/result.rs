@@ -103,15 +103,13 @@ impl Display for CommandResultOutput<'_> {
                     add_row(&mut table, map);
                 }
 
-                if not_in_playlist.is_empty() {
-                    return Ok(());
-                }
+                if !not_in_playlist.is_empty() {
+                    table.add_row(row!["", "", "", ""]);
+                    table.add_row(row!["not in playlist".to_uppercase(), "", "", ""]);
 
-                table.add_row(row!["", "", "", ""]);
-                table.add_row(row!["not in playlist".to_uppercase(), "", "", ""]);
-
-                for map in not_in_playlist.iter() {
-                    add_row(&mut table, map);
+                    for map in not_in_playlist.iter() {
+                        add_row(&mut table, map);
+                    }
                 }
 
                 write!(f, "{}", table.to_string())
