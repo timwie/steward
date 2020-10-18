@@ -594,7 +594,7 @@ impl WidgetController {
                 .as_ref()
                 .map(|rec| rec.millis as usize),
             map_rank: maybe_pb.map(|rec| rec.map_rank as usize),
-            max_map_rank: records_state.nb_records,
+            max_map_rank: Some(records_state.nb_records).filter(|n| *n > 0),
             server_rank,
             max_server_rank: server_ranking_state.max_pos(),
         };

@@ -31,9 +31,8 @@ pub struct LiveRanksWidget {
     /// completed a run on this map.
     pub map_rank: Option<usize>,
 
-    /// The number of players that have set a record
-    /// on this map.
-    pub max_map_rank: usize,
+    /// The number of players that have set a record on this map, if any.
+    pub max_map_rank: Option<usize>,
 
     /// The player's current server rank, or `None` if they are not ranked yet.
     pub server_rank: Option<usize>,
