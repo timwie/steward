@@ -68,6 +68,9 @@ declare Integer   G_Top1Millis; // top1 record time
 {% include "include/TimeUtils.Script.txt" %}
 
 Void UpdateTimes() {
+    assert(G_Top1Millis > 0 || G_PbMillis == 0);  // never have a PB, but not Top1
+    assert(G_Top1Millis <= G_PbMillis);           // Top1 is never worse than PB
+
     declare UI_Pb   = (Page.GetFirstChild("pb") as CMlLabel);
     declare UI_Top1 = (Page.GetFirstChild("top1") as CMlLabel);
 

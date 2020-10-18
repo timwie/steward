@@ -20,23 +20,23 @@ impl RecordQueries for DatabaseClient {
                 p.login, p.display_name
             FROM (
                 SELECT
-                   map_uid,
-                   player_login,
-                   millis,
-                   cp_millis,
-                   timestamp,
+                   *,
                    RANK () OVER (
+                      PARTITION BY map_uid
                       ORDER BY millis ASC
                    ) pos,
-                   COUNT(*) OVER (PARTITION BY map_uid) max_pos
+                   COUNT(*) OVER (
+                      PARTITION BY map_uid
+                   ) max_pos
                 FROM steward.record
-                WHERE nb_laps = $3
+                WHERE
+                    nb_laps = $3
+                    AND (CARDINALITY($1::text[]) = 0 OR map_uid = ANY($1::text[]))
                 LIMIT $4
             ) r
-            INNER JOIN steward.player p ON r.player_login = p.login
-            WHERE
-                (CARDINALITY($1::text[]) = 0 OR r.map_uid = ANY($1::text[]))
-                AND (CARDINALITY($2::text[]) = 0 OR r.player_login = ANY($2::text[]))
+            INNER JOIN steward.player p ON
+                r.player_login = p.login
+                AND (CARDINALITY($2::text[]) = 0 OR p.login = ANY($2::text[]))
         "#;
         let rows = conn
             .query(stmt, &[&map_uids, &player_logins, &nb_laps, &limit_per_map])

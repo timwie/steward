@@ -32,7 +32,7 @@ admin_whitelist = ["admin3", "admin4"]
 [timeattack]
 # To calculate the time limit of a map, this factor is applied to either the
 # author time or the top record.
-time_limit_factor = 10
+time_limit_factor = 20
 
 # The maximum time limit in seconds.
 time_limit_max_secs = 900

@@ -233,6 +233,32 @@ async fn test_records_multiple_maps() -> Result<()> {
 }
 
 #[tokio::test]
+async fn test_player_record_max_map_rank() -> Result<()> {
+    let db = clean_db().await?;
+
+    let player1 = player_info("login1", "nickname1");
+    let map1 = map("uid1", "file1");
+    let map2 = map("uid2", "file2");
+    let rec1 = record_evidence("login1", "uid1", 10000);
+    let rec2 = record_evidence("login1", "uid2", 20000);
+    db.upsert_player(&player1).await?;
+    db.upsert_map(&map1, vec![]).await?;
+    db.upsert_map(&map2, vec![]).await?;
+    db.upsert_record(&rec1).await?;
+    db.upsert_record(&rec2).await?;
+
+    // There was a bug that would set 'map_rank' to 2, although the other record was set on a
+    // different map, and 'max_map_rank' was 1.
+    let expected = record(1, 1, "nickname1", rec1);
+    let expected = Some(expected);
+
+    let actual = db.player_record("uid1", "login1", 0).await?;
+    assert_eq!(expected, actual);
+
+    Ok(())
+}
+
+#[tokio::test]
 async fn test_history_played_none() -> Result<()> {
     let db = clean_db().await?;
 
