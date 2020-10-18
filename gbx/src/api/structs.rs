@@ -824,7 +824,7 @@ impl DisplayString {
         lazy_static! {
             static ref RE_DOLLAR: Regex = Regex::new(r"\${2}").unwrap();
             static ref RE_FORMATTING: Regex =
-                Regex::new(r"\$[A-Fa-f0-9]{3}|\$[wWnNoOiItTsSgGzZpP]|\$[lLhHpP]\[.+]").unwrap();
+                Regex::new(r"\$[A-Fa-f0-9]{1,3}|\$[wWnNoOiItTsSgGzZpP]|\$[lLhHpP]\[.+]").unwrap();
         }
 
         let output = RE_DOLLAR.replace_all(&self.formatted, r"\$");
@@ -962,4 +962,23 @@ where
 {
     let s = String::deserialize(deserializer)?;
     Ok(if s.is_empty() { None } else { Some(s) })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_display_string_map_name() {
+        let name = "$i$s$FFFB$DFFr$AFFe$8FFa$5FFk$3FFt$3FFh$2EFr$2DFo$1BFu$1AFg$09Fh$fff ft manox";
+        let ds = DisplayString::from(name.to_string());
+        assert_eq!(name, &ds.formatted);
+        assert_eq!("Breakthrough ft manox".to_string(), ds.plain());
+    }
+
+    #[test]
+    fn test_display_string_incomplete_color_code() {
+        let ds = DisplayString::from("$s$i$00The Art Of Tech".to_string());
+        assert_eq!("The Art Of Tech".to_string(), ds.plain())
+    }
 }
