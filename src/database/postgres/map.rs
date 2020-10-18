@@ -116,7 +116,13 @@ impl MapQueries for DatabaseClient {
         let stmt = "DELETE FROM steward.ta_preference WHERE map_uid = $1";
         let _ = transaction.execute(stmt, &[&map_uid]).await?;
 
+        let stmt = "DELETE FROM steward.ta_history WHERE map_uid = $1";
+        let _ = transaction.execute(stmt, &[&map_uid]).await?;
+
         let stmt = "DELETE FROM steward.record WHERE map_uid = $1";
+        let _ = transaction.execute(stmt, &[&map_uid]).await?;
+
+        let stmt = "DELETE FROM steward.map_file WHERE map_uid = $1";
         let _ = transaction.execute(stmt, &[&map_uid]).await?;
 
         let stmt = "DELETE FROM steward.map WHERE uid = $1 RETURNING *";

@@ -471,32 +471,25 @@ impl Controller {
         use SuperAdminCommand::*;
 
         match cmd {
-            Prepare(DeleteMap { uid }) => match self.playlist.map(&uid).await {
-                Some(map) => {
-                    let dcmd = DeleteMap { uid };
-                    let msg = Confirm(
-                        dcmd,
-                        ConfirmMapDeletion {
-                            file_name: &map.file_name,
-                        },
-                    );
-                    self.widget.show_popup(msg, &from.login).await;
+            Prepare(DeleteMap { uid }) => {
+                match self.db.map(&uid).await.expect("failed to load map") {
+                    Some(map) => {
+                        if self.playlist.index_of(&uid).await.is_some() {
+                            let msg = Error(CannotDeletePlaylistMap);
+                            self.widget.show_popup(msg, &from.login).await;
+                            return;
+                        }
+
+                        let dcmd = DeleteMap { uid };
+                        let msg = Confirm(dcmd, ConfirmMapDeletion { map: &map });
+                        self.widget.show_popup(msg, &from.login).await;
+                    }
+                    None => {
+                        let msg = Error(UnknownMap);
+                        self.widget.show_popup(msg, &from.login).await;
+                    }
                 }
-                None if self
-                    .db
-                    .map(&uid)
-                    .await
-                    .expect("failed to load map")
-                    .is_some() =>
-                {
-                    let msg = Error(CannotDeletePlaylistMap);
-                    self.widget.show_popup(msg, &from.login).await;
-                }
-                None => {
-                    let msg = Error(UnknownMap);
-                    self.widget.show_popup(msg, &from.login).await;
-                }
-            },
+            }
 
             Prepare(DeletePlayer { login }) => {
                 let blacklist = self.server.blacklist().await;

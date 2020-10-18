@@ -87,10 +87,9 @@ pub enum PlaylistCommandError {
     /// was not known.
     UnknownImportId,
 
-    /// An error message sent to admins that try to disable
-    /// the last enabled map. An empty playlist
-    /// would cause all kinds of problems.
-    CannotDisableAllMaps,
+    /// An error message sent to admins that try to remove the single map
+    /// currently in the playlist.
+    EmptyPlaylistDisallowed,
 
     /// Tried to import a map that was already imported.
     MapAlreadyImported,
@@ -134,10 +133,10 @@ impl Display for CommandErrorOutput<'_> {
                 write!(f, "Failed to import map: {:?}", err)
             }
 
-            InvalidPlaylistCommand(CannotDisableAllMaps) => write!(
-                f,
-                "You cannot disable every map! Enable at least one other map."
-            ),
+            InvalidPlaylistCommand(EmptyPlaylistDisallowed) => {
+                write!(f, "You cannot remove the only map in the playlist. ")?;
+                write!(f, "Add at least one other map to remove this one.")
+            }
 
             CommandError(ctxt, NotAvailable(err)) => {
                 match err {

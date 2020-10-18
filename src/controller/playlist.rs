@@ -202,7 +202,7 @@ impl PlaylistController {
         let can_disable = playlist_state.maps.iter().any(|map| map.uid != map_uid);
 
         if !can_disable {
-            return Err(CannotDisableAllMaps);
+            return Err(EmptyPlaylistDisallowed);
         }
 
         let map_index = match playlist_state.index_of(map_uid) {

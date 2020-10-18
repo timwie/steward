@@ -204,17 +204,19 @@ impl QueueController {
     /// Update the queue when maps are added or removed from the playlist,
     /// and re-sort it.
     pub async fn insert_or_remove(&self, diff: &PlaylistDiff) -> QueueDiff {
-        let mut queue_state = self.state.write().await;
-        match diff {
-            PlaylistDiff::AppendNew(_) => {
-                let new_idx = queue_state.extend();
-                queue_state.force_queue_back(new_idx);
-            }
-            PlaylistDiff::Append(_) => {
-                queue_state.extend();
-            }
-            PlaylistDiff::Remove { was_index, .. } => {
-                queue_state.remove(*was_index);
+        {
+            let mut queue_state = self.state.write().await;
+            match diff {
+                PlaylistDiff::AppendNew(_) => {
+                    let new_idx = queue_state.extend();
+                    queue_state.force_queue_back(new_idx);
+                }
+                PlaylistDiff::Append(_) => {
+                    queue_state.extend();
+                }
+                PlaylistDiff::Remove { was_index, .. } => {
+                    queue_state.remove(*was_index);
+                }
             }
         }
         self.sort_queue()
