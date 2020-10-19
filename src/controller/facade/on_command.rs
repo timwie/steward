@@ -126,8 +126,20 @@ impl Controller {
             }
 
             PlaylistAdd { uid } => {
-                self.on_playlist_cmd(from, self.playlist.add(&uid).await)
-                    .await
+                let diff = self
+                    .on_playlist_cmd(from, self.playlist.add(&uid).await)
+                    .await;
+
+                if let Some(PlaylistDiff::Append(map)) = diff {
+                    announce(
+                        &self.server,
+                        ServerMessage::AddedMap {
+                            admin_name,
+                            map: &map,
+                        },
+                    )
+                    .await;
+                }
             }
 
             PlaylistAddAll => {
@@ -138,25 +150,63 @@ impl Controller {
                         continue;
                     }
 
-                    self.on_playlist_cmd(from, self.playlist.add(&map.uid).await)
+                    let diff = self
+                        .on_playlist_cmd(from, self.playlist.add(&map.uid).await)
                         .await;
+
+                    if let Some(PlaylistDiff::Append(map)) = diff {
+                        announce(
+                            &self.server,
+                            ServerMessage::AddedMap {
+                                admin_name,
+                                map: &map,
+                            },
+                        )
+                        .await;
+                    }
                 }
             }
 
             PlaylistRemove { uid } => {
-                self.on_playlist_cmd(from, self.playlist.remove(&uid).await)
-                    .await
+                let diff = self
+                    .on_playlist_cmd(from, self.playlist.remove(&uid).await)
+                    .await;
+
+                if let Some(PlaylistDiff::Append(map)) = diff {
+                    announce(
+                        &self.server,
+                        ServerMessage::RemovedMap {
+                            admin_name,
+                            map: &map,
+                        },
+                    )
+                    .await;
+                }
             }
 
             ImportMap { id } => {
                 // Download maps in a separate task.
                 let controller = self.clone(); // 'self' with 'static lifetime
+
                 let id = id.to_string(); // allow data to outlive the current scope
                 let from = from.clone();
+                let admin_name = admin_name.to_string();
+
                 let _ = tokio::spawn(async move {
-                    controller
+                    let diff = controller
                         .on_playlist_cmd(&from, controller.playlist.import_map(&id).await)
                         .await;
+
+                    if let Some(PlaylistDiff::Append(map)) = diff {
+                        announce(
+                            &controller.server,
+                            ServerMessage::NewMap {
+                                admin_name: &admin_name,
+                                map: &map,
+                            },
+                        )
+                        .await;
+                    }
                 });
             }
 
@@ -588,18 +638,20 @@ impl Controller {
         &self,
         from: &PlayerInfo,
         cmd_res: Result<PlaylistDiff, PlaylistCommandError>,
-    ) {
+    ) -> Option<PlaylistDiff> {
         use CommandErrorOutput::*;
         use CommandOutput::*;
 
         match cmd_res {
             Ok(change) => {
-                let ev = ControllerEvent::NewPlaylist(change);
+                let ev = ControllerEvent::NewPlaylist(change.clone());
                 self.on_controller_event(ev).await;
+                Some(change)
             }
             Err(err) => {
                 let msg = Error(InvalidPlaylistCommand(err));
                 self.widget.show_popup(msg, &from.login).await;
+                None
             }
         }
     }

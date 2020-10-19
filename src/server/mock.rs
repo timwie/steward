@@ -136,11 +136,11 @@ impl Calls for Server {
         unimplemented!()
     }
 
-    async fn force_spectator(&self, player_login: &str) -> Result<()> {
+    async fn force_spectator(&self, _player_login: &str) -> Result<()> {
         unimplemented!()
     }
 
-    async fn force_pure_spectator(&self, _player_uid: i32) -> Result<()> {
+    async fn force_pure_spectator(&self, _player_login: &str) -> Result<()> {
         unimplemented!()
     }
 

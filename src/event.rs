@@ -143,7 +143,7 @@ pub enum PlayerTransition {
 }
 
 /// A change of the server playlist. Only maps in the playlist can be queued.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum PlaylistDiff {
     /// Add a map to the playlist that has never been in the playlist before.
     AppendNew(Map),

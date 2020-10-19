@@ -7,7 +7,7 @@ use crate::constants::{
 };
 use crate::controller::facade::announce;
 use crate::controller::{Controller, LiveConfig, LivePlayers, LivePlaylist, LiveQueue};
-use crate::event::{ControllerEvent, PbDiff, PlayerTransition, PlaylistDiff, ServerRankingDiff};
+use crate::event::{ControllerEvent, PbDiff, PlayerTransition, ServerRankingDiff};
 use crate::server::Calls;
 
 impl Controller {
@@ -144,10 +144,7 @@ impl Controller {
 
                 self.prefs.reset_restart_votes().await;
 
-                let msg = ServerMessage::NextMap {
-                    name: &next_map.name.formatted,
-                    author: &next_map.author_display_name.formatted,
-                };
+                let msg = ServerMessage::NextMap { map: &next_map };
                 announce(&self.server, msg).await;
             }
 
@@ -288,19 +285,6 @@ impl Controller {
                     millis: new_record.millis as usize,
                 })
             }
-
-            NewPlaylist(PlaylistDiff::AppendNew(map)) => Some(NewMap {
-                name: &map.name.formatted,
-                author: &map.author_display_name.formatted,
-            }),
-
-            NewPlaylist(PlaylistDiff::Append(map)) => Some(AddedMap {
-                name: &map.name.formatted,
-            }),
-
-            NewPlaylist(PlaylistDiff::Remove { map, .. }) => Some(RemovedMap {
-                name: &map.name.formatted,
-            }),
 
             NewServerRanking(ServerRankingDiff { diffs, .. }) => {
                 let mut top_ranks: Vec<TopRankMessage> = diffs

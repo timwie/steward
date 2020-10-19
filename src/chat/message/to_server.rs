@@ -4,6 +4,7 @@ use chrono::Duration;
 use serde::export::Formatter;
 
 use crate::chat::message::{fmt_time, write_and_reset, write_highlighted, write_start_message};
+use crate::database::Map;
 use crate::server::ModeScript;
 
 /// Chat announcements from the controller to all players.
@@ -36,16 +37,16 @@ pub enum ServerMessage<'a> {
     },
 
     /// A new map was imported.
-    NewMap { name: &'a str, author: &'a str },
+    NewMap { admin_name: &'a str, map: &'a Map },
 
     /// A map was re-introduced to the playlist.
-    AddedMap { name: &'a str },
+    AddedMap { admin_name: &'a str, map: &'a Map },
 
     /// A map was removed from the playlist.
-    RemovedMap { name: &'a str },
+    RemovedMap { admin_name: &'a str, map: &'a Map },
 
     /// Announce the next map after the vote.
-    NextMap { name: &'a str, author: &'a str },
+    NextMap { map: &'a Map },
 
     /// Tell players to vote if they want a restart.
     VoteNow { duration: Duration, threshold: f32 },
@@ -188,28 +189,36 @@ impl Display for ServerMessage<'_> {
                 write_highlighted(f, fmt_time(*millis))
             }
 
-            NewMap { name, author } => {
-                write!(f, "A new map was added: ")?;
-                write_and_reset(f, name)?;
+            NewMap { admin_name, map } => {
+                write!(f, "Admin ")?;
+                write_and_reset(f, admin_name)?;
+                write!(f, " imported ")?;
+                write_and_reset(f, &map.name.formatted)?;
                 write!(f, " by ")?;
-                write_and_reset(f, author)
+                write_and_reset(f, &map.author_display_name.formatted)
             }
 
-            AddedMap { name } => {
-                write_and_reset(f, name)?;
-                write!(f, " was added to the playlist.")
+            AddedMap { admin_name, map } => {
+                write!(f, "Admin ")?;
+                write_and_reset(f, admin_name)?;
+                write!(f, " added ")?;
+                write_and_reset(f, &map.name.formatted)?;
+                write!(f, " to the playlist.")
             }
 
-            RemovedMap { name } => {
-                write_and_reset(f, name)?;
-                write!(f, " was removed from the playlist.")
+            RemovedMap { admin_name, map } => {
+                write!(f, "Admin ")?;
+                write_and_reset(f, admin_name)?;
+                write!(f, " removed ")?;
+                write_and_reset(f, &map.name.formatted)?;
+                write!(f, " from the playlist.")
             }
 
-            NextMap { name, author } => {
+            NextMap { map } => {
                 write!(f, "Next map will be ")?;
-                write_and_reset(f, name)?;
+                write_and_reset(f, &map.name.formatted)?;
                 write!(f, " by ")?;
-                write_and_reset(f, author)
+                write_and_reset(f, &map.author_display_name.formatted)
             }
 
             VoteNow { threshold, .. } if *threshold > 1f32 => {
