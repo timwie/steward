@@ -8,7 +8,7 @@ Version numbers consist of `MAJOR.MINOR.PATCH`:
 
 <br>
 
-## 0.1.0-alpha6
+## [0.1.0-alpha6] - 2020-10-19
 All `0.1.0-alpha` releases are unstable, and have missing widgets.
 
 ### Updating
@@ -309,3 +309,4 @@ All `0.1.0-alpha` releases are unstable, and have missing widgets.
 [0.1.0-alpha3]: https://github.com/timwie/steward/releases/tag/v0.1.0-alpha3
 [0.1.0-alpha4]: https://github.com/timwie/steward/releases/tag/v0.1.0-alpha4
 [0.1.0-alpha5]: https://github.com/timwie/steward/releases/tag/v0.1.0-alpha5
+[0.1.0-alpha6]: https://github.com/timwie/steward/releases/tag/v0.1.0-alpha6
