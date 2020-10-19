@@ -44,9 +44,7 @@
 <quad pos="160 -7.5" valign="bottom" halign="right" size="34 14" bgcolor="000" opacity="0.7" z-index="-100"/>
 <label halign="right" textfont="GameFontSemiBold" textcolor="{{col_white}}" textemboss="1" pos="157 -4" text="Timelimit" textsize="{{textsize_small}}"/>
 
-<quad pos="143 -13.5" halign="center" valign="center" size="34 12" bgcolor="000"/>
-<quad pos="126 -13.5" halign="right" valign="center" size="2 12" bgcolor="{{col_success}}"/>
-<label pos="143 -13" halign="center" valign="center" size="34 12" z-index="1" textcolor="{{col_white}}" textfont="GameFontBlack" text="$i$t Menu" textsize="{{textsize_big}}"/>
+<quad pos="142 -13.5" halign="center" valign="center" size="36 12" bgcolor="000"/>
 
 <quad pos="160 -19.5" halign="right" size="34 44" bgcolor="000" opacity="0.7" z-index="-100"/>
 

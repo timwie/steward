@@ -16,8 +16,8 @@ use askama::Template;
 /// - If the player improves their personal best without improving their record
 ///   rank, it must be updated in its ManiaScript.
 #[derive(Template, Debug)]
-#[template(path = "timeattack/race_live_ranks.xml")]
-pub struct LiveRanksWidget {
+#[template(path = "timeattack/hud.xml")]
+pub struct TimeAttackHudWidget {
     /// The player's personal best on this map, or `None`
     /// if they never completed a run on this map.
     pub pb_millis: Option<usize>,

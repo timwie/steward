@@ -326,12 +326,13 @@ impl WidgetController {
 
     async fn hide_race_widgets_for(&self, for_uid: i32) {
         self.hide_singleton_for::<RunOutroWidget>(for_uid).await;
-        self.hide_singleton_for::<LiveRanksWidget>(for_uid).await;
+        self.hide_singleton_for::<TimeAttackHudWidget>(for_uid)
+            .await;
     }
 
     async fn hide_race_widgets(&self) {
         self.hide_singleton::<RunOutroWidget>().await;
-        self.hide_singleton::<LiveRanksWidget>().await;
+        self.hide_singleton::<TimeAttackHudWidget>().await;
     }
 
     async fn show_outro_widgets(&self) {
@@ -587,7 +588,7 @@ impl WidgetController {
             .and_then(|login| server_ranking_state.rank_of(login))
             .map(|rank| rank.pos);
 
-        let widget = LiveRanksWidget {
+        let widget = TimeAttackHudWidget {
             pb_millis: maybe_pb.map(|rec| rec.millis as usize),
             top1_millis: records_state
                 .top_record
@@ -818,5 +819,5 @@ handle!(
     "Steward:TimeAttack:OutroServerRanking",
     timeattack::OutroServerRankingWidget<'_>
 );
-handle!("Steward:TimeAttack:LiveRanks", timeattack::LiveRanksWidget);
+handle!("Steward:TimeAttack:Hud", timeattack::TimeAttackHudWidget);
 handle!("Steward:TimeAttack:RunOutro", timeattack::RunOutroWidget);
